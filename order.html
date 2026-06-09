@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ordenar — Muy Rico | Holland, MI</title>
+  <meta name="description" content="Place your order online for fresh Mexican sweet bread, conchas, handmade flour tortillas, and cookies from Muy Rico in Holland, Michigan." />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Ordenar — Muy Rico | Holland, MI" />
+  <meta property="og:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
+  <meta property="og:image" content="IMG_0264.webp" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:title" content="Ordenar — Muy Rico | Holland, MI" />
+  <meta property="twitter:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
+  <meta property="twitter:image" content="IMG_0264.webp" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍞</text></svg>" />
+
+  <!-- Preload LCP Hero Background Image -->
+  <link rel="preload" href="IMG_0264.webp" as="image" fetchpriority="high" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+<body>
+
+
+  <div class="site-shell">
+    <aside class="sidebar">
+      <svg class="sidebar-monstera" viewBox="0 0 120 160" fill="none" aria-hidden="true"><path d="M60 160 C20 130 0 80 0 40 Q0 0 40 0 T80 40 Q120 0 120 40 T80 100 Q120 140 60 160Z" fill="var(--color-mid-green)" opacity="0.12"/></svg>
+      <div class="sidebar-brand">
+        <a href="index.html" class="brand-link" aria-label="Muy Rico">
+          <img class="brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="170" height="60" loading="eager"/>
+          <span class="brand-line2" data-es="hecho con amor" data-en="made with love">hecho con amor</span>
+        </a>
+        <span class="brand-tagline" data-es="Holland, Michigan" data-en="Holland, Michigan">Holland, Michigan</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-group-label" data-es="Navegar" data-en="Navigate">Navegar</div>
+        <div class="section-list">
+          <a href="index.html" class="section-link" data-es="Nuestra Casa" data-en="Our Home">Nuestra Casa</a>
+          <a href="order.html" class="section-link active" data-es="Ordenar" data-en="Order">Ordenar</a>
+        </div>
+        <div class="nav-group-label" style="margin-top:0.8rem;" data-es="Categorías" data-en="Categories">Categorías</div>
+        <div class="filter-list">
+          <a href="#menu" class="filter-link" data-es="Conchas & Pan Dulce" data-en="Conchas & Sweet Bread">Conchas & Pan Dulce</a>
+          <a href="#menu" class="filter-link" data-es="Tortillas de Harina" data-en="Flour Tortillas">Tortillas de Harina</a>
+          <a href="#menu" class="filter-link" data-es="Galletas & Bolillos" data-en="Cookies & Bolillos">Galletas & Bolillos</a>
+        </div>
+      </nav>
+      <div style="margin-top:auto;">
+        <div class="lang-switch" role="tablist" aria-label="Select language">
+          <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
+          <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
+        </div>
+      </div>
+      <div class="cookie-card">
+        <div class="cookie-hibiscus">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" fill="var(--color-bright-hibiscus)" opacity="0.6"/><circle cx="12" cy="4" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="12" cy="20" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="4" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="20" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/></svg>
+        </div>
+        <p class="cookie-text" data-es="Pedidos con 24-48h de anticipación para pan y tortillas."
+           data-en="Order 24-48 hours ahead for bread and tortillas.">
+          Pedidos con 24-48h de anticipación para pan y tortillas.
+        </p>
+        <div class="cookie-actions">
+          <a href="mailto:bexgarcia0208@gmail.com" class="btn btn-ghost-sm" data-es="Contáctanos" data-en="Contact Us">Contáctanos</a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+
+      <section class="hero-section" style="min-height:60vh;padding-top:4rem;">
+        <div class="hero-eyebrow">
+          <div class="eyebrow-line"></div>
+          <span class="eyebrow-text lang-fade" data-es="Hecho Fresco a la Orden" data-en="Made Fresh to Order">Hecho Fresco a la Orden</span>
+          <div class="eyebrow-line" style="background:linear-gradient(to left, var(--color-accent-coral), transparent);"></div>
+        </div>
+        <h1 class="hero-headline">
+          <span class="hero-headline-top lang-fade" data-es="Ordena" data-en="Order">Ordena</span>
+          <span class="hero-headline-bottom lang-fade" data-es="Fresco" data-en="Fresh">Fresco</span>
+        </h1>
+        <svg class="hero-divider" viewBox="0 0 180 24" fill="none" aria-hidden="true"><path d="M0 12 Q45 0 90 12 T180 12" stroke="var(--color-accent-coral)" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="90" cy="12" r="4" fill="var(--color-bright-hibiscus)"/></svg>
+        <p class="hero-description lang-fade"
+           data-es="Todo se hornea por pedido para garantizar la mejor textura y sabor. Selecciona tus productos, cuéntanos cuándo los necesitas, y coordinamos tu recogida en Holland, MI."
+           data-en="Everything is baked to order to guarantee the best texture and flavor. Select your products, tell us when you need them, and we'll coordinate pickup in Holland, MI.">
+          Todo se hornea por pedido para garantizar la mejor textura y sabor. Selecciona tus productos, cuéntanos cuándo los necesitas, y coordinamos tu recogida en Holland, MI.
+        </p>
+        <div class="hero-ctas">
+          <a href="#order-form" class="btn btn-coral btn-xl lang-fade" data-es="Ir al Formulario" data-en="Go to Form">Ir al Formulario</a>
+          <a href="index.html" class="btn btn-ghost btn-xl lang-fade" data-es="Conócenos" data-en="Meet Us">Conócenos</a>
+        </div>
+      </section>
+
+      <div class="wave-divider">
+        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 0 720 40 T1440 40 V80 H0Z" fill="rgba(212,237,218,0.18)"/></svg>
+      </div>
+
+      <section class="featured-section" id="menu">
+        <div class="section-label-row">
+          <span class="section-label lang-fade" data-es="Nuestro Menú" data-en="Our Menu">Nuestro Menú</span>
+          <div class="section-rule"></div>
+        </div>
+        <div class="products-grid">
+          <article class="product-tile reveal" id="cookies" data-name="Galletas (1 docena)" data-name-en="Cookies (1 dozen)" data-price="8.00">
+            <div class="tile-header">
+              <span class="tile-icon">🍪</span>
+              <span class="tile-tag lang-fade" data-es="Clásico" data-en="Classic">Clásico</span>
+            </div>
+            <h3 class="tile-title lang-fade" data-es="Galletas" data-en="Cookies">Galletas</h3>
+            <p class="tile-desc lang-fade"
+               data-es="Galletas de mantequilla caseras con un toque de vainilla. Crujientes por fuera, suaves por dentro. Ideales para el café de la tarde."
+               data-en="Homemade butter cookies with a hint of vanilla. Crispy outside, soft inside. Perfect for afternoon coffee.">
+              Galletas de mantequilla caseras con un toque de vainilla. Crujientes por fuera, suaves por dentro. Ideales para el café de la tarde.
+            </p>
+            <div class="tile-bottom">
+              <span class="tile-price">$8 <span class="lang-fade" data-es="/ docena" data-en="/ dozen">/ docena</span></span>
+              <div class="tile-actions">
+                <button class="qty-btn" onclick="updateQty(this, -1)">−</button>
+                <span class="qty-value">0</span>
+                <button class="qty-btn" onclick="updateQty(this, 1)">+</button>
+                <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product-tile reveal" id="conchas" data-name="Conchas" data-name-en="Conchas" data-price="2.50">
+            <div class="tile-header">
+              <span class="tile-icon">🍞</span>
+              <span class="tile-tag lang-fade" data-es="Pan Dulce" data-en="Sweet Bread">Pan Dulce</span>
+            </div>
+            <h3 class="tile-title lang-fade" data-es="Conchas" data-en="Conchas">Conchas</h3>
+            <p class="tile-desc lang-fade"
+               data-es="Nuestro pan dulce estrella: masa brioche suave con la clásica cobertura de azúcar en vainilla o chocolate. Tradición en cada bocado."
+               data-en="Our signature sweet bread: soft brioche dough with the classic sugar topping in vanilla or chocolate. Tradition in every bite.">
+              Nuestro pan dulce estrella: masa brioche suave con la clásica cobertura de azúcar en vainilla o chocolate. Tradición en cada bocado.
+            </p>
+            <div class="tile-bottom">
+              <span class="tile-price">$2.50 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <div class="tile-actions">
+                <button class="qty-btn" onclick="updateQty(this, -1)">−</button>
+                <span class="qty-value">0</span>
+                <button class="qty-btn" onclick="updateQty(this, 1)">+</button>
+                <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product-tile reveal" id="bolillos" data-name="Bolillos (6 pzas)" data-name-en="Bolillos (6 pcs)" data-price="5.00">
+            <div class="tile-header">
+              <span class="tile-icon">🥖</span>
+              <span class="tile-tag lang-fade" data-es="Salado" data-en="Savory">Salado</span>
+            </div>
+            <h3 class="tile-title lang-fade" data-es="Bolillos" data-en="Bolillos">Bolillos</h3>
+            <p class="tile-desc lang-fade"
+               data-es="Pan francés mexicano: corteza crujiente y migajón esponjoso. Perfectos para tortas, molletes o con un poco de mantequilla y frijoles."
+               data-en="Mexican French bread: crunchy crust and airy crumb. Perfect for tortas, molletes, or with a little butter and beans.">
+              Pan francés mexicano: corteza crujiente y migajón esponjoso. Perfectos para tortas, molletes o con un poco de mantequilla y frijoles.
+            </p>
+            <div class="tile-bottom">
+              <span class="tile-price">$5 <span class="lang-fade" data-es="/ 6 pzas" data-en="/ 6 pcs">/ 6 pzas</span></span>
+              <div class="tile-actions">
+                <button class="qty-btn" onclick="updateQty(this, -1)">−</button>
+                <span class="qty-value">0</span>
+                <button class="qty-btn" onclick="updateQty(this, 1)">+</button>
+                <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product-tile reveal" id="tortillas-harina" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="7.00">
+            <div class="tile-header">
+              <span class="tile-icon">🫓</span>
+              <span class="tile-tag lang-fade" data-es="Hechas a mano" data-en="Handmade">Hechas a mano</span>
+            </div>
+            <h3 class="tile-title lang-fade" data-es="Tortillas de Harina" data-en="Flour Tortillas">Tortillas de Harina</h3>
+            <p class="tile-desc lang-fade"
+               data-es="Tortillas de harina hechas a mano, suaves y ligeramente mantecosas. Ideales para burritos, quesadillas o simplemente con un guisado."
+               data-en="Handmade flour tortillas, soft and lightly buttery. Ideal for burritos, quesadillas, or simply with a stew.">
+              Tortillas de harina hechas a mano, suaves y ligeramente mantecosas. Ideales para burritos, quesadillas o simplemente con un guisado.
+            </p>
+            <div class="tile-bottom">
+              <span class="tile-price">$7 <span class="lang-fade" data-es="/ docena" data-en="/ dozen">/ docena</span></span>
+              <div class="tile-actions">
+                <button class="qty-btn" onclick="updateQty(this, -1)">−</button>
+                <span class="qty-value">0</span>
+                <button class="qty-btn" onclick="updateQty(this, 1)">+</button>
+                <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+              </div>
+            </div>
+          </article>
+
+
+        </div>
+      </section>
+
+      <div class="wave-divider">
+        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 80 720 40 T1440 40 V0 H0Z" fill="rgba(251,203,201,0.2)"/></svg>
+      </div>
+
+      <section class="boutiques-section" style="padding:4rem 4rem 5rem;" id="order-form">
+        <div class="order-panel reveal">
+          <h3 class="lang-fade" data-es="Tu Pedido" data-en="Your Order">Tu Pedido</h3>
+          <ul class="cart-list" id="cart-list">
+            <li class="cart-empty lang-fade" data-es="Aún no has agregado productos. ¡Elige tus favoritos arriba!" data-en="You haven't added any products yet. Pick your favorites above!">Aún no has agregado productos. ¡Elige tus favoritos arriba!</li>
+          </ul>
+          <div class="cart-total">
+            <span class="lang-fade" data-es="Total estimado" data-en="Estimated total">Total estimado</span>
+            <span id="cart-total">$0.00</span>
+          </div>
+
+          <form id="order-form-el" onsubmit="return handleOrder(event)">
+            <div class="form-grid">
+              <div class="field">
+                <label for="name" class="lang-fade" data-es="Nombre completo" data-en="Full name">Nombre completo</label>
+                <input type="text" id="name" required
+                       data-es-placeholder="Tu nombre" data-en-placeholder="Your name" placeholder="Tu nombre" />
+              </div>
+              <div class="field">
+                <label for="email" class="lang-fade" data-es="Correo electrónico" data-en="Email address">Correo electrónico</label>
+                <input type="email" id="email" required
+                       data-es-placeholder="tu@email.com" data-en-placeholder="you@email.com" placeholder="tu@email.com" />
+              </div>
+              <div class="field">
+                <label for="phone" class="lang-fade" data-es="Teléfono" data-en="Phone">Teléfono</label>
+                <input type="tel" id="phone" required
+                       data-es-placeholder="(616) 555-1234" data-en-placeholder="(616) 555-1234" placeholder="(616) 555-1234" />
+              </div>
+              <div class="field">
+                <label for="date" class="lang-fade" data-es="Fecha deseada de recogida" data-en="Desired pickup date">Fecha deseada de recogida</label>
+                <input type="date" id="date" required />
+              </div>
+              <div class="field full">
+                <label for="notes" class="lang-fade" data-es="Notas o personalización" data-en="Notes or customization">Notas o personalización</label>
+                <textarea id="notes"
+                          data-es-placeholder="Ej: sabor de tres leches, alergias, preferencia de cobertura de conchas, etc."
+                          data-en-placeholder="E.g., tres leches flavor, allergies, concha topping preference, etc."
+                          placeholder="Ej: sabor de tres leches, alergias, preferencia de cobertura de conchas, etc."></textarea>
+              </div>
+            </div>
+            <div class="submit-area">
+              <button type="submit" class="btn btn-coral btn-lg lang-fade" data-es="Enviar Pedido" data-en="Submit Order">Enviar Pedido</button>
+              <p class="notice lang-fade"
+                 data-es="Al enviar, nos pondremos en contacto para confirmar disponibilidad, precio final y punto de recogida en Holland, MI. Operamos bajo la "
+                 data-en="By submitting, we will contact you to confirm availability, final price, and pickup in Holland, MI. We operate under the ">
+                 Al enviar, nos pondremos en contacto para confirmar disponibilidad, precio final y punto de recogida en Holland, MI. Operamos bajo la <a href="index.html#cottage-laws">Michigan Cottage Food Law</a>.
+              </p>
+            </div>
+          </form>
+
+          <div class="confirmation" id="confirmation">
+            <h4 class="lang-fade" data-es="¡Gracias por tu pedido!" data-en="Thank you for your order!">¡Gracias por tu pedido!</h4>
+            <p class="lang-fade"
+               data-es="Hemos recibido tu solicitud. Te contactaremos pronto por correo o teléfono para confirmar tu orden y coordinar la entrega en Holland, MI."
+               data-en="We have received your request. We will contact you soon by email or phone to confirm your order and coordinate pickup in Holland, MI.">
+              Hemos recibido tu solicitud. Te contactaremos pronto por correo o teléfono para confirmar tu orden y coordinar la entrega en Holland, MI.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div class="wave-divider">
+        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 80 720 40 T1440 40 V0 H0Z" fill="rgba(30,70,54,0.08)"/></svg>
+      </div>
+
+
+
+      <footer class="site-footer">
+        <svg class="footer-leaf-l" viewBox="0 0 110 140" fill="none" aria-hidden="true"><path d="M55 140 C15 115 0 70 0 35 Q0 0 35 0 T70 35 Q95 0 95 35 T70 90 Q95 125 55 140Z" fill="var(--color-mid-green)" opacity="0.2"/></svg>
+        <svg class="footer-leaf-r" viewBox="0 0 110 140" fill="none" aria-hidden="true"><path d="M55 140 C15 115 0 70 0 35 Q0 0 35 0 T70 35 Q95 0 95 35 T70 90 Q95 125 55 140Z" fill="var(--color-mid-green)" opacity="0.15"/></svg>
+        <div class="footer-hib-row">
+          <svg width="36" height="36" viewBox="0 0 60 60" fill="none"><circle cx="30" cy="30" r="8" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="30" cy="12" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="30" cy="48" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="12" cy="30" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="48" cy="30" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/></svg>
+        </div>
+        <div class="footer-coqui-divider">
+          <span>🌸</span><span class="divider-dot">●</span><span>🍞</span><span class="divider-dot">●</span><span>🌿</span><span class="divider-dot">●</span><span>🍰</span><span class="divider-dot">●</span><span>🌸</span>
+        </div>
+        <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Hecho con amor.</p>
+        <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Familia · Tradición · Sabor</span>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    gsap.registerPlugin(ScrollTrigger);
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let currentLang = 'es';
+
+    const persistLang = (lang) => {
+      try { localStorage.setItem('lang', lang); } catch (e) {}
+    };
+
+    if (!prefersReduced) {
+      // Hero entrance
+      const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      heroTl.from('.hero-eyebrow', { y: 30, autoAlpha: 0, duration: 0.8 })
+            .from('.hero-headline-top', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.5')
+            .from('.hero-headline-bottom', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.8')
+            .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: 0.8, transformOrigin: 'left center' }, '-=0.6')
+            .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5')
+            .from('.hero-ctas > *', { y: 20, autoAlpha: 0, duration: 0.6, stagger: 0.1 }, '-=0.4');
+
+      // Sidebar items
+      gsap.from('.sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card', {
+        x: -40, autoAlpha: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out', delay: 0.2
+      });
+
+      // Scroll reveals using ScrollTrigger
+      gsap.utils.toArray('.reveal').forEach((el, i) => {
+        gsap.fromTo(el,
+          { y: 40, autoAlpha: 0 },
+          {
+            scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none reverse' },
+            y: 0, autoAlpha: 1, duration: 0.8, delay: (i % 3) * 0.1, ease: 'power3.out'
+          }
+        );
+      });
+
+      // Botanical sway (GSAP)
+      gsap.to('.leaf-wave-1', { rotate: 6, y: -4, duration: 4.2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+      gsap.to('.leaf-wave-2', { rotate: -5, x: 4, duration: 5.1, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.7 });
+      gsap.to('.leaf-wave-3', { rotate: 7, y: -5, duration: 4.6, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.3 });
+      gsap.to('.leaf-wave-4', { rotate: -8, x: 3, duration: 3.8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.3 });
+      gsap.to('.leaf-wave-5', { rotate: 5, y: -3, duration: 5.5, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.8 });
+
+      // Hibiscus gentle spin
+      gsap.utils.toArray('.hibiscus').forEach((hib, i) => {
+        gsap.to(hib, { rotate: 12, scale: 1.04, duration: 8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: i * 0.5 });
+      });
+
+      // Footer elements
+
+      gsap.from('.footer-hib-row', { scale: 0.8, autoAlpha: 0, duration: 0.8, ease: 'back.out(1.5)', scrollTrigger: { trigger: '.site-footer', start: 'top 95%' } });
+      gsap.from('.footer-coqui-divider > *', { scale: 0, autoAlpha: 0, duration: 0.4, stagger: 0.08, ease: 'back.out(2)', scrollTrigger: { trigger: '.site-footer', start: 'top 92%' } });
+      gsap.from('.footer-copyright, .footer-tagline', { y: 15, autoAlpha: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 90%' } });
+
+
+
+    } else {
+      gsap.set('.hero-eyebrow, .hero-headline-top, .hero-headline-bottom, .hero-divider, .hero-description, .hero-ctas > *, .sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card, .reveal, .footer-hib-row, .footer-coqui-divider > *, .footer-copyright, .footer-tagline', { autoAlpha: 1 });
+    }
+
+    // Bilingual toggle
+    function setLang(lang) {
+      persistLang(lang);
+      if (lang === currentLang) return;
+      currentLang = lang;
+
+      document.getElementById('btn-es').classList.toggle('active', lang === 'es');
+      document.getElementById('btn-es').setAttribute('aria-selected', lang === 'es');
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+      document.getElementById('btn-en').setAttribute('aria-selected', lang === 'en');
+
+      document.querySelectorAll('[data-es][data-en]').forEach(el => {
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          // placeholder handled separately
+        } else {
+          el.style.opacity = '0';
+          setTimeout(() => {
+            el.textContent = el.getAttribute('data-' + lang);
+            el.style.opacity = '1';
+          }, 0);
+        }
+      });
+
+      document.querySelectorAll('[data-es-placeholder][data-en-placeholder]').forEach(el => {
+        el.setAttribute('placeholder', el.getAttribute('data-' + lang + '-placeholder'));
+      });
+
+      // Keep cart strings in sync with language
+      renderCart();
+    }
+
+    // Initialize language from localStorage (default: EN)
+    (function initLang() {
+      const saved = (function(){
+        try { return localStorage.getItem('lang'); } catch (e) { return null; }
+      })();
+
+      const initialLang = (saved === 'es' || saved === 'en') ? saved : 'en';
+      currentLang = initialLang;
+
+      // Set active button state immediately
+      document.getElementById('btn-es').classList.toggle('active', initialLang === 'es');
+      document.getElementById('btn-es').setAttribute('aria-selected', initialLang === 'es');
+      document.getElementById('btn-en').classList.toggle('active', initialLang === 'en');
+      document.getElementById('btn-en').setAttribute('aria-selected', initialLang === 'en');
+
+      // Render translated placeholders/text + cart message
+      setLang(initialLang);
+
+      // Ensure date/other inputs keep their browser formatting.
+      // (Text updates are handled above for non-input elements.)
+    })();
+
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      });
+    });
+
+    // Cart logic
+    const cart = [];
+    function updateQty(btn, delta) {
+      const tile = btn.closest('.product-tile');
+      const display = tile.querySelector('.qty-value');
+      let val = parseInt(display.textContent) + delta;
+      if (val < 0) val = 0;
+      display.textContent = val;
+    }
+    function addToCart(btn) {
+      const tile = btn.closest('.product-tile');
+      const name = tile.getAttribute('data-name');
+      const nameEn = tile.getAttribute('data-name-en');
+      const displayName = currentLang === 'en' && nameEn ? nameEn : name;
+      const price = parseFloat(tile.getAttribute('data-price'));
+      const qty = parseInt(tile.querySelector('.qty-value').textContent);
+      if (!qty) return;
+      const existing = cart.find(item => item.name === name);
+      if (existing) {
+        existing.qty += qty;
+      } else {
+        cart.push({ name, displayName, price, qty });
+      }
+      tile.querySelector('.qty-value').textContent = '0';
+      btn.textContent = currentLang === 'en' ? 'Added' : 'Agregado';
+      btn.classList.add('added');
+      setTimeout(() => { btn.textContent = (currentLang === 'en' ? 'Add' : 'Agregar'); btn.classList.remove('added'); }, 1200);
+      renderCart();
+      gsap.fromTo('#cart-list', { scale: 0.98 }, { scale: 1, duration: 0.3, ease: 'back.out(1.5)' });
+    }
+    function removeFromCart(index) {
+      cart.splice(index, 1);
+      renderCart();
+    }
+    function renderCart() {
+      const list = document.getElementById('cart-list');
+      const totalEl = document.getElementById('cart-total');
+      if (!cart.length) {
+        const emptyMsg = currentLang === 'en' ? "You haven't added any products yet. Pick your favorites above!" : "Aún no has agregado productos. ¡Elige tus favoritos arriba!";
+        list.innerHTML = '<li class="cart-empty lang-fade">' + emptyMsg + '</li>';
+        totalEl.textContent = '$0.00';
+        return;
+      }
+      let total = 0;
+      list.innerHTML = cart.map((item, i) => {
+        const line = item.price * item.qty;
+        total += line;
+        return `<li>
+          <div><span class="name">${item.displayName || item.name}</span> <span class="amount">× ${item.qty}</span></div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-weight:700; color:var(--color-palm-green);">$${line.toFixed(2)}</span>
+            <button type="button" onclick="removeFromCart(${i})" style="background:transparent; border:none; cursor:pointer; font-size:1rem; color:var(--color-text-muted);" title="${currentLang === 'en' ? 'Remove' : 'Quitar'}">×</button>
+          </div>
+        </li>`;
+      }).join('');
+      totalEl.textContent = '$' + total.toFixed(2);
+    }
+    function handleOrder(e) {
+      e.preventDefault();
+      if (!cart.length) {
+        alert(currentLang === 'en' ? 'Please add at least one product to your order.' : 'Por favor agrega al menos un producto a tu pedido.');
+        return false;
+      }
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const phone = document.getElementById('phone').value;
+      const date = document.getElementById('date').value;
+      const notes = document.getElementById('notes').value;
+      const items = cart.map(c => `${c.qty}x ${c.displayName || c.name} ($${(c.price*c.qty).toFixed(2)})`).join('\n');
+      const body = (currentLang === 'en'
+        ? `Hello Muy Rico,%0D%0A%0D%0AMy name is ${encodeURIComponent(name)} and I would like to place the following order:%0D%0A%0D%0A${encodeURIComponent(items)}%0D%0A%0D%0AEstimated total: ${encodeURIComponent(document.getElementById('cart-total').textContent)}%0D%0A%0D%0ADesired pickup date: ${encodeURIComponent(date)}%0D%0APhone: ${encodeURIComponent(phone)}%0D%0ANotes: ${encodeURIComponent(notes || 'None')}%0D%0A%0D%0AThank you!`
+        : `Hola Muy Rico,%0D%0A%0D%0AMi nombre es ${encodeURIComponent(name)} y me gustaría hacer el siguiente pedido:%0D%0A%0D%0A${encodeURIComponent(items)}%0D%0A%0D%0ATotal estimado: ${encodeURIComponent(document.getElementById('cart-total').textContent)}%0D%0A%0D%0AFecha deseada de recogida: ${encodeURIComponent(date)}%0D%0ATeléfono: ${encodeURIComponent(phone)}%0D%0ANotas: ${encodeURIComponent(notes || 'Ninguna')}%0D%0A%0D%0A¡Gracias!`
+      );
+      const mailto = `mailto:bexgarcia0208@gmail.com?subject=${encodeURIComponent((currentLang === 'en' ? 'Order Muy Rico - ' : 'Pedido Muy Rico - ') + name)}&body=${body}`;
+      window.location.href = mailto;
+      document.getElementById('confirmation').style.display = 'block';
+      gsap.from('.confirmation', { y: 20, autoAlpha: 0, duration: 0.6, ease: 'power3.out' });
+      return false;
+    }
+  </script>
+</body>
+</html>
