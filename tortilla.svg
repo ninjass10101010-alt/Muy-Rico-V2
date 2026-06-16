@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" fill="none">
+  <!-- Stacked tortillas -->
+  <ellipse cx="60" cy="68" rx="48" ry="14" fill="#E8D5A8" stroke="#C4A86C" stroke-width="1.2"/>
+  <ellipse cx="60" cy="62" rx="48" ry="14" fill="#F0DFBE" stroke="#C4A86C" stroke-width="1.2"/>
+  <ellipse cx="60" cy="56" rx="48" ry="14" fill="#F5E6CC" stroke="#C4A86C" stroke-width="1.2"/>
+  <ellipse cx="60" cy="50" rx="48" ry="14" fill="#FAF0DC" stroke="#C4A86C" stroke-width="1.2"/>
+
+  <!-- Top tortilla - slightly folded -->
+  <path d="M12 44 C12 28 30 18 60 18 C90 18 108 28 108 44 C108 44 95 52 60 52 C25 52 12 44 12 44Z" fill="#FFF6E6" stroke="#C4A86C" stroke-width="1.5"/>
+  <!-- Fold detail -->
+  <path d="M55 18 C58 22 62 22 65 18" stroke="#D4BA82" stroke-width="1" fill="none" opacity="0.6"/>
+
+  <!-- Cooked spots on top tortilla -->
+  <circle cx="38" cy="32" r="3" fill="#D4BA82" opacity="0.3"/>
+  <circle cx="70" cy="30" r="2.5" fill="#D4BA82" opacity="0.25"/>
+  <circle cx="55" cy="38" r="2" fill="#D4BA82" opacity="0.2"/>
+  <circle cx="82" cy="36" r="2.5" fill="#D4BA82" opacity="0.22"/>
+  <circle cx="45" cy="40" r="1.8" fill="#D4BA82" opacity="0.18"/>
+
+  <!-- Steam wisps -->
+  <path d="M35 12 C33 6 37 4 35 -2" stroke="#C4A86C" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.35">
+    <animate attributeName="d" values="M35 12 C33 6 37 4 35 -2;M35 12 C37 6 33 4 35 -2;M35 12 C33 6 37 4 35 -2" dur="3s" repeatCount="indefinite"/>
+  </path>
+  <path d="M60 10 C58 4 62 2 60 -4" stroke="#C4A86C" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.3">
+    <animate attributeName="d" values="M60 10 C58 4 62 2 60 -4;M60 10 C62 4 58 2 60 -4;M60 10 C58 4 62 2 60 -4" dur="3.5s" repeatCount="indefinite"/>
+  </path>
+  <path d="M85 12 C83 6 87 4 85 -2" stroke="#C4A86C" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.28">
+    <animate attributeName="d" values="M85 12 C83 6 87 4 85 -2;M85 12 C87 6 83 4 85 -2;M85 12 C83 6 87 4 85 -2" dur="2.8s" repeatCount="indefinite"/>
+  </path>
+</svg>

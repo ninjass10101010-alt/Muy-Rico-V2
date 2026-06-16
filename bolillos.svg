@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 100" fill="none">
+  <!-- Bolillo - football/ovoid shape -->
+  <defs>
+    <radialGradient id="crustTop" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#DEB060"/>
+      <stop offset="40%" stop-color="#D4A24E"/>
+      <stop offset="70%" stop-color="#C4863A"/>
+      <stop offset="100%" stop-color="#A06B28"/>
+    </radialGradient>
+    <radialGradient id="crumb" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F5E6CC"/>
+      <stop offset="100%" stop-color="#E8D5A8"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Shadow under bread -->
+  <ellipse cx="70" cy="80" rx="50" ry="10" fill="#C4A86C" opacity="0.25"/>
+
+  <!-- Main bolillo body -->
+  <ellipse cx="70" cy="50" rx="46" ry="28" fill="url(#crustTop)"/>
+
+  <!-- Crust edge highlights (left and right tapering) -->
+  <ellipse cx="25" cy="50" rx="6" ry="22" fill="#B8842E" opacity="0.7"/>
+  <ellipse cx="115" cy="50" rx="5" ry="20" fill="#B07A24" opacity="0.6"/>
+
+  <!-- The signature score mark - deep slash opening on top -->
+  <path d="M40 28 C46 24 58 20 70 20 C82 20 94 24 100 28" stroke="#8B5C1A" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Inner lighter dough visible through the slash -->
+  <path d="M42 28 C48 25 58 22 70 22 C82 22 92 25 98 28 C92 26 82 24 70 24 C58 24 48 26 42 28Z" fill="url(#crumb)"/>
+  <!-- Slash reveals the airy interior crumb -->
+  <path d="M44 27 C48 24 58 22 70 22 C82 22 92 24 96 27" stroke="#F0E0C0" stroke-width="2" fill="none" opacity="0.6"/>
+
+  <!-- Crust texture - baked blistering marks -->
+  <circle cx="48" cy="38" r="2.5" fill="#D4964A" opacity="0.4"/>
+  <circle cx="62" cy="34" r="2" fill="#D4A24E" opacity="0.35"/>
+  <circle cx="80" cy="36" r="2.2" fill="#D4964A" opacity="0.38"/>
+  <circle cx="90" cy="40" r="1.8" fill="#D4A24E" opacity="0.3"/>
+  <circle cx="55" cy="42" r="1.5" fill="#DEB060" opacity="0.3"/>
+
+  <!-- Flour dusting -->
+  <circle cx="42" cy="42" r="1.2" fill="#FAF0DC" opacity="0.2"/>
+  <circle cx="58" cy="36" r="1" fill="#FAF0DC" opacity="0.15"/>
+  <circle cx="72" cy="40" r="0.9" fill="#FAF0DC" opacity="0.18"/>
+  <circle cx="84" cy="44" r="1.1" fill="#FAF0DC" opacity="0.14"/>
+  <circle cx="50" cy="48" r="0.8" fill="#FAF0DC" opacity="0.12"/>
+  <circle cx="88" cy="48" r="0.7" fill="#FAF0DC" opacity="0.1"/>
+
+  <!-- Bottom edge darker (baked darker on bottom) -->
+  <ellipse cx="70" cy="68" rx="40" ry="10" fill="#A06B28" opacity="0.25"/>
+
+  <!-- Highlight on top of the bread -->
+  <ellipse cx="60" cy="36" rx="20" ry="8" fill="white" opacity="0.08" transform="rotate(-5 60 36)"/>
+  <ellipse cx="82" cy="38" rx="14" ry="6" fill="white" opacity="0.06" transform="rotate(8 82 38)"/>
+</svg>

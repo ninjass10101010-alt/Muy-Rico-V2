@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 110" fill="none">
+  <defs>
+    <radialGradient id="cookieGrad" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#DEAC64"/>
+      <stop offset="30%" stop-color="#D49E4E"/>
+      <stop offset="70%" stop-color="#C4863A"/>
+      <stop offset="100%" stop-color="#A06B28"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Shadow -->
+  <ellipse cx="60" cy="85" rx="32" ry="8" fill="#C4A86C" opacity="0.2"/>
+
+  <!-- Main cookie -->
+  <circle cx="60" cy="52" r="34" fill="url(#cookieGrad)" stroke="#B07A24" stroke-width="1.5"/>
+
+  <!-- Cookie edge detail -->
+  <circle cx="60" cy="52" r="32" fill="none" stroke="#C4863A" stroke-width="1" opacity="0.4"/>
+
+  <!-- Decorative pressed pattern - concentric rings -->
+  <circle cx="60" cy="52" r="24" stroke="#B8842E" stroke-width="1" fill="none" opacity="0.25"/>
+  <circle cx="60" cy="52" r="18" stroke="#B8842E" stroke-width="1" fill="none" opacity="0.22"/>
+  <circle cx="60" cy="52" r="12" stroke="#B8842E" stroke-width="0.8" fill="none" opacity="0.2"/>
+  <circle cx="60" cy="52" r="6" stroke="#B8842E" stroke-width="0.6" fill="none" opacity="0.18"/>
+
+  <!-- Pressed star/flower pattern in center -->
+  <path d="M60 44 L62 50 L68 50 L63 53 L65 59 L60 55 L55 59 L57 53 L52 50 L58 50Z" fill="#B8842E" opacity="0.15"/>
+  <circle cx="60" cy="52" r="3" fill="#C4863A" opacity="0.25"/>
+
+  <!-- Cookie edge - slightly irregular crust -->
+  <path d="M28 45 C27 42 29 39 32 37" stroke="#A06B28" stroke-width="0.8" fill="none" opacity="0.35"/>
+  <path d="M88 60 C91 58 92 55 90 52" stroke="#A06B28" stroke-width="0.8" fill="none" opacity="0.35"/>
+  <path d="M32 68 C30 65 31 62 34 60" stroke="#A06B28" stroke-width="0.7" fill="none" opacity="0.3"/>
+
+  <!-- Powdered sugar dusting -->
+  <circle cx="45" cy="40" r="2.2" fill="#FFF8F0" opacity="0.45"/>
+  <circle cx="72" cy="38" r="1.8" fill="#FFF8F0" opacity="0.4"/>
+  <circle cx="55" cy="42" r="1.6" fill="#FFF8F0" opacity="0.38"/>
+  <circle cx="68" cy="48" r="1.4" fill="#FFF8F0" opacity="0.35"/>
+  <circle cx="50" cy="55" r="1.8" fill="#FFF8F0" opacity="0.4"/>
+  <circle cx="74" cy="60" r="1.5" fill="#FFF8F0" opacity="0.32"/>
+  <circle cx="60" cy="65" r="1.3" fill="#FFF8F0" opacity="0.3"/>
+  <circle cx="42" cy="52" r="1.2" fill="#FFF8F0" opacity="0.28"/>
+
+  <!-- Cinnamon sugar sprinkles -->
+  <circle cx="48" cy="38" r="0.9" fill="#7A4010" opacity="0.2"/>
+  <circle cx="70" cy="42" r="0.8" fill="#7A4010" opacity="0.18"/>
+  <circle cx="56" cy="58" r="0.9" fill="#7A4010" opacity="0.22"/>
+  <circle cx="66" cy="62" r="0.7" fill="#7A4010" opacity="0.16"/>
+
+  <!-- Shine/highlight -->
+  <ellipse cx="50" cy="42" rx="8" ry="10" fill="white" opacity="0.07" transform="rotate(-15 50 42)"/>
+</svg>

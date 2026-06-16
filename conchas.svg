@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 110" fill="none">
+  <!-- Bread base (brioche) -->
+  <ellipse cx="60" cy="65" rx="44" ry="32" fill="#D4A24E" stroke="#B8892E" stroke-width="1.5"/>
+  <ellipse cx="55" cy="56" rx="28" ry="18" fill="#E0B868" opacity="0.5"/>
+
+  <!-- Shell pattern topping (vanilla) -->
+  <path d="M16 65 C16 39 34 23 60 23 C86 23 104 39 104 65" fill="#F5E6D0" stroke="#E0C9A0" stroke-width="1"/>
+  <!-- Shell ridge lines -->
+  <path d="M28 45 C38 51 50 57 60 51 C70 45 80 51 92 45" stroke="#D4BA82" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M24 53 C36 59 48 65 60 59 C72 53 84 59 96 53" stroke="#D4BA82" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.65"/>
+  <path d="M20 61 C34 67 46 71 60 67 C74 63 86 69 100 61" stroke="#D4BA82" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M30 39 C40 43 50 47 60 42 C70 37 80 43 90 39" stroke="#D4BA82" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <!-- Shell pattern dots between ridges -->
+  <circle cx="42" cy="48" r="2" fill="#E0C9A0" opacity="0.4"/>
+  <circle cx="60" cy="44" r="2" fill="#E0C9A0" opacity="0.4"/>
+  <circle cx="78" cy="48" r="2" fill="#E0C9A0" opacity="0.4"/>
+  <circle cx="50" cy="55" r="1.8" fill="#E0C9A0" opacity="0.35"/>
+  <circle cx="70" cy="53" r="1.8" fill="#E0C9A0" opacity="0.35"/>
+
+  <!-- Shine -->
+  <ellipse cx="46" cy="49" rx="6" ry="8" fill="white" opacity="0.1" transform="rotate(-15 46 49)"/>
+</svg>
