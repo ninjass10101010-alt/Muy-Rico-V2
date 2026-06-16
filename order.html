@@ -718,25 +718,11 @@
           </form>
 
           <div class="confirmation" id="confirmation">
-            <h4 class="lang-fade" data-es="¡Pedido enviado!" data-en="Order sent!">¡Pedido enviado!</h4>
+            <h4 class="lang-fade" data-es="¡Gracias por tu pedido! 🎉" data-en="Thank you for your order! 🎉">¡Gracias por tu pedido! 🎉</h4>
             <p class="lang-fade"
-               data-es="Te contactaremos pronto para coordinar. Completa tu pago abajo:"
-               data-en="We&apos;ll contact you soon to coordinate. Complete your payment below:">
-              Te contactaremos pronto para coordinar. Completa tu pago abajo:
-            </p>
-            <div class="payment-buttons">
-              <button type="button" id="stripe-pay-btn" class="btn btn-coral btn-lg payment-btn">
-                <span>&#128179;</span>
-                <span class="lang-fade" data-es="Tarjeta / Apple Pay / Cash App" data-en="Card / Apple Pay / Cash App">Tarjeta / Apple Pay / Cash App</span>
-              </button>
-              <div id="paypal-button-container"></div>
-            </div>
-            <p class="payment-total" id="payment-total"></p>
-            <p id="payment-status" class="payment-note"></p>
-            <p class="payment-note lang-fade"
-               data-es="Haz clic en tu m&eacute;todo preferido."
-               data-en="Click your preferred method.">
-              Haz clic en tu m&eacute;todo preferido.
+               data-es="Hemos recibido tu solicitud. Te contactaremos pronto por correo o teléfono para confirmar tu orden y coordinar la entrega en Holland, MI."
+               data-en="We have received your request. We will contact you soon by email or phone to confirm your order and coordinate pickup in Holland, MI.">
+              Hemos recibido tu solicitud. Te contactaremos pronto por correo o teléfono para confirmar tu orden y coordinar la entrega en Holland, MI.
             </p>
           </div>
         </div>
@@ -1082,32 +1068,9 @@
           (currentLang === 'en' ? 'Your total: ' : 'Tu total: ') + '$' + totalStr;
 
         const stripeBtn = document.getElementById('stripe-pay-btn');
-        stripeBtn.onclick = async function () {
-          const originalHTML = this.innerHTML;
-          this.innerHTML = (currentLang === 'en' ? 'Redirecting...' : 'Redirigiendo...');
-          this.disabled = true;
-          try {
-            const res = await fetch('/create-checkout', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ amount: totalCents, items: itemList, origin: window.location.origin })
-            });
-            const data = await res.json();
-            if (data.url) {
-              window.location.href = data.url;
-            } else {
-              document.getElementById('payment-status').textContent =
-                (currentLang === 'en' ? 'Error: ' : 'Error: ') + (data.error || 'Unknown');
-              this.innerHTML = originalHTML;
-              this.disabled = false;
-            }
-          } catch (err) {
-            this.innerHTML = originalHTML;
-            this.disabled = false;
-            document.getElementById('payment-status').textContent =
-              (currentLang === 'en' ? 'Could not reach server. Check your connection.' : 'No se pudo conectar al servidor. Revisa tu conexi&oacute;n.');
-          }
-        });
+        stripeBtn.onclick = function () {
+          window.open('https://buy.stripe.com/6oUdR93Zn2tQb9lgek3wQ00', '_blank');
+        };
 
         function loadPayPal() {
           if (window.paypal) { renderPayPal(); return; }
