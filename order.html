@@ -725,7 +725,7 @@
               Te contactaremos pronto para coordinar. Completa tu pago abajo:
             </p>
             <div class="payment-buttons">
-              <button id="stripe-pay-btn" class="btn btn-coral btn-lg payment-btn">
+              <button type="button" id="stripe-pay-btn" class="btn btn-coral btn-lg payment-btn">
                 <span>&#128179;</span>
                 <span class="lang-fade" data-es="Tarjeta / Apple Pay / Cash App" data-en="Card / Apple Pay / Cash App">Tarjeta / Apple Pay / Cash App</span>
               </button>
@@ -1078,7 +1078,7 @@
           (currentLang === 'en' ? 'Your total: ' : 'Tu total: ') + '$' + totalStr;
 
         const stripeBtn = document.getElementById('stripe-pay-btn');
-        stripeBtn.addEventListener('click', async function () {
+        stripeBtn.onclick = async function () {
           const originalHTML = this.innerHTML;
           this.innerHTML = (currentLang === 'en' ? 'Redirecting...' : 'Redirigiendo...');
           this.disabled = true;
@@ -1114,7 +1114,8 @@
         }
 
         function renderPayPal() {
-          paypal.Buttons({
+          try {
+            paypal.Buttons({
             style: { layout: 'horizontal', color: 'gold', shape: 'pill', label: 'paypal', tagline: false },
             createOrder: function (_data, actions) {
               return actions.order.create({
@@ -1134,6 +1135,10 @@
                 currentLang === 'en' ? 'Payment failed. Please try again.' : 'Pago fallido. Intenta de nuevo.';
             }
           }).render('#paypal-button-container');
+          } catch (e) {
+            document.getElementById('paypal-button-container').textContent =
+              currentLang === 'en' ? 'Venmo/PayPal could not load.' : 'Venmo/PayPal no se pudo cargar.';
+          }
         }
 
         loadPayPal();
