@@ -1092,13 +1092,16 @@
             if (data.url) {
               window.location.href = data.url;
             } else {
-              throw new Error(data.error || 'Failed');
+              document.getElementById('payment-status').textContent =
+                (currentLang === 'en' ? 'Error: ' : 'Error: ') + (data.error || 'Unknown');
+              this.innerHTML = originalHTML;
+              this.disabled = false;
             }
           } catch (err) {
             this.innerHTML = originalHTML;
             this.disabled = false;
             document.getElementById('payment-status').textContent =
-              currentLang === 'en' ? 'Could not connect. Please try again.' : 'No se pudo conectar. Intenta de nuevo.';
+              (currentLang === 'en' ? 'Could not reach server. Check your connection.' : 'No se pudo conectar al servidor. Revisa tu conexi&oacute;n.');
           }
         });
 
