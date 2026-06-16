@@ -1,19 +1,25 @@
-export async function onRequestGet() {
-  return new Response("✅ Checkout function is deployed.", {
-    headers: { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" },
-  });
-}
+export async function onRequest(context) {
+  const { request, env } = context;
 
-export async function onRequestPost({ request, env }) {
+  if (request.method === "GET") {
+    return new Response("OK — checkout function is live", {
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
   try {
     const { amount, items, origin } = await request.json();
     const key = env.STRIPE_SECRET_KEY;
 
     if (!key) {
-      return new Response(JSON.stringify({ error: "STRIPE_SECRET_KEY not set in Cloudflare environment variables" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
+      return new Response(
+        JSON.stringify({ error: "STRIPE_SECRET_KEY env var not set" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     const params = new URLSearchParams();
@@ -38,20 +44,20 @@ export async function onRequestPost({ request, env }) {
     const session = await res.json();
 
     if (session.error) {
-      return new Response(JSON.stringify({ error: session.error.message }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
+      return new Response(
+        JSON.stringify({ error: session.error.message }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ url: session.url }), {
       status: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    });
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }

@@ -505,7 +505,7 @@
         </div>
         <div class="products-grid">
 
-          <article class="product-tile reveal" id="tile-cookies" data-name="Galletas" data-name-en="Cookies" data-price="4.00" data-icon="🍪">
+          <article class="product-tile reveal" id="tile-cookies" data-name="Galletas" data-name-en="Cookies" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="🍪">
             <div class="tile-header">
               <img class="tile-icon" src="cookies.svg" alt="Cookies" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -529,7 +529,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="🍞">
+          <article class="product-tile reveal" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞">
             <div class="tile-header">
               <img class="tile-icon" src="conchas.svg" alt="Conchas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -553,7 +553,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-bolillos" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="🥖">
+          <article class="product-tile reveal" id="tile-bolillos" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖">
             <div class="tile-header">
               <img class="tile-icon" src="bolillos.svg" alt="Bolillos" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -577,7 +577,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-tortillas" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="🫓">
+          <article class="product-tile reveal" id="tile-tortillas" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
             <div class="tile-header">
               <img class="tile-icon" src="tortilla.svg" alt="Flour Tortillas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -601,7 +601,7 @@
             </div>
           </article>
 
-           <article class="product-tile reveal" id="tile-cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="🍭">
+           <article class="product-tile reveal" id="tile-cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
             <div class="tile-header">
               <img class="tile-icon" src="cakepop.svg" alt="Cakepops" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -895,7 +895,8 @@
       const tile = btn.closest('.product-tile');
       const name = tile.getAttribute('data-name');
       const nameEn = tile.getAttribute('data-name-en');
-      const icon = tile.getAttribute('data-icon') || '🍞';
+      const icon = tile.getAttribute('data-icon') || 'cookies.svg';
+      const toastEmoji = tile.getAttribute('data-toast-emoji') || '🍞';
       const displayName = currentLang === 'en' && nameEn ? nameEn : name;
       const price = parseFloat(tile.getAttribute('data-price'));
       let qty = parseInt(tile.querySelector('.qty-value').textContent);
@@ -927,7 +928,7 @@
       // Toast notification
       const subtotal = '$' + (price * qty).toFixed(2);
       showToast(
-        icon,
+        toastEmoji,
         currentLang === 'en' ? `${displayName} added to order!` : `¡${displayName} agregado al pedido!`,
         currentLang === 'en' ? `${qty} × ${subtotal}` : `${qty} × ${subtotal}`
       );
@@ -1001,9 +1002,12 @@
       list.innerHTML = cart.map((item, i) => {
         const line = item.price * item.qty;
         total += line;
+        const iconHtml = item.icon && item.icon.endsWith('.svg')
+          ? `<img src="${item.icon}" alt="" width="22" height="22" style="object-fit:contain;" />`
+          : `${item.icon || '🍞'}`;
         return `<li>
           <div class="cart-item-left">
-            <span class="cart-item-icon">${item.icon || '🍞'}</span>
+            <span class="cart-item-icon">${iconHtml}</span>
             <div>
               <div class="cart-item-name">${item.displayName || item.name}</div>
               <div class="cart-item-qty">× ${item.qty}</div>
