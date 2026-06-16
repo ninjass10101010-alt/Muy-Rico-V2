@@ -754,6 +754,7 @@
     let currentLang = 'es';
 
     const FORMSPREE_URL = 'https://formspree.io/f/xdavbrgq';
+    const CHECKOUT_WORKER = 'https://muy-rico-checkout.REPLACE.workers.dev';
 
     const persistLang = (lang) => {
       try { localStorage.setItem('lang', lang); } catch (e) {}
@@ -1068,8 +1069,28 @@
           (currentLang === 'en' ? 'Your total: ' : 'Tu total: ') + '$' + totalStr;
 
         const stripeBtn = document.getElementById('stripe-pay-btn');
-        stripeBtn.onclick = function () {
-          window.open('https://buy.stripe.com/6oUdR93Zn2tQb9lgek3wQ00', '_blank');
+        const stripeOriginalHTML = stripeBtn.innerHTML;
+        const stripeFallback = 'https://buy.stripe.com/6oUdR93Zn2tQb9lgek3wQ00';
+        stripeBtn.onclick = async function () {
+          this.innerHTML = (currentLang === 'en' ? 'Opening...' : 'Abriendo...');
+          this.disabled = true;
+          try {
+            const res = await fetch(CHECKOUT_WORKER + '/create-checkout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ amount: totalCents, items: itemList, origin: window.location.origin })
+            });
+            const data = await res.json();
+            if (data.url) {
+              window.location.href = data.url;
+              return;
+            }
+          } catch (e) {
+            // Worker not available
+          }
+          window.open(stripeFallback, '_blank');
+          this.innerHTML = stripeOriginalHTML;
+          this.disabled = false;
         };
 
         function loadPayPal() {

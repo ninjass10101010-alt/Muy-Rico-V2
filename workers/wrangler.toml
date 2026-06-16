@@ -1,0 +1,6 @@
+name = "muy-rico-checkout"
+main = "checkout.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# Set STRIPE_SECRET_KEY in Cloudflare Dashboard or via `wrangler secret put STRIPE_SECRET_KEY`
