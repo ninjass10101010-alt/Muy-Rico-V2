@@ -1064,7 +1064,7 @@
 
       fetch(FORMSPREE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify(formData)
       })
       .then(res => {
@@ -1079,33 +1079,34 @@
         const totalCents = Math.round(totalNum * 100);
         const itemList = cart.map(c => `${c.qty}x ${c.displayName || c.name}`).join(', ');
 
-        document.getElementById('payment-total').textContent =
+        const totalEl = document.getElementById('payment-total');
+        if (totalEl) totalEl.textContent =
           (currentLang === 'en' ? 'Your total: ' : 'Tu total: ') + '$' + totalStr;
 
         const stripeBtn = document.getElementById('stripe-pay-btn');
-        const stripeOriginalHTML = stripeBtn.innerHTML;
-        const stripeFallback = 'https://buy.stripe.com/6oUdR93Zn2tQb9lgek3wQ00';
-        stripeBtn.onclick = async function () {
-          this.innerHTML = (currentLang === 'en' ? 'Opening...' : 'Abriendo...');
-          this.disabled = true;
-          try {
-            const res = await fetch(CHECKOUT_WORKER + '/create-checkout', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ amount: totalCents, items: itemList, origin: window.location.origin })
-            });
-            const data = await res.json();
-            if (data.url) {
-              window.location.href = data.url;
-              return;
-            }
-          } catch (e) {
-            // Worker not available
-          }
-          window.open(stripeFallback, '_blank');
-          this.innerHTML = stripeOriginalHTML;
-          this.disabled = false;
-        };
+        if (stripeBtn) {
+          const stripeOriginalHTML = stripeBtn.innerHTML;
+          const stripeFallback = 'https://buy.stripe.com/6oUdR93Zn2tQb9lgek3wQ00';
+          stripeBtn.onclick = async function () {
+            this.innerHTML = (currentLang === 'en' ? 'Opening...' : 'Abriendo...');
+            this.disabled = true;
+            try {
+              const res = await fetch(CHECKOUT_WORKER + '/create-checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: totalCents, items: itemList, origin: window.location.origin })
+              });
+              const data = await res.json();
+              if (data.url) {
+                window.location.href = data.url;
+                return;
+              }
+            } catch (e) {}
+            window.open(stripeFallback, '_blank');
+            this.innerHTML = stripeOriginalHTML;
+            this.disabled = false;
+          };
+        }
 
         function loadPayPal() {
           if (window.paypal) { renderPayPal(); return; }
@@ -1116,6 +1117,8 @@
         }
 
         function renderPayPal() {
+          var container = document.getElementById('paypal-button-container');
+          if (!container) return;
           try {
             paypal.Buttons({
             style: { layout: 'horizontal', color: 'gold', shape: 'pill', label: 'paypal', tagline: false },
@@ -1126,19 +1129,23 @@
             },
             onApprove: function (_data, actions) {
               return actions.order.capture().then(function () {
-                document.getElementById('payment-status').textContent =
-                  currentLang === 'en' ? 'Payment successful! Thank you!' : '¡Pago exitoso! ¡Gracias!';
-                document.getElementById('payment-status').style.color = 'var(--color-mid-green)';
-                document.getElementById('payment-status').style.fontWeight = '600';
+                var statusEl = document.getElementById('payment-status');
+                if (statusEl) {
+                  statusEl.textContent =
+                    currentLang === 'en' ? 'Payment successful! Thank you!' : '¡Pago exitoso! ¡Gracias!';
+                  statusEl.style.color = 'var(--color-mid-green)';
+                  statusEl.style.fontWeight = '600';
+                }
               });
             },
             onError: function () {
-              document.getElementById('payment-status').textContent =
+              var statusEl = document.getElementById('payment-status');
+              if (statusEl) statusEl.textContent =
                 currentLang === 'en' ? 'Payment failed. Please try again.' : 'Pago fallido. Intenta de nuevo.';
             }
           }).render('#paypal-button-container');
           } catch (e) {
-            document.getElementById('paypal-button-container').textContent =
+            container.textContent =
               currentLang === 'en' ? 'Venmo/PayPal could not load.' : 'Venmo/PayPal no se pudo cargar.';
           }
         }
@@ -1146,14 +1153,15 @@
         loadPayPal();
 
         var conf = document.getElementById('confirmation');
-        conf.style.display = 'block';
-        gsap.fromTo(conf, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+        if (conf) {
+          conf.style.display = 'block';
+          gsap.fromTo(conf, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+          conf.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
 
-        document.getElementById('step-2').classList.replace('active', 'done');
-        document.getElementById('step-3').classList.add('done');
-        document.getElementById('connector-2').classList.add('done');
-
-        conf.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        try { document.getElementById('step-2').classList.replace('active', 'done'); } catch(e) {}
+        try { document.getElementById('step-3').classList.add('done'); } catch(e) {}
+        try { document.getElementById('connector-2').classList.add('done'); } catch(e) {}
       })
       .catch(() => {
         submitBtn.textContent = originalText;
