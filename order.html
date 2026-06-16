@@ -386,6 +386,7 @@
       font-weight: 600; font-size: 0.9rem; display: none;
     }
     #paypal-button-container { min-width: 200px; max-width: 320px; }
+    .paypal-hint { display: block; text-align: center; font-size: 0.78rem; color: var(--color-text-muted); padding: 0.5rem; }
     #payment-status { margin-top: 0.4rem; }
   </style>
 </head>
@@ -729,7 +730,7 @@
                 <span>&#128179;</span>
                 <span class="lang-fade" data-es="Tarjeta / Apple Pay / Cash App" data-en="Card / Apple Pay / Cash App">Tarjeta / Apple Pay / Cash App</span>
               </button>
-              <div id="paypal-button-container"></div>
+              <div id="paypal-button-container"><span class="paypal-hint lang-fade" data-es="&#128179; Paga con PayPal o Venmo" data-en="&#128179; Pay with PayPal or Venmo">&#128179; Pay with PayPal or Venmo</span></div>
             </div>
             <p class="payment-total" id="payment-total"></p>
             <p id="payment-status" class="payment-note"></p>
