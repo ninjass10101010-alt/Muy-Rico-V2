@@ -388,6 +388,15 @@
     #paypal-button-container { min-width: 200px; max-width: 320px; }
     .paypal-hint { display: block; text-align: center; font-size: 0.78rem; color: var(--color-text-muted); padding: 0.5rem; }
     #payment-status { margin-top: 0.4rem; }
+
+    .flavor-selects { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.8rem; }
+    .flavor-selects select {
+      flex: 1; min-width: 120px; padding: 0.45rem 0.6rem;
+      border-radius: 10px; border: 1px solid rgba(44,37,35,0.12);
+      background: var(--color-bg-sand); font-family: var(--font-sans);
+      font-size: 0.78rem; color: var(--color-text-cocoa); outline: none; cursor: pointer;
+    }
+    .flavor-selects select:focus { border-color: var(--color-accent-coral); box-shadow: 0 0 0 2px rgba(247,168,164,0.15); }
   </style>
 </head>
 <body>
@@ -513,9 +522,9 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Galletas" data-en="Cookies">Galletas</h3>
             <p class="tile-desc lang-fade"
-               data-es="Galletas de mantequilla caseras de 4.5 oz con un toque de vainilla. Crujientes por fuera, suaves por dentro. Precio por docena: $40."
-               data-en="Homemade 4.5 oz butter cookies with a hint of vanilla. Crispy outside, soft inside. Dozen price: $40.">
-              Galletas de mantequilla caseras de 4.5 oz con un toque de vainilla. Crujientes por fuera, suaves por dentro. Precio por docena: $40.
+               data-es="Chocolate chip cookie. Hold. Up. 4.5oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40."
+               data-en="Chocolate chip cookie. Hold. Up. 4.5oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40.">
+              Chocolate chip cookie. Hold. Up. 4.5oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40.
             </p>
             <div class="tile-bottom">
               <span class="tile-price">$4 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
@@ -537,9 +546,9 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Conchas" data-en="Conchas">Conchas</h3>
             <p class="tile-desc lang-fade"
-               data-es="Nuestro pan dulce insignia: masa brioche suave con la clásica cobertura de azúcar sabor a vainilla o chocolate. Tradición en cada bocado. Precio por docena: $40."
-               data-en="Our signature sweet bread: soft brioche dough with the classic sugar topping in vanilla or chocolate. Tradition in every bite. Dozen price: $40.">
-              Nuestro pan dulce insignia: masa brioche suave con la clásica cobertura de azúcar sabor a vainilla o chocolate. Tradición en cada bocado. Precio por docena: $40.
+               data-es="This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee."
+               data-en="This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.">
+              This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.
             </p>
             <div class="tile-bottom">
               <span class="tile-price">$4 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
@@ -561,9 +570,9 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Bolillos" data-en="Bolillos">Bolillos</h3>
             <p class="tile-desc lang-fade"
-               data-es="Pan francés mexicano: corteza crujiente y migajón esponjoso. Perfectos para tortas, molletes o con un poco de mantequilla y frijoles. Precio por docena: $20."
-               data-en="Mexican French bread: crunchy crust and airy crumb. Perfect for tortas, molletes, or with a little butter and beans. Dozen price: $20.">
-              Pan francés mexicano: corteza crujiente y migajón esponjoso. Perfectos para tortas, molletes o con un poco de mantequilla y frijoles. Precio por docena: $20.
+               data-es="This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you."
+               data-en="This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.">
+              This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.
             </p>
             <div class="tile-bottom">
               <span class="tile-price">$2 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
@@ -585,9 +594,9 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Tortillas de Harina" data-en="Flour Tortillas">Tortillas de Harina</h3>
             <p class="tile-desc lang-fade"
-               data-es="Tortillas de harina hechas a mano, suaves y ligeramente mantecosas. Ideales para burritos, quesadillas o simplemente con un guisado."
-               data-en="Handmade flour tortillas, soft and lightly buttery. Ideal for burritos, quesadillas, or simply with a stew.">
-              Tortillas de harina hechas a mano, suaves y ligeramente mantecosas. Ideales para burritos, quesadillas o simplemente con un guisado.
+               data-es="Handmade, soft, light, and buttery tortillas. Imagine with me... Tacos, quesadillas, with butter and salt...there really isn&rsquo;t a time that a tortilla is not needed. So, in conclusion...you need some."
+               data-en="Handmade, soft, light, and buttery tortillas. Imagine with me... Tacos, quesadillas, with butter and salt...there really isn&rsquo;t a time that a tortilla is not needed. So, in conclusion...you need some.">
+              Handmade, soft, light, and buttery tortillas. Imagine with me... Tacos, quesadillas, with butter and salt...there really isn&rsquo;t a time that a tortilla is not needed. So, in conclusion...you need some.
             </p>
             <div class="tile-bottom">
               <span class="tile-price">$6 <span class="lang-fade" data-es="/ docena" data-en="/ dozen">/ docena</span></span>
@@ -609,15 +618,95 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Cakepops" data-en="Cakepops">Cakepops</h3>
             <p class="tile-desc lang-fade"
-               data-es="Cakepops bañados en chocolate, perfectos para fiestas y regalos. Precio por docena: $30. Los cakepops personalizados pueden tener un precio variable."
-               data-en="Cakepops dipped in chocolate, perfect for parties and gifts. Dozen price: $30. Custom cakepop pricing may vary.">
-              Bolitas de pastel cubiertas de chocolate, perfectas para fiestas y regalos. Precio por docena: $30. Los cakepops personalizados pueden tener precio variable.
+               data-es="Such a sweet perfect little ball of customizable bliss. Choose your cake flavor, choose your chocolate dip, choose your topping. These are the kind of life choices we live to make! (Please keep in mind that custom cakepops may vary in pricing.)"
+               data-en="Such a sweet perfect little ball of customizable bliss. Choose your cake flavor, choose your chocolate dip, choose your topping. These are the kind of life choices we live to make! (Please keep in mind that custom cakepops may vary in pricing.)">
+              Such a sweet perfect little ball of customizable bliss. Choose your cake flavor, choose your chocolate dip, choose your topping. These are the kind of life choices we live to make! (Please keep in mind that custom cakepops may vary in pricing.)
             </p>
             <div class="tile-bottom">
               <span class="tile-price">$3 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
+                  <span class="qty-value">0</span>
+                  <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
+                </div>
+                <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product-tile reveal" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cakepop.svg" data-toast-emoji="🎂" data-has-flavors="1">
+            <div class="tile-header">
+              <img class="tile-icon" src="cakepop.svg" alt="Custom Cake" width="42" height="42" style="object-fit:contain;" />
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <span class="tile-tag lang-fade" data-es="Personalizado" data-en="Custom">Personalizado</span>
+                <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
+              </div>
+            </div>
+            <h3 class="tile-title lang-fade" data-es="Custom Cake" data-en="Custom Cake">Custom Cake</h3>
+            <p class="tile-desc lang-fade"
+               data-es="8-inch, 2-layer cake made fresh to order. Choose your cake flavor and frosting to create your perfect combination."
+               data-en="8-inch, 2-layer cake made fresh to order. Choose your cake flavor and frosting to create your perfect combination.">
+              8-inch, 2-layer cake made fresh to order. Choose your cake flavor and frosting to create your perfect combination.
+            </p>
+            <div class="flavor-selects">
+              <select class="cake-flavor" aria-label="Cake flavor">
+                <option value="" data-es="Sabor del bizcocho" data-en="Cake flavor">Cake flavor</option>
+                <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
+                <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
+              </select>
+              <select class="frosting-flavor" aria-label="Frosting flavor">
+                <option value="" data-es="Sabor del bet&uacute;n" data-en="Frosting flavor">Frosting flavor</option>
+                <option value="Vanilla Buttercream" data-es="Bet&uacute;n de Vainilla" data-en="Vanilla Buttercream">Vanilla Buttercream</option>
+                <option value="Chocolate Buttercream" data-es="Bet&uacute;n de Chocolate" data-en="Chocolate Buttercream">Chocolate Buttercream</option>
+                <option value="Cream Cheese" data-es="Queso Crema" data-en="Cream Cheese">Cream Cheese</option>
+              </select>
+            </div>
+            <div class="tile-bottom">
+              <span class="tile-price">$35 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <div class="tile-actions">
+                <div class="qty-stepper">
+                  <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">&minus;</button>
+                  <span class="qty-value">0</span>
+                  <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
+                </div>
+                <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="product-tile reveal" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cakepop.svg" data-toast-emoji="🧁" data-has-flavors="1">
+            <div class="tile-header">
+              <img class="tile-icon" src="cakepop.svg" alt="Cupcakes" width="42" height="42" style="object-fit:contain;" />
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <span class="tile-tag lang-fade" data-es="Batch de 6" data-en="6-Pack">6-Pack</span>
+                <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
+              </div>
+            </div>
+            <h3 class="tile-title lang-fade" data-es="Cupcakes (6)" data-en="Cupcakes (6)">Cupcakes (6)</h3>
+            <p class="tile-desc lang-fade"
+               data-es="Six standard-size cupcakes made fresh to order. Choose your cake flavor and frosting. One flavor per batch."
+               data-en="Six standard-size cupcakes made fresh to order. Choose your cake flavor and frosting. One flavor per batch.">
+              Six standard-size cupcakes made fresh to order. Choose your cake flavor and frosting. One flavor per batch.
+            </p>
+            <div class="flavor-selects">
+              <select class="cake-flavor" aria-label="Cake flavor">
+                <option value="" data-es="Sabor del bizcocho" data-en="Cake flavor">Cake flavor</option>
+                <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
+                <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
+              </select>
+              <select class="frosting-flavor" aria-label="Frosting flavor">
+                <option value="" data-es="Sabor del bet&uacute;n" data-en="Frosting flavor">Frosting flavor</option>
+                <option value="Vanilla Buttercream" data-es="Bet&uacute;n de Vainilla" data-en="Vanilla Buttercream">Vanilla Buttercream</option>
+                <option value="Chocolate Buttercream" data-es="Bet&uacute;n de Chocolate" data-en="Chocolate Buttercream">Chocolate Buttercream</option>
+                <option value="Cream Cheese" data-es="Queso Crema" data-en="Cream Cheese">Cream Cheese</option>
+              </select>
+            </div>
+            <div class="tile-bottom">
+              <span class="tile-price">$18 <span class="lang-fade" data-es="/ batch (6)" data-en="/ 6-pack">/ 6-pack</span></span>
+              <div class="tile-actions">
+                <div class="qty-stepper">
+                  <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">&minus;</button>
                   <span class="qty-value">0</span>
                   <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
                 </div>
@@ -899,17 +988,26 @@
       const nameEn = tile.getAttribute('data-name-en');
       const icon = tile.getAttribute('data-icon') || 'cookies.svg';
       const toastEmoji = tile.getAttribute('data-toast-emoji') || '🍞';
-      const displayName = currentLang === 'en' && nameEn ? nameEn : name;
+      let displayName = currentLang === 'en' && nameEn ? nameEn : name;
       const price = parseFloat(tile.getAttribute('data-price'));
       let qty = parseInt(tile.querySelector('.qty-value').textContent);
+
+      var flavorNote = '';
+      var cakeFlavor = tile.querySelector('.cake-flavor');
+      var frostingFlavor = tile.querySelector('.frosting-flavor');
+      if (cakeFlavor && frostingFlavor && cakeFlavor.value && frostingFlavor.value) {
+        flavorNote = ' (' + cakeFlavor.selectedOptions[0].textContent + ' + ' + frostingFlavor.selectedOptions[0].textContent + ')';
+        displayName = displayName + flavorNote;
+      }
 
       if (qty === 0) {
         // UX Improvement: Default to 1 if user just clicks Add directly
         qty = 1;
       }
 
-      const existing = cart.find(item => item.name === name);
-      if (existing) { existing.qty += qty; } else { cart.push({ name, nameEn, displayName, price, qty, icon }); }
+      const existing = cart.find(item => item.name === name && (item.flavorNote || '') === flavorNote);
+      if (existing) { existing.qty += qty; existing.displayName = displayName; }
+      else { cart.push({ name, nameEn, displayName, price, qty, icon, flavorNote }); }
 
       // Reset qty display
       tile.querySelector('.qty-value').textContent = '0';
