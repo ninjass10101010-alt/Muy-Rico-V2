@@ -411,6 +411,9 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   color: var(--color-white);
   box-shadow: 0 4px 18px rgba(230,57,70,0.38);
 }
+.submit-area .btn-coral {
+  animation: submit-pulse 2.4s ease-in-out infinite;
+}
 .btn-coral:hover { box-shadow: 0 8px 28px rgba(230,57,70,0.45); }
 
 .btn-palm {
@@ -555,11 +558,15 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 
 @keyframes scroll-bounce {
   0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(6px); }
+  50%       { transform: translateY(3px); }
 }
 @keyframes scroll-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(30,70,54,0.55), 0 4px 18px rgba(30,70,54,0.35); }
   60%       { box-shadow: 0 0 0 10px rgba(30,70,54,0), 0 4px 18px rgba(30,70,54,0.35); }
+}
+@keyframes submit-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.5), 0 4px 18px rgba(230,57,70,0.38); }
+  60%       { box-shadow: 0 0 0 10px rgba(230,57,70,0), 0 4px 18px rgba(230,57,70,0.38); }
 }
 
 .hero-scroll-hint {
@@ -591,7 +598,7 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   height: 18px;
   flex-shrink: 0;
   stroke: #a8d5b5;
-  animation: scroll-bounce 1.4s ease-in-out infinite;
+  animation: scroll-bounce 2.8s ease-in-out infinite;
 }
 
 /* ==========================================================================

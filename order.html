@@ -515,12 +515,12 @@
         </div>
         <div class="products-grid">
 
-          <article class="product-tile reveal" id="tile-cookies" data-name="Galletas" data-name-en="Cookies" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="🍪">
+          <article class="product-tile reveal" id="tile-cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg">
             <div class="tile-header">
-              <img class="tile-icon" src="cookies.svg" alt="Cookies" width="42" height="42" style="object-fit:contain;" />
+              <img class="tile-icon" src="cookies.svg" alt="Chocolate Chip Cookie" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
             </div>
-            <h3 class="tile-title lang-fade" data-es="Galletas" data-en="Cookies">Galletas</h3>
+            <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Cookie">Galleta de Chispas de Chocolate</h3>
             <p class="tile-desc lang-fade"
                data-es="Chocolate chip cookie. Hold. Up. 4.5oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40."
                data-en="Chocolate chip cookie. Hold. Up. 4.5oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40.">
@@ -539,7 +539,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞">
+          <article class="product-tile reveal" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="conchas.svg" alt="Conchas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -550,6 +550,14 @@
                data-en="This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.">
               This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.
             </p>
+            <div class="flavor-selects">
+              <select class="concha-flavor" aria-label="Concha flavor">
+                <option value="" data-es="Sabor" data-en="Flavor">Flavor</option>
+                <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
+                <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
+                <option value="Strawberry" data-es="Fresa" data-en="Strawberry">Strawberry</option>
+              </select>
+            </div>
             <div class="tile-bottom">
               <span class="tile-price">$4 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
               <div class="tile-actions">
@@ -635,13 +643,10 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cakepop.svg" data-toast-emoji="🎂" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
             <div class="tile-header">
-              <img class="tile-icon" src="cakepop.svg" alt="Custom Cake" width="42" height="42" style="object-fit:contain;" />
-              <div style="display:flex;align-items:center;gap:0.5rem;">
-                <span class="tile-tag lang-fade" data-es="Personalizado" data-en="Custom">Personalizado</span>
-                <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-              </div>
+              <img class="tile-icon" src="cake.svg" alt="Custom Cake" width="42" height="42" style="object-fit:contain;" />
+              <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
             </div>
             <h3 class="tile-title lang-fade" data-es="Custom Cake" data-en="Custom Cake">Custom Cake</h3>
             <p class="tile-desc lang-fade"
@@ -659,9 +664,9 @@
                 <option value="" data-es="Sabor del bet&uacute;n" data-en="Frosting flavor">Frosting flavor</option>
                 <option value="Vanilla Buttercream" data-es="Bet&uacute;n de Vainilla" data-en="Vanilla Buttercream">Vanilla Buttercream</option>
                 <option value="Chocolate Buttercream" data-es="Bet&uacute;n de Chocolate" data-en="Chocolate Buttercream">Chocolate Buttercream</option>
-                <option value="Cream Cheese" data-es="Queso Crema" data-en="Cream Cheese">Cream Cheese</option>
               </select>
             </div>
+
             <div class="tile-bottom">
               <span class="tile-price">$35 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
               <div class="tile-actions">
@@ -675,13 +680,10 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cakepop.svg" data-toast-emoji="🧁" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
             <div class="tile-header">
-              <img class="tile-icon" src="cakepop.svg" alt="Cupcakes" width="42" height="42" style="object-fit:contain;" />
-              <div style="display:flex;align-items:center;gap:0.5rem;">
-                <span class="tile-tag lang-fade" data-es="Batch de 6" data-en="6-Pack">6-Pack</span>
-                <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-              </div>
+              <img class="tile-icon" src="cupcake.svg" alt="Cupcakes" width="42" height="42" style="object-fit:contain;" />
+              <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
             </div>
             <h3 class="tile-title lang-fade" data-es="Cupcakes (6)" data-en="Cupcakes (6)">Cupcakes (6)</h3>
             <p class="tile-desc lang-fade"
@@ -699,7 +701,6 @@
                 <option value="" data-es="Sabor del bet&uacute;n" data-en="Frosting flavor">Frosting flavor</option>
                 <option value="Vanilla Buttercream" data-es="Bet&uacute;n de Vainilla" data-en="Vanilla Buttercream">Vanilla Buttercream</option>
                 <option value="Chocolate Buttercream" data-es="Bet&uacute;n de Chocolate" data-en="Chocolate Buttercream">Chocolate Buttercream</option>
-                <option value="Cream Cheese" data-es="Queso Crema" data-en="Cream Cheese">Cream Cheese</option>
               </select>
             </div>
             <div class="tile-bottom">
@@ -800,9 +801,9 @@
             <div class="submit-area">
               <button type="submit" class="btn btn-coral btn-lg lang-fade" data-es="✉️ Enviar Pedido" data-en="✉️ Submit Order">✉️ Enviar Pedido</button>
               <p class="notice lang-fade"
-                 data-es="Si lo imaginas, ¡nosotros lo creamos! Los precios pueden variar según el nivel de personalización del pedido. Confirmaremos el precio final contigo antes de oficializar tu orden. Te contactaremos para coordinar la recogida en Holland, MI."
-                 data-en="If you imagine it, we want to create it! Pricing may vary depending on how customized your order is. We will confirm the final price with you before you place your order. We'll contact you to coordinate pickup in Holland, MI.">
-                 Si lo imaginas, ¡nosotros lo creamos! Los precios pueden variar según el nivel de personalización del pedido. Confirmaremos el precio final contigo antes de oficializar tu orden. Te contactaremos para coordinar la recogida en Holland, MI.
+                 data-es="Si lo imaginas, ¡nosotros lo creamos! Los precios pueden variar según el nivel de personalización del pedido. Para pedidos personalizados o preguntas generales, envíanos un correo haciendo clic en Contáctanos en la sección de contacto. Nos comunicaremos contigo para coordinar la recogida en Holland, MI."
+                 data-en="If you imagine it, we want to create it! Pricing may vary depending on how customized your order is. For custom orders or general questions, please send us an email by clicking Contact Us in the contact section. We'll reach out to coordinate pickup in Holland, MI.">
+                 Si lo imaginas, ¡nosotros lo creamos! Los precios pueden variar según el nivel de personalización del pedido. Para pedidos personalizados o preguntas generales, envíanos un correo haciendo clic en Contáctanos en la sección de contacto. Nos comunicaremos contigo para coordinar la recogida en Holland, MI.
               </p>
             </div>
           </form>
@@ -933,7 +934,10 @@
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
       toast.className = 'toast';
-      toast.innerHTML = `<span class="toast-icon">${icon}</span><div><div class="toast-text">${text}</div>${sub ? `<div class="toast-sub">${sub}</div>` : ''}</div>`;
+      const iconHtml = icon.includes('.svg')
+        ? `<span class="toast-icon"><img src="${icon}" alt="" width="24" height="24" style="object-fit:contain;" /></span>`
+        : `<span class="toast-icon">${icon}</span>`;
+      toast.innerHTML = `${iconHtml}<div><div class="toast-text">${text}</div>${sub ? `<div class="toast-sub">${sub}</div>` : ''}</div>`;
       container.appendChild(toast);
       
       gsap.fromTo(toast, 
@@ -995,8 +999,13 @@
       var flavorNote = '';
       var cakeFlavor = tile.querySelector('.cake-flavor');
       var frostingFlavor = tile.querySelector('.frosting-flavor');
+      var conchaFlavor = tile.querySelector('.concha-flavor');
       if (cakeFlavor && frostingFlavor && cakeFlavor.value && frostingFlavor.value) {
         flavorNote = ' (' + cakeFlavor.selectedOptions[0].textContent + ' + ' + frostingFlavor.selectedOptions[0].textContent + ')';
+        displayName = displayName + flavorNote;
+      }
+      if (conchaFlavor && conchaFlavor.value) {
+        flavorNote = ' (' + conchaFlavor.selectedOptions[0].textContent + ')';
         displayName = displayName + flavorNote;
       }
 

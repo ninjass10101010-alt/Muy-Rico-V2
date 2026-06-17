@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Shadow -->
+  <ellipse cx="60" cy="108" rx="30" ry="6" fill="#C4A86C" opacity="0.15"/>
+
+  <!-- Liner / wrapper -->
+  <path d="M32 68 L38 105 L82 105 L88 68Z" fill="#5BA3E6" stroke="#4080C0" stroke-width="1.2"/>
+  <!-- Liner ridges -->
+  <line x1="40" y1="70" x2="42" y2="103" stroke="#4080C0" stroke-width="0.7" opacity="0.4"/>
+  <line x1="48" y1="70" x2="50" y2="103" stroke="#4080C0" stroke-width="0.7" opacity="0.4"/>
+  <line x1="56" y1="70" x2="58" y2="103" stroke="#4080C0" stroke-width="0.7" opacity="0.4"/>
+  <line x1="64" y1="70" x2="66" y2="103" stroke="#4080C0" stroke-width="0.7" opacity="0.4"/>
+  <line x1="72" y1="70" x2="74" y2="103" stroke="#4080C0" stroke-width="0.7" opacity="0.4"/>
+  <line x1="80" y1="70" x2="82" y2="103" stroke="#4080C0" stroke-width="0.7" opacity="0.4"/>
+  <!-- Liner top rim -->
+  <ellipse cx="60" cy="68" rx="28" ry="6" fill="#5BA3E6" stroke="#4080C0" stroke-width="1.2"/>
+
+  <!-- Cake top -->
+  <ellipse cx="60" cy="66" rx="26" ry="8" fill="#F0DFBE" stroke="#D4BA82" stroke-width="1"/>
+
+  <!-- Frosting swirl -->
+  <path d="M32 62 C32 62 38 50 50 48 C58 46 62 52 70 48 C78 44 84 50 88 62" fill="#f7a8a4" stroke="#e89490" stroke-width="1.2"/>
+  <path d="M36 56 C42 48 50 46 58 50 C66 54 74 46 84 54" fill="#f7a8a4" opacity="0.8"/>
+  <!-- Frosting peak / swirl top -->
+  <path d="M44 48 C48 34 52 30 56 28 C60 30 64 34 68 28 C72 22 74 26 76 48" fill="#f7a8a4" stroke="#e89490" stroke-width="1"/>
+  <path d="M48 44 C52 36 56 32 60 30 C64 32 68 36 72 44" fill="#FBBFBB" opacity="0.5"/>
+
+  <!-- Drip details -->
+  <path d="M34 62 C34 62 32 70 34 74" stroke="#f7a8a4" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M60 62 C60 62 60 72 60 76" stroke="#f7a8a4" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <path d="M84 62 C84 62 86 68 85 72" stroke="#f7a8a4" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.45"/>
+
+  <!-- Sprinkles -->
+  <rect x="44" y="38" width="5" height="2" rx="1" fill="#74c69d" transform="rotate(25 46 39)"/>
+  <rect x="56" y="34" width="5" height="2" rx="1" fill="#FBDB68" transform="rotate(-15 58 35)"/>
+  <rect x="66" y="36" width="5" height="2" rx="1" fill="#e63946" transform="rotate(40 68 37)"/>
+  <rect x="50" y="44" width="4" height="2" rx="1" fill="#5BA3E6" transform="rotate(-30 52 45)"/>
+  <rect x="72" y="42" width="4" height="2" rx="1" fill="#74c69d" transform="rotate(60 74 43)"/>
+  <rect x="38" y="54" width="4" height="2" rx="1" fill="#FBDB68" transform="rotate(-50 40 55)"/>
+  <rect x="78" y="52" width="4" height="2" rx="1" fill="#e63946" transform="rotate(35 80 53)"/>
+
+  <!-- Cherry on top -->
+  <circle cx="60" cy="24" r="5" fill="#e63946" stroke="#c0313e" stroke-width="0.8"/>
+  <circle cx="58.5" cy="22.5" r="1.5" fill="white" opacity="0.4"/>
+  <!-- Cherry stem -->
+  <path d="M60 20 C62 14 66 12 68 10" stroke="#4a7c3f" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+
+  <!-- Shine on frosting -->
+  <ellipse cx="50" cy="42" rx="4" ry="6" fill="white" opacity="0.08" transform="rotate(-20 50 42)"/>
+</svg>
