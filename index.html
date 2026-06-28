@@ -387,13 +387,12 @@
             .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: 0.8, transformOrigin: 'left center' }, '-=0.6')
             .from('.hero-subheadline', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5')
             .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5')
-            .from('.hero-ctas > *', { y: 20, autoAlpha: 0, duration: 0.6, stagger: 0.1 }, '-=0.4')
             .from('.hero-scroll-hint', { y: 10, autoAlpha: 0, duration: 0.5 }, '-=0.3');
 
-      // Enforce follow button visibility after hero animation
-      heroTl.eventCallback('onComplete', () => {
-        const fb = document.querySelector('.btn-follow');
-        if (fb) { gsap.set(fb, { autoAlpha: 1 }); }
+      // Buttons animation — separate from main timeline, CSS starts them hidden
+      gsap.to('.hero-ctas > *', {
+        y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12,
+        ease: 'power3.out', delay: 1.5
       });
 
       // Sidebar items

@@ -878,14 +878,19 @@
       try { localStorage.setItem('lang', lang); } catch (e) {}
     };
 
-    if (!prefersReduced) {
-      const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      heroTl.from('.hero-eyebrow', { y: 30, autoAlpha: 0, duration: 0.8 })
-            .from('.hero-headline-top', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.5')
-            .from('.hero-headline-bottom', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.8')
-            .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: 0.8, transformOrigin: 'left center' }, '-=0.6')
-            .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5')
-            .from('.hero-ctas > *', { y: 20, autoAlpha: 0, duration: 0.6, stagger: 0.1 }, '-=0.4');
+      if (!prefersReduced) {
+        const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        heroTl.from('.hero-eyebrow', { y: 30, autoAlpha: 0, duration: 0.8 })
+              .from('.hero-headline-top', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.5')
+              .from('.hero-headline-bottom', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.8')
+              .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: 0.8, transformOrigin: 'left center' }, '-=0.6')
+              .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5');
+
+        // Buttons — separate from main timeline, CSS starts them hidden
+        gsap.to('.hero-ctas > *', {
+          y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12,
+          ease: 'power3.out', delay: 1.5
+        });
 
       gsap.from('.sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card', {
         x: -40, autoAlpha: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out', delay: 0.2
@@ -908,7 +913,7 @@
 
     } else {
       // Reduced motion: show everything immediately
-      document.querySelectorAll('.reveal').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
+      document.querySelectorAll('.reveal, .hero-ctas .btn').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; el.style.visibility = 'visible'; });
     }
 
     // ── Language ──────────────────────────────────────────────────
