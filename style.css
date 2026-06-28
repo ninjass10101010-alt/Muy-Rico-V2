@@ -453,20 +453,21 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 .btn-xl { padding: 0.9rem 2.2rem; font-size: 0.95rem; }
 
 .btn-follow {
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.88);
   color: var(--color-text-cocoa);
   border: 1.5px solid rgba(44,37,35,0.12);
   gap: 0.5rem;
   box-shadow: var(--shadow-3d-soft);
 }
 .btn-follow:hover {
-  background: rgba(255,255,255,0.95);
+  background: rgba(255,255,255,0.96);
   border-color: var(--color-mid-green);
   color: var(--color-palm-green);
   box-shadow: var(--shadow-card-hover);
 }
 .btn-follow svg { flex-shrink: 0; }
+.btn-follow svg { color: var(--color-text-cocoa); }
+.btn-follow:hover svg { color: var(--color-palm-green); }
 
 /* ==========================================================================
    MAIN CONTENT

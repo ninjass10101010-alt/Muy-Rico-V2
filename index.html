@@ -390,6 +390,12 @@
             .from('.hero-ctas > *', { y: 20, autoAlpha: 0, duration: 0.6, stagger: 0.1 }, '-=0.4')
             .from('.hero-scroll-hint', { y: 10, autoAlpha: 0, duration: 0.5 }, '-=0.3');
 
+      // Enforce follow button visibility after hero animation
+      heroTl.eventCallback('onComplete', () => {
+        const fb = document.querySelector('.btn-follow');
+        if (fb) { gsap.set(fb, { autoAlpha: 1 }); }
+      });
+
       // Sidebar items
       gsap.from('.sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card', {
         x: -40, autoAlpha: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out', delay: 0.2
@@ -439,7 +445,7 @@
 
     } else {
       // Reduced motion: just show everything
-      gsap.set('.hero-eyebrow, .hero-headline-top, .hero-headline-bottom, .hero-divider, .hero-subheadline, .hero-description, .hero-ctas > *, .hero-scroll-hint, .sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card, .reveal, .footer-hib-row, .footer-coqui-divider > *, .footer-copyright, .footer-tagline', { autoAlpha: 1 });
+      gsap.set('.hero-eyebrow, .hero-headline-top, .hero-headline-bottom, .hero-divider, .hero-subheadline, .hero-description, .hero-ctas > *, .btn-follow, .hero-scroll-hint, .sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card, .reveal, .footer-hib-row, .footer-coqui-divider > *, .footer-copyright, .footer-tagline', { autoAlpha: 1 });
     }
 
     // Bilingual toggle
@@ -472,9 +478,7 @@
       });
     });
 
-    // ---- Ensure story text is visible + language initialized ----
-    // Some environments may leave .reveal elements invisible if GSAP/ScrollTrigger
-    // doesn't fire immediately. Force the story block visible.
+    // ---- Ensure story text visible ----
     const storyReveal = document.querySelector('#story .reveal');
     if (storyReveal) storyReveal.style.opacity = '1';
 
