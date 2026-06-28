@@ -176,10 +176,16 @@
       font-size: 0.6rem;
       font-weight: 700;
       letter-spacing: 0.08em;
-      padding: 0.2rem 0.6rem;
+      padding: 0.25rem 0.65rem;
       border-radius: 50px;
       text-transform: uppercase;
+      box-shadow: 0 2px 8px rgba(30,70,54,0.25);
     }
+    @keyframes badgePop {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .product-tile.in-cart .cart-badge-tile { display: inline-flex; align-items: center; gap: 0.3rem; animation: badgePop 0.35s ease forwards; }
     .product-tile.in-cart .cart-badge-tile { display: inline-flex; align-items: center; gap: 0.3rem; }
 
     /* Qty stepper improvements */
@@ -398,8 +404,8 @@
     }
     .flavor-selects select:focus { border-color: var(--color-accent-coral); box-shadow: 0 0 0 2px rgba(247,168,164,0.15); }
   </style>
-</head>
-<body>
+  </head>
+  <body>
 
   <!-- Toast container -->
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
@@ -475,7 +481,7 @@
         <p class="hero-description lang-fade"
            data-es="Todo se hornea por pedido para garantizar la mejor textura y sabor. Selecciona tus productos, cuéntanos cuándo los necesitas y coordinamos tu recogida en Holland, MI."
            data-en="Everything is baked to order to guarantee the best texture and flavor. Select your products, tell us when you need them, and we'll coordinate pickup in Holland, MI.">
-          Todo se hornea por pedido para garantizar la mejor textura y sabor. Selecciona tus productos, cuéntanos cuándo los necesitas, y coordinamos tu recogida en Holland, MI.
+          Todo se hornea por pedido para garantizar la mejor textura y sabor. Selecciona tus productos, cuéntanos cuándo los necesitas y coordinamos tu recogida en Holland, MI.
         </p>
         <div class="hero-ctas">
           <a href="#menu" class="btn btn-coral btn-xl lang-fade" data-es="Ver Menú" data-en="Browse Menu">Ver Menú</a>
@@ -546,7 +552,7 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Conchas" data-en="Conchas">Conchas</h3>
             <p class="tile-desc lang-fade"
-               data-es="This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee."
+               data-es="Este pan mexicano es un ícono. Suave y esponjoso con vainilla y canela en la masa. La hermosa cobertura en forma de concha viene en vainilla, chocolate y fresa. Honestamente, lo necesitas para acompañar tu café."
                data-en="This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.">
               This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.
             </p>
@@ -578,7 +584,7 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Bolillos" data-en="Bolillos">Bolillos</h3>
             <p class="tile-desc lang-fade"
-               data-es="This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you."
+               data-es="Este pan de inspiración mexicano-francesa tiene una corteza crujiente y un centro suave. Estos bolillos son perfectos para todas tus necesidades de sándwich/torta. Pero seamos sinceros, calienta ese bolillo, úntale mantequilla y deja que la felicidad te invada."
                data-en="This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.">
               This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.
             </p>
@@ -602,7 +608,7 @@
             </div>
             <h3 class="tile-title lang-fade" data-es="Tortillas de Harina" data-en="Flour Tortillas">Tortillas de Harina</h3>
             <p class="tile-desc lang-fade"
-               data-es="Handmade, soft, light, and buttery tortillas. Imagine with me... Tacos, quesadillas, with butter and salt...there really isn&rsquo;t a time that a tortilla is not needed. So, in conclusion...you need some."
+               data-es="Tortillas hechas a mano, suaves, ligeras y mantecosas. Imagina conmigo... tacos, quesadillas, con mantequilla y sal... realmente no hay momento en que una tortilla no sea necesaria. Así que, en conclusión... necesitas algunas."
                data-en="Handmade, soft, light, and buttery tortillas. Imagine with me... Tacos, quesadillas, with butter and salt...there really isn&rsquo;t a time that a tortilla is not needed. So, in conclusion...you need some.">
               Handmade, soft, light, and buttery tortillas. Imagine with me... Tacos, quesadillas, with butter and salt...there really isn&rsquo;t a time that a tortilla is not needed. So, in conclusion...you need some.
             </p>
@@ -722,7 +728,7 @@
           <span class="lang-fade"
              data-es="¡Mantente atento al sitio web para ver nuevos productos mientras seguimos creciendo!"
              data-en="Keep an eye on the website to see new products appear as we continue to grow!">
-            Keep an eye on the website to watch new products appear as we continue to grow!
+            Keep an eye on the website to see new products appear as we continue to grow!
           </span>
         </p>
       </section>
@@ -747,9 +753,10 @@
           <ul class="cart-list" id="cart-list">
             <li class="cart-empty-state">
               <div class="empty-icon">🛒</div>
-              <p class="lang-fade" data-es="Aún no has elegido nada. ¡Sube al menú y escoge tus favoritos!" data-en="Nothing here yet. Head up to the menu and pick your favorites!">
-                Aún no has elegido nada. ¡Sube al menú y escoge tus favoritos!
-              </p>
+              <div>
+                <p class="lang-fade" data-es="Aún no has elegido nada." data-en="Nothing here yet.">Aún no has elegido nada.</p>
+                <a href="#menu" class="btn-ghost-sm lang-fade" style="margin-top:0.5rem;display:inline-flex;" data-es="Ver Menú" data-en="Browse Menu">Ver Menú</a>
+              </div>
             </li>
           </ul>
 
@@ -774,7 +781,7 @@
               </div>
               <div class="field">
                 <label for="phone" class="lang-fade" data-es="Teléfono" data-en="Phone">Teléfono</label>
-                <input type="tel" id="phone" required
+                <input type="tel" id="phone" required pattern="[0-9\s\-\(\)\+]+"
                        data-es-placeholder="(616) 555-1234" data-en-placeholder="(616) 555-1234" placeholder="(616) 555-1234" />
               </div>
               <div class="field">
@@ -845,6 +852,12 @@
         </div>
         <div class="footer-coqui-divider">
           <span>🌸</span><span class="divider-dot">●</span><span>🍞</span><span class="divider-dot">●</span><span>🌿</span><span class="divider-dot">●</span><span>🍰</span><span class="divider-dot">●</span><span>🌸</span>
+        </div>
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </a>
+
         </div>
         <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Hecho con amor.</p>
         <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Familia · Tradición · Sabor</span>
@@ -1033,6 +1046,12 @@
 
       // Tile green ring
       tile.classList.add('in-cart');
+
+      // Pulse the cart panel
+      const orderPanel = document.getElementById('order-panel');
+      orderPanel.classList.remove('cart-pulse');
+      void orderPanel.offsetWidth;
+      orderPanel.classList.add('cart-pulse');
 
       // Toast notification
       const subtotal = '$' + (price * qty).toFixed(2);
