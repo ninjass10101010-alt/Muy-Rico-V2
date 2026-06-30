@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard — Muy Rico</title>
+<style>
+  :root { --orange:#E85D04; --dark:#1A1A2E; --gray:#6B7280; --bg:#FAFAF9; --line:#E5E7EB;
+          --green:#16A34A; --red:#DC2626; --blue:#2563EB; --amber:#D97706; }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--dark);margin:0;padding:24px;max-width:1100px;margin:auto}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+  h1{color:var(--orange);margin:0;font-size:26px}
+  .new{background:var(--orange);color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px}
+  .new:hover{background:#C84E03}
+  .chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .chip{background:#fff;border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:13px;color:var(--gray)}
+  .chip b{color:var(--dark);font-size:18px;margin-left:4px}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+  .tab{background:none;border:none;padding:12px 18px;cursor:pointer;font-size:14px;font-weight:500;color:var(--gray);border-bottom:2px solid transparent;white-space:nowrap}
+  .tab:hover{color:var(--dark)}
+  .tab.active{color:var(--orange);border-bottom-color:var(--orange)}
+  .controls{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+  .controls input,.controls select{padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:inherit;background:#fff}
+  .controls input:focus,.controls select:focus{outline:none;border-color:var(--orange)}
+  .controls input.search{flex:1;min-width:200px}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th{background:#F5F5F4;text-align:left;padding:10px 12px;font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+  td{padding:12px;border-top:1px solid var(--line);font-size:14px;vertical-align:top}
+  tr:hover{background:#FAFAFA}
+  .row-actions{display:flex;gap:4px;flex-wrap:wrap}
+  .btn{background:none;border:1px solid var(--line);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--dark);font-family:inherit}
+  .btn:hover{border-color:var(--orange);color:var(--orange)}
+  .btn.danger:hover{border-color:var(--red);color:var(--red)}
+  .empty{text-align:center;padding:48px;color:var(--gray)}
+  .empty-icon{font-size:48px;margin-bottom:8px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;letter-spacing:.3px}
+  .pill-pending{background:#FEF3C7;color:#92400E}
+  .pill-ready{background:#DBEAFE;color:#1E40AF}
+  .pill-done{background:#D1FAE5;color:#065F46}
+  .pill-cancelled{background:#FEE2E2;color:#991B1B}
+  .pill-unpaid{background:#FEF3C7;color:#92400E}
+  .pill-paid{background:#D1FAE5;color:#065F46}
+  .pay{display:inline-flex;align-items:center;gap:4px;font-size:13px}
+  .pay-icon{font-size:16px}
+  .items-cell{font-size:13px;max-width:280px}
+  .items-cell ul{margin:0;padding-left:18px}
+  details summary{cursor:pointer;color:var(--orange);font-size:12px;margin-top:4px}
+  details[open] summary{margin-bottom:6px}
+  .meta{color:var(--gray);font-size:12px;margin-top:4px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>🥟 Muy Rico Orders</h1>
+    <a href="/intake.html" class="new">+ New Order</a>
+  </header>
+
+  <div class="chips" id="chips"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="active">Active</button>
+    <button class="tab" data-tab="pending">Pending</button>
+    <button class="tab" data-tab="ready">Ready</button>
+    <button class="tab" data-tab="done">Done</button>
+    <button class="tab" data-tab="unpaid">Unpaid</button>
+    <button class="tab" data-tab="all">All</button>
+  </div>
+
+  <div class="controls">
+    <input type="search" class="search" id="q" placeholder="Search customer or notes..." />
+    <select id="payFilter">
+      <option value="">All payments</option>
+      <option value="venmo">Venmo</option>
+      <option value="cashapp">Cash App</option>
+      <option value="applepay">Apple Pay</option>
+      <option value="cash">Cash</option>
+    </select>
+    <input type="date" id="from" title="From pickup date" />
+    <input type="date" id="to" title="To pickup date" />
+    <button class="btn" onclick="load()">Apply</button>
+    <button class="btn" onclick="clearFilters()">Clear</button>
+  </div>
+
+  <div id="content"></div>
+
+<script>
+const API = '/api/orders';
+const STATS = '/api/stats';
+const PAY_ICON = { venmo:'💸', cashapp:'💵', applepay:'🍎', cash:'💰' };
+let currentTab = 'active';
+
+const $ = (s) => document.querySelector(s);
+const fmtMoney = (c) => '$' + ((c||0)/100).toFixed(2);
+const fmtDate = (s) => s ? new Date(s + (s.includes('T')?'':'T00:00')).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+const fmtTime = (s) => s ? s.slice(0,5) : '';
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  currentTab = t.dataset.tab;
+  load();
+}));
+
+function clearFilters() {
+  $('#q').value=''; $('#payFilter').value=''; $('#from').value=''; $('#to').value=''; load();
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch(STATS);
+    const s = await r.json();
+    $('#chips').innerHTML = `
+      <div class="chip">Active <b>${s.active||0}</b></div>
+      <div class="chip">Pending <b>${s.pending||0}</b></div>
+      <div class="chip">Ready <b>${s.ready||0}</b></div>
+      <div class="chip">Done <b>${s.done||0}</b></div>
+      <div class="chip">Unpaid <b>${s.unpaid||0}</b></div>
+      <div class="chip">Paid <b>${s.paid||0}</b></div>
+    `;
+  } catch (e) { console.error(e); }
+}
+
+async function load() {
+  const sp = new URLSearchParams();
+  if (currentTab === 'active')   { sp.set('status', 'pending'); }
+  else if (currentTab === 'pending') { sp.set('status', 'pending'); }
+  else if (currentTab === 'ready')   { sp.set('status', 'ready'); }
+  else if (currentTab === 'done')    { sp.set('status', 'done'); }
+  else if (currentTab === 'unpaid')  { sp.set('payment_status', 'unpaid'); }
+  if ($('#q').value)        sp.set('search', $('#q').value);
+  if ($('#payFilter').value) sp.set('payment', $('#payFilter').value);
+  if ($('#from').value)     sp.set('from', $('#from').value);
+  if ($('#to').value)       sp.set('to', $('#to').value);
+
+  $('#content').innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const r = await fetch(API + '?' + sp);
+    const { orders } = await r.json();
+    if (!orders.length) {
+      $('#content').innerHTML = `<div class="empty"><div class="empty-icon">🥟</div>No orders here yet.</div>`;
+      return;
+    }
+    render(orders);
+  } catch (e) {
+    $('#content').innerHTML = `<div class="empty" style="color:var(--red)">Error: ${e.message}</div>`;
+  }
+}
+
+function render(orders) {
+  const rows = orders.map(o => {
+    const items = JSON.parse(o.items_json || '[]');
+    const total = items.reduce((s,i) => s + (i.qty * (i.price||0)), 0);
+    const itemsHtml = `<ul>${items.map(i => `<li>${i.qty}× ${i.name}${i.price?' <span style="color:var(--gray)">$${i.price.toFixed(2)}</span>':''}</li>`).join('')}</ul>`;
+    return `
+      <tr data-id="${o.id}">
+        <td>
+          <div style="font-weight:600">#${o.id} ${o.customer_name}</div>
+          <div class="meta">${o.phone ? o.phone+' · ' : ''}by ${o.created_by || 'system'} · ${o.created_at.slice(0,10)}</div>
+        </td>
+        <td>${fmtDate(o.pickup_date)}${o.pickup_time?'<br><span class="meta">'+fmtTime(o.pickup_time)+'</span>':''}</td>
+        <td class="items-cell">${itemsHtml}<div style="color:var(--gray);font-size:12px;margin-top:4px">Total: <b>$${total.toFixed(2)}</b></div></td>
+        <td><span class="pay"><span class="pay-icon">${PAY_ICON[o.payment_method]||'?'}</span> ${o.payment_method}</span></td>
+        <td><span class="pill pill-${o.payment_status}">${o.payment_status}</span></td>
+        <td><span class="pill pill-${o.status}">${o.status}</span></td>
+        <td>
+          <div class="row-actions">
+            ${nextStatusBtn(o)}
+            ${o.payment_status === 'unpaid' ? `<button class="btn" onclick="markPaid(${o.id})">Mark paid</button>` : ''}
+            ${o.status !== 'cancelled' ? `<button class="btn danger" onclick="cancelOrder(${o.id})">Cancel</button>` : ''}
+          </div>
+          ${o.notes ? `<details><summary>notes</summary><div style="font-size:13px;color:var(--gray);white-space:pre-wrap">${escapeHtml(o.notes)}</div></details>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  $('#content').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Order</th><th>Pickup</th><th>Items</th><th>Pay method</th><th>Payment</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function nextStatusBtn(o) {
+  const next = { pending: 'ready', ready: 'done' };
+  if (next[o.status]) {
+    return `<button class="btn" onclick="advance(${o.id},'${next[o.status]}')">→ ${next[o.status]}</button>`;
+  }
+  return '';
+}
+
+async function advance(id, status) {
+  await patch(id, { status });
+}
+async function markPaid(id) {
+  await patch(id, { payment_status: 'paid' });
+}
+async function cancelOrder(id) {
+  if (!confirm('Cancel this order?')) return;
+  await fetch(API + '/' + id, { method: 'DELETE' });
+  load();
+}
+async function patch(id, body) {
+  await fetch(API + '/' + id, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  load();
+}
+function escapeHtml(s) { return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+loadStats();
+load();
+</script>
+</body>
+</html>
