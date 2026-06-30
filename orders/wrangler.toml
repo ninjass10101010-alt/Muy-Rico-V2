@@ -1,0 +1,13 @@
+name = "muy-rico-orders-api"
+main = "workers/api.js"
+compatibility_date = "2024-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "muy-rico-orders"
+database_id = "PASTE_AFTER_D1_CREATE"   # ← run `wrangler d1 create muy-rico-orders` first
+
+[vars]
+ALLOWED_ORIGIN = "https://muy-rico.pages.dev"
+# Optional — paste a Telegram bot token + chat ID for new-order notifications
+# TELEGRAM_BOT_TOKEN=*** TELEGRAM_CHAT_ID = ""
