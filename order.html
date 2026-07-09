@@ -922,6 +922,10 @@
     const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const ORDER_API = isDev ? 'http://localhost:8787' : '';
 
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
     // ── Live product menu (Part 8) ──────────────────────────────────
     // Replaces the hard-coded tiles with live products from /api/products.
     // On failure the static fallback tiles (already in the DOM) stay visible.
@@ -931,11 +935,15 @@
       const icon = p.image_url
         ? `<img class="tile-icon" src="${p.image_url}" alt="${p.name}" width="42" height="42" style="object-fit:contain;" />`
         : `<span class="tile-icon" style="font-size:42px;line-height:1;">${p.emoji || '🍞'}</span>`;
-      const flavors = (p.flavors && p.flavors.length)
-        ? `<div class="flavor-selects"><select aria-label="${p.name} flavor">` +
-            `<option value="">Flavor</option>` +
-            p.flavors.map(f => `<option value="${f}">${f}</option>`).join('') +
-          `</select></div>`
+      const flavorHTML = (p.flavor_groups && p.flavor_groups.length)
+        ? `<div class="flavor-selects">` + p.flavor_groups.map(g => `
+            <div class="flavor-group">
+              <label class="flavor-label">${escapeHtml(g.name)}</label>
+              <select class="flavor-select" data-group="${escapeHtml(g.name)}">
+                <option value="">— Select —</option>
+                ${g.options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}
+              </select>
+            </div>`).join('') + `</div>`
         : '';
       return `
         <article class="product-tile reveal"
@@ -944,15 +952,16 @@
           data-name-en="${p.name}"
           data-price="${Number(p.price).toFixed(2)}"
           data-icon="${p.emoji || '🍞'}"
+          data-image-url="${p.image_url || ''}"
           data-toast-emoji="${p.emoji || '🍞'}"
-          data-has-flavors="${(p.flavors && p.flavors.length) ? '1' : ''}">
+          data-has-flavors="${(p.flavor_groups && p.flavor_groups.length) ? '1' : ''}">
           <div class="tile-header">
             ${icon}
             <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
           </div>
           <h3 class="tile-title lang-fade" data-es="${p.name_es || p.name}" data-en="${p.name}">${name}</h3>
           <p class="tile-desc lang-fade" data-es="${p.description_es || p.description || ''}" data-en="${p.description || ''}">${desc}</p>
-          ${flavors}
+          ${flavorHTML}
           <div class="tile-bottom">
             <span class="tile-price">$${Number(p.price).toFixed(2)} <span class="lang-fade" data-es="c/u" data-en="ea">ea</span></span>
             <div class="tile-actions">
@@ -1149,15 +1158,13 @@
       let qty = parseInt(tile.querySelector('.qty-value').textContent);
 
       var flavorNote = '';
-      var cakeFlavor = tile.querySelector('.cake-flavor');
-      var frostingFlavor = tile.querySelector('.frosting-flavor');
-      var conchaFlavor = tile.querySelector('.concha-flavor');
-      if (cakeFlavor && frostingFlavor && cakeFlavor.value && frostingFlavor.value) {
-        flavorNote = ' (' + cakeFlavor.selectedOptions[0].textContent + ' + ' + frostingFlavor.selectedOptions[0].textContent + ')';
-        displayName = displayName + flavorNote;
-      }
-      if (conchaFlavor && conchaFlavor.value) {
-        flavorNote = ' (' + conchaFlavor.selectedOptions[0].textContent + ')';
+      const selects = tile.querySelectorAll('.flavor-select');
+      const selectedFlavors = [];
+      selects.forEach(sel => {
+        if (sel.value) selectedFlavors.push(`${sel.dataset.group}: ${sel.value}`);
+      });
+      if (selectedFlavors.length) {
+        flavorNote = ' (' + selectedFlavors.join(', ') + ')';
         displayName = displayName + flavorNote;
       }
 
@@ -1168,7 +1175,19 @@
 
       const existing = cart.find(item => item.name === name && (item.flavorNote || '') === flavorNote);
       if (existing) { existing.qty += qty; existing.displayName = displayName; }
-      else { cart.push({ name, nameEn, displayName, price, qty, icon, flavorNote }); }
+      else {
+        cart.push({
+          name,
+          nameEn,
+          displayName,
+          price,
+          qty,
+          icon,
+          image_url: tile.getAttribute('data-image-url') || '',
+          toastEmoji,
+          flavorNote,
+        });
+      }
 
       // Reset qty display
       tile.querySelector('.qty-value').textContent = '0';
@@ -1269,9 +1288,12 @@
       list.innerHTML = cart.map((item, i) => {
         const line = item.price * item.qty;
         total += line;
-        const iconHtml = item.icon && item.icon.endsWith('.svg')
-          ? `<img src="${item.icon}" alt="" width="22" height="22" style="object-fit:contain;" />`
-          : `${item.icon || '🍞'}`;
+        let iconHtml;
+        if (item.image_url) {
+          iconHtml = `<img src="${item.image_url}" alt="" width="36" height="36" style="object-fit:cover;border-radius:8px;" />`;
+        } else {
+          iconHtml = `<span style="font-size:28px;line-height:1;">${item.toastEmoji || '🍞'}</span>;
+        }
         return `<li>
           <div class="cart-item-left">
             <span class="cart-item-icon">${iconHtml}</span>

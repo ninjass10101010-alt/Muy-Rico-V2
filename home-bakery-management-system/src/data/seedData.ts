@@ -183,6 +183,10 @@ export const seedProducts: Product[] = [
       { inventoryItemId: "inv_salt", qtyPerUnit: 0.005 },
     ],
     auto_generate_label: true,
+    flavor_groups: [
+      { name: 'Cake Flavor', options: ['Vanilla', 'Chocolate', 'Red Velvet'] },
+      { name: 'Frosting', options: ['Buttercream', 'Cream Cheese', 'Chocolate'] },
+    ],
   },
   {
     id: "prod_cupcakes",
@@ -207,6 +211,10 @@ export const seedProducts: Product[] = [
       { inventoryItemId: "inv_salt", qtyPerUnit: 0.003 },
     ],
     auto_generate_label: true,
+    flavor_groups: [
+      { name: 'Cake Flavor', options: ['Vanilla', 'Chocolate', 'Red Velvet'] },
+      { name: 'Frosting', options: ['Buttercream', 'Cream Cheese', 'Chocolate'] },
+    ],
   },
   {
     id: "prod_cookies_dozen",

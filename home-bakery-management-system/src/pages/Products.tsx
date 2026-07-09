@@ -4,7 +4,8 @@ import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
 import { formatCurrency } from "../utils/format";
 import { composeLabelFromRecipe } from "../utils/label";
-import type { Product } from "../types";
+import { uploadImage } from "../utils/api";
+import type { FlavorGroup, Product } from "../types";
 import type { Page } from "../App";
 
 const EMOJI_CHOICES = ["🧁", "🎂", "🍪", "🥐", "🍞", "🍩", "🥧", "🍫", "🥯", "🍰"];
@@ -30,7 +31,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<Product>(emptyProduct());
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [flavorsText, setFlavorsText] = useState("");
+  const [flavorGroups, setFlavorGroups] = useState<FlavorGroup[]>([]);
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -40,29 +41,39 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
     [draft, inventory],
   );
 
+  function normalizeFlavors(p: Product): FlavorGroup[] {
+    if (Array.isArray((p as any).flavor_groups) && (p as any).flavor_groups.length) {
+      return (p as any).flavor_groups;
+    }
+    if (Array.isArray((p as any).flavors) && (p as any).flavors.length) {
+      return [{ name: 'Flavor', options: (p as any).flavors }];
+    }
+    return [];
+  }
+
   function openNew() {
     setDraft(emptyProduct());
     setEditingId(null);
-    setFlavorsText("");
+    setFlavorGroups([]);
     setModalOpen(true);
   }
 
   function openEdit(p: Product) {
     setDraft(p);
     setEditingId(p.id);
-    setFlavorsText((p.flavor_groups || []).join(", "));
+    setFlavorGroups(normalizeFlavors(p));
     setModalOpen(true);
   }
 
   async function save() {
     if (!draft.name.trim()) return;
-    const flavors = flavorsText.split(",").map((s) => s.trim()).filter(Boolean);
     const useAuto = draft.auto_generate_label !== false;
     const ingredients = useAuto ? composedLabelPreview.ingredients : (draft.ingredients || "");
     const allergens = useAuto ? composedLabelPreview.allergens : (draft.allergens || "");
     const payload: any = {
       ...draft,
-      flavors,
+      name_es: draft.name_es || null,
+      flavor_groups: flavorGroups.filter(g => g.name.trim() && g.options.length),
       ingredients,
       allergens,
       auto_generate_label: useAuto,
@@ -177,6 +188,14 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                 className="input"
               />
             </Field>
+            <Field label="Name (Spanish)">
+              <input
+                value={draft.name_es || ''}
+                onChange={(e) => setDraft({ ...draft, name_es: e.target.value })}
+                className="input"
+                placeholder="Nombre en español"
+              />
+            </Field>
             <Field label="Category">
               <input
                 value={draft.category}
@@ -224,20 +243,83 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                 placeholder="Descripción en español"
               />
             </Field>
-            <Field label="Flavor options (comma-separated, e.g. Vanilla, Chocolate)">
-              <input
-                value={flavorsText}
-                onChange={(e) => setFlavorsText(e.target.value)}
-                className="input"
-                placeholder="Leave blank if not applicable"
-              />
+            <Field label="Flavor Options">
+              {flavorGroups.map((grp, gi) => (
+                <div key={gi} className="mb-3 rounded-lg border border-sand-200 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <input
+                      className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                      placeholder="Group name (e.g. Cake Flavor)"
+                      value={grp.name}
+                      onChange={(e) => {
+                        const next = [...flavorGroups];
+                        next[gi] = { ...grp, name: e.target.value };
+                        setFlavorGroups(next);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="rounded-lg bg-red-50 px-2 py-1 text-xs text-red-600"
+                      onClick={() => setFlavorGroups(flavorGroups.filter((_, i) => i !== gi))}
+                    >Remove</button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {grp.options.map((opt, oi) => (
+                      <span key={oi} className="inline-flex items-center gap-1 rounded-full bg-sand-100 px-2.5 py-1 text-xs">
+                        {opt}
+                        <button type="button" className="text-cocoa-muted ml-1" onClick={() => {
+                          const next = [...flavorGroups];
+                          next[gi] = { ...grp, options: grp.options.filter((_, i) => i !== oi) };
+                          setFlavorGroups(next);
+                        }}>×</button>
+                      </span>
+                    ))}
+                    <input
+                      className="w-28 rounded-full border border-sand-200 px-2 py-1 text-xs"
+                      placeholder="Add…"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                          const v = (e.target as HTMLInputElement).value.trim();
+                          const next = [...flavorGroups];
+                          next[gi] = { ...grp, options: [...grp.options, v] };
+                          setFlavorGroups(next);
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="rounded-lg border border-dashed border-cocoa-muted px-3 py-1.5 text-xs font-medium text-cocoa-muted"
+                onClick={() => setFlavorGroups([...flavorGroups, { name: '', options: [] }])}
+              >+ Add Flavor Group</button>
             </Field>
-            <Field label="Image URL (paste a link to a photo hosted anywhere)">
+            <Field label="Product Image">
+              {draft.image_url && (
+                <img src={draft.image_url} alt="" className="mb-2 h-16 w-16 rounded-lg object-cover" />
+              )}
               <input
-                value={draft.image_url || ""}
-                onChange={(e) => setDraft({ ...draft, image_url: e.target.value || undefined })}
-                className="input"
-                placeholder="https://... (browser will fall back to emoji if blank)"
+                type="file"
+                accept="image/*"
+                className="block w-full text-sm"
+                onChange={async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (!file) return;
+                  try {
+                    const { url } = await uploadImage(file);
+                    setDraft({ ...draft, image_url: url });
+                  } catch (err: any) {
+                    alert('Upload failed: ' + err.message);
+                  }
+                }}
+              />
+              <input
+                className="mt-2 w-full rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                placeholder="…or paste image URL"
+                value={draft.image_url || ''}
+                onChange={(e) => setDraft({ ...draft, image_url: e.target.value })}
               />
             </Field>
             <label className="flex items-center gap-2 text-sm text-cocoa">
@@ -306,6 +388,14 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                     {em}
                   </button>
                 ))}
+              </div>
+              <div className="mt-2">
+                <label className="mb-1 block text-xs text-cocoa-muted">Or type a custom emoji</label>
+                <input
+                  className="w-20 rounded-lg border border-sand-200 px-2 py-1 text-center text-lg"
+                  value={draft.emoji}
+                  onChange={(e) => setDraft({ ...draft, emoji: e.target.value })}
+                />
               </div>
             </Field>
             <label className="flex items-center gap-2 text-sm text-cocoa-muted">
