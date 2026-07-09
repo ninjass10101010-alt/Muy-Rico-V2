@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_status  TEXT    NOT NULL DEFAULT 'unpaid',  -- 'unpaid' | 'paid'
   status          TEXT    NOT NULL DEFAULT 'pending', -- 'pending' | 'ready' | 'done' | 'cancelled'
   notes           TEXT,
-  created_by      TEXT    NOT NULL DEFAULT 'jeff'
+  created_by      TEXT    NOT NULL DEFAULT 'jeff',
+  source          TEXT    NOT NULL DEFAULT 'in-person'
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_status   ON orders(status);

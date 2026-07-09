@@ -1,13 +1,21 @@
 name = "muy-rico-orders-api"
 main = "workers/api.js"
 compatibility_date = "2024-09-01"
+compatibility_flags = [ "nodejs_compat" ]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "muy-rico-orders"
 database_id = "PASTE_AFTER_D1_CREATE"   # ← run `wrangler d1 create muy-rico-orders` first
 
+[email_sending]
+binding = "EMAIL"
+
 [vars]
 ALLOWED_ORIGIN = "https://muy-rico.pages.dev"
-# Optional — paste a Telegram bot token + chat ID for new-order notifications
-# TELEGRAM_BOT_TOKEN=*** TELEGRAM_CHAT_ID = ""
+# Optional — email notifications on new orders
+# EMAIL_RECIPIENT = "you@example.com"
+# EMAIL_FROM = "orders@yourdomain.com"
+# Optional — Telegram notifications on new orders (create a bot via @BotFather)
+# TELEGRAM_BOT_TOKEN = "***"
+# TELEGRAM_CHAT_ID = "***"

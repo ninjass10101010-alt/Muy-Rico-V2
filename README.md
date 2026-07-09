@@ -4,18 +4,23 @@ Live website for **Muy Rico**, a family-owned Mexican bakery in Holland, Michiga
 
 ## 📦 Tech Stack
 
-- Pure HTML5 / CSS3 / Vanilla JS
+- Static marketing site: HTML5 / CSS3 / Vanilla JS
 - [GSAP 3](https://gsap.com/) for scroll animations
-- [Google Fonts](https://fonts.google.com/) — Cormorant Garamond & Quicksand
-- All images served as WebP (converted from PNG/JPG)
+- Admin dashboard: React 19 + Vite + Tailwind 4 (single-file bundle)
+- Backend: Cloudflare Workers + D1 (SQLite)
+- Auth: Cloudflare Access (email + one-time PIN)
+- Stripe Checkout for card payments
+- PayPal Smart Buttons for Venmo/PayPal
+- Google Fonts — Cormorant Garamond & Quicksand
 
 ## 📄 Pages
 
-| File | Description |
-|---|---|
-| `index.html` | Home page — hero, our story, community values, Cottage Food Law info |
-| `order.html` | Order page — product menu, cart, Formspree submission, Stripe + PayPal/Venmo payments |
-| `style.css` | All styles — design tokens, layout, components |
+| URL | File | Description |
+|---|---|---|
+| `/` | `index.html` | Home — hero, our story, community values, Cottage Food Law info |
+| `/order` (public); `/order.html` (legacy) | `order.html` | Order page — product menu, cart, Formspree submission, Stripe + PayPal/Venmo payments |
+| `/admin/` | `admin/index.html` (built from `home-bakery-management-system/`) | Owner dashboard — orders, products, inventory, customers, payments, labels, settings |
+| `/admin/order/` | `admin/index.html` (built) | Public React order page (preview-only; legacy `order.html` is the live customer flow) |
 
 ## 🖼️ Images
 
@@ -34,30 +39,50 @@ Live website for **Muy Rico**, a family-owned Mexican bakery in Holland, Michiga
 
 ## 📬 Ordering & Payments
 
-Orders are sent via **Formspree** to `bexgarcia0208@gmail.com`.  
-Customers can pay with:
+Orders written to D1 via `/api/orders` POST. Customers can pay with:
 
-- **Stripe** — Card, Apple Pay, Cash App Pay *(via Netlify serverless function)*
+- **Stripe** — Card, Apple Pay, Cash App Pay *(via `muy-rico-checkout` Worker)*
 - **PayPal / Venmo** — PayPal Smart Buttons *(client-side)*
 
-## 🚀 Deployment (Cloudflare Pages)
+## 🚀 Deployment
 
-1. Push this project to a GitHub repo
-2. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages**
-3. Connect your GitHub repo and deploy
-4. Set environment variable in **Settings → Environment Variables**:
-   - `STRIPE_SECRET_KEY` = your Stripe secret key
-5. Find `YOUR_PAYPAL_CLIENT_ID` in `order.html` and replace with your PayPal Client ID from [developer.paypal.com](https://developer.paypal.com)
-6. The checkout function runs at `/create-checkout` on your Pages domain
+This repo deploys to **Cloudflare** as four pieces:
 
-## 📁 Project Structure
+### 1. Pages project `muy-rico` (marketing + admin SPA)
+- Cloudflare Dashboard → **Workers & Pages** → **Pages** → your project
+- **Root directory:** repo root
+- **Build command:** `cd home-bakery-management-system && npm ci && npm run build`
+- **Build output directory:** `/` (repo root — Pages serves whatever ends up here)
+- The build copies the SPA's bundled `dist/index.html` → `../admin/index.html`, served at `muy-rico.pages.dev/admin/`
+- Set env var: `STRIPE_SECRET_KEY` is **not** needed here — Stripe is its own Worker
 
-| File | Description |
-|---|---|
-| `index.html` | Home page |
-| `order.html` | Order page with cart, form, Stripe + PayPal/Venmo payments |
-| `style.css` | All styles |
-| `functions/create-checkout.js` | Cloudflare Pages Function — creates Stripe Checkout Sessions |
+### 2. Worker `muy-rico-orders-api` (D1-backed CRUD)
+- Source: `orders/`
+- Deploy: `npm --prefix orders run deploy` (or `cd orders && npx wrangler deploy`)
+- After first-time setup: `npx wrangler d1 create muy-rico-orders`, copy `database_id` into `orders/wrangler.toml`
+- Run pending migrations locally + remote:
+  ```bash
+  npx wrangler d1 execute muy-rico-orders --file=migrations/NNNN_*.sql
+  npx wrangler d1 execute muy-rico-orders --remote --file=migrations/NNNN_*.sql
+  ```
+
+### 3. Worker `muy-rico-checkout` (Stripe Checkout)
+- Source: `workers/`
+- Deploy: `cd workers && npx wrangler deploy`
+- Set secret: `wrangler secret put STRIPE_SECRET_KEY`
+
+### 4. Cloudflare Access (admin auth)
+- Zero Trust → Access → Applications → Add
+- **Type:** Self-hosted
+- **Domain:** `muy-rico.pages.dev`, **Path:** `/admin*`
+- **Identity provider:** One-time PIN
+- Allowlist emails: `jeffery.garcia1@icloud.com`, `bexgarcia0208@gmail.com`
+
+### 5. Route the API to the Pages domain
+- Workers → Routes → Add
+- **Route:** `muy-rico.pages.dev/api/*`
+- **Worker:** `muy-rico-orders-api`
+- This lets the SPA and `order.html` use relative `/api/...` paths; the Worker's cf-access-authenticated-user-email header applies uniformly.
 
 ## ⚖️ Legal
 

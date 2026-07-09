@@ -34,6 +34,43 @@
 <body>
 
 
+  <!-- Mobile Header (shows at ≤820px) -->
+  <header class="mobile-header" id="mobile-header" style="display:none;">
+    <div class="mobile-brand">
+      <a href="index.html" aria-label="Muy Rico Home">
+        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="110" height="40" loading="eager"/>
+      </a>
+    </div>
+    <div class="mobile-actions">
+      <a href="order.html" class="mobile-order-btn" id="mobile-order-btn-home">
+        <span class="lang-fade" data-es="Ordenar" data-en="Order">Order</span>
+      </a>
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+  <!-- Mobile Nav Drawer -->
+  <div class="mobile-nav-drawer" id="mobile-nav-drawer" role="navigation" aria-label="Mobile navigation" style="display:none;">
+    <div class="mobile-nav-links">
+      <a href="index.html" class="active" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+      <a href="order.html" data-es="Ordenar" data-en="Order">Order</a>
+      <a href="order.html" data-es="Conchas & Pan Dulce" data-en="Conchas & Sweet Bread">Conchas & Sweet Bread</a>
+      <a href="order.html" data-es="Tortillas de Harina" data-en="Flour Tortillas">Flour Tortillas</a>
+      <a href="order.html" data-es="Galletas & Bolillos" data-en="Cookies & Bolillos">Cookies & Bolillos</a>
+    </div>
+    <div class="mobile-nav-bottom">
+      <div class="mobile-lang-switch" role="tablist" aria-label="Select language">
+        <button onclick="setLang('es')" role="tab" aria-selected="true" id="mobile-btn-es">ES</button>
+        <button onclick="setLang('en')" role="tab" aria-selected="false" id="mobile-btn-en">EN</button>
+      </div>
+      <a href="/admin/" class="owner-login-link" id="mobile-owner-link-home" aria-label="Owner dashboard login">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
+      </a>
+    </div>
+  </div>
+
   <div class="site-shell">
     <aside class="sidebar">
 
@@ -64,9 +101,6 @@
         </div>
       </div>
       <div class="cookie-card">
-        <div class="cookie-hibiscus">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" fill="var(--color-bright-hibiscus)" opacity="0.6"/><circle cx="12" cy="4" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="12" cy="20" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="4" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="20" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/></svg>
-        </div>
         <p class="cookie-text" data-es="Operamos bajo la Michigan Cottage Food Law. Todos los productos son hechos en casa con amor."
            data-en="We operate under the Michigan Cottage Food Law. All products are homemade with love.">
           Operamos bajo la Michigan Cottage Food Law. Todos los productos son hechos en casa con amor.
@@ -74,6 +108,10 @@
         <div class="cookie-actions">
           <a href="order.html" class="btn btn-coral btn-lg" style="font-size:0.75rem;padding:0.5rem 1rem;" data-es="Ver Menú" data-en="View Menu">Ver Menú</a>
         </div>
+        <a href="/admin/" class="owner-login-link" id="owner-dashboard-link-home" aria-label="Owner dashboard login">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
+        </a>
       </div>
     </aside>
 
@@ -364,7 +402,6 @@
           <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
           </a>
-
         </div>
         <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Hecho con amor.</p>
         <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Familia · Tradición · Sabor</span>
@@ -486,6 +523,11 @@
     const _setLang = setLang;
     setLang = function(lang) {
       localStorage.setItem('lang', lang);
+      // Sync mobile lang buttons
+      const mEs = document.getElementById('mobile-btn-es');
+      const mEn = document.getElementById('mobile-btn-en');
+      if (mEs) { mEs.classList.toggle('active', lang === 'es'); mEs.setAttribute('aria-selected', lang === 'es'); }
+      if (mEn) { mEn.classList.toggle('active', lang === 'en'); mEn.setAttribute('aria-selected', lang === 'en'); }
       return _setLang(lang);
     };
 
@@ -494,6 +536,25 @@
         try { return localStorage.getItem('lang'); } catch (e) { return null; }
       })();
       setLang(saved === 'es' || saved === 'en' ? saved : 'en');
+    }
+
+    // ---- Hamburger toggle ----
+    const hamburgerBtn = document.getElementById('hamburger-btn');
+    const mobileDrawer = document.getElementById('mobile-nav-drawer');
+    if (hamburgerBtn && mobileDrawer) {
+      hamburgerBtn.addEventListener('click', () => {
+        const isOpen = hamburgerBtn.classList.toggle('open');
+        hamburgerBtn.setAttribute('aria-expanded', isOpen);
+        mobileDrawer.style.display = isOpen ? 'flex' : 'none';
+      });
+      // Close drawer when a nav link is clicked
+      mobileDrawer.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          hamburgerBtn.classList.remove('open');
+          hamburgerBtn.setAttribute('aria-expanded', 'false');
+          mobileDrawer.style.display = 'none';
+        });
+      });
     }
   </script>
 </body>

@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=/order/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ordenar — Muy Rico | Holland, MI</title>
   <meta name="description" content="Place your order online for fresh Mexican sweet bread, conchas, handmade flour tortillas, and cookies from Muy Rico in Holland, Michigan." />
@@ -417,6 +418,43 @@
     <span class="floating-cart-badge" id="floating-cart-badge">0</span>
   </button>
 
+  <!-- Mobile Header (shows at ≤820px) -->
+  <header class="mobile-header" id="mobile-header" style="display:none;">
+    <div class="mobile-brand">
+      <a href="index.html" aria-label="Muy Rico Home">
+        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="110" height="40" loading="eager"/>
+      </a>
+    </div>
+    <div class="mobile-actions">
+      <a href="#menu" class="mobile-order-btn" id="mobile-order-btn-order">
+        <span class="lang-fade" data-es="Ver Menú" data-en="Browse Menu">Browse Menu</span>
+      </a>
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+  <!-- Mobile Nav Drawer -->
+  <div class="mobile-nav-drawer" id="mobile-nav-drawer" role="navigation" aria-label="Mobile navigation" style="display:none;">
+    <div class="mobile-nav-links">
+      <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+      <a href="order.html" class="active" data-es="Ordenar" data-en="Order">Order</a>
+      <a href="#menu" data-es="Conchas & Pan Dulce" data-en="Conchas & Sweet Bread">Conchas & Sweet Bread</a>
+      <a href="#menu" data-es="Tortillas de Harina" data-en="Flour Tortillas">Flour Tortillas</a>
+      <a href="#menu" data-es="Galletas & Bolillos" data-en="Cookies & Bolillos">Cookies & Bolillos</a>
+    </div>
+    <div class="mobile-nav-bottom">
+      <div class="mobile-lang-switch" role="tablist" aria-label="Select language">
+        <button onclick="setLang('es')" role="tab" aria-selected="true" id="mobile-btn-es">ES</button>
+        <button onclick="setLang('en')" role="tab" aria-selected="false" id="mobile-btn-en">EN</button>
+      </div>
+      <a href="/admin/" class="owner-login-link" id="mobile-owner-link-order" aria-label="Owner dashboard login">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
+      </a>
+    </div>
+  </div>
+
   <div class="site-shell">
     <aside class="sidebar">
 
@@ -447,9 +485,9 @@
         </div>
       </div>
       <div class="cookie-card">
-        <div class="cookie-hibiscus">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" fill="var(--color-bright-hibiscus)" opacity="0.6"/><circle cx="12" cy="4" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="12" cy="20" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="4" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="20" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/></svg>
-        </div>
+        <a href="/admin/" class="cookie-hibiscus" aria-label="Dashboard" style="pointer-events:auto;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="pointer-events:none;"><circle cx="12" cy="12" r="3" fill="var(--color-bright-hibiscus)" opacity="0.6"/><circle cx="12" cy="4" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="12" cy="20" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="4" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="20" cy="12" r="2.5" fill="var(--color-bright-hibiscus)" opacity="0.5"/></svg>
+        </a>
         <p class="cookie-text" data-es="Pedidos con 24-48h de anticipación para pan y tortillas."
            data-en="Order 24-48 hours ahead for bread and tortillas.">
           Pedidos con 24-48h de anticipación para pan y tortillas.
@@ -457,6 +495,10 @@
         <div class="cookie-actions">
           <a href="mailto:bexgarcia0208@gmail.com" class="btn btn-ghost-sm" data-es="Contáctanos" data-en="Contact Us">Contáctanos</a>
         </div>
+        <a href="/admin/" class="owner-login-link" id="owner-dashboard-link-order" aria-label="Owner dashboard login">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
+        </a>
       </div>
     </aside>
 
@@ -519,7 +561,10 @@
           <span class="section-label lang-fade" data-es="Nuestro Menú" data-en="Our Menu">Nuestro Menú</span>
           <div class="section-rule"></div>
         </div>
-        <div class="products-grid">
+        <div class="products-grid" id="products-grid">
+          <!-- Hard-coded tiles below are a NO-JS / fetch-failure fallback.
+               The script at the bottom replaces this inner content with live
+               products from /api/products when JS + API are available. -->
 
           <article class="product-tile reveal" id="tile-cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg">
             <div class="tile-header">
@@ -873,10 +918,89 @@
 
     const FORMSPREE_URL = 'https://formspree.io/f/xdavbrgq';
     const CHECKOUT_WORKER = 'https://muy-rico-checkout.bexgarcia0208.workers.dev';
+    // Orders API — auto-detect local dev vs production
+    const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const ORDER_API = isDev ? 'http://localhost:8787' : '';
+
+    // ── Live product menu (Part 8) ──────────────────────────────────
+    // Replaces the hard-coded tiles with live products from /api/products.
+    // On failure the static fallback tiles (already in the DOM) stay visible.
+    function renderProductTile(p) {
+      const name = (currentLang === 'es' && p.name_es) ? p.name_es : p.name;
+      const desc = (currentLang === 'es' && p.description_es) ? p.description_es : (p.description || '');
+      const icon = p.image_url
+        ? `<img class="tile-icon" src="${p.image_url}" alt="${p.name}" width="42" height="42" style="object-fit:contain;" />`
+        : `<span class="tile-icon" style="font-size:42px;line-height:1;">${p.emoji || '🍞'}</span>`;
+      const flavors = (p.flavors && p.flavors.length)
+        ? `<div class="flavor-selects"><select aria-label="${p.name} flavor">` +
+            `<option value="">Flavor</option>` +
+            p.flavors.map(f => `<option value="${f}">${f}</option>`).join('') +
+          `</select></div>`
+        : '';
+      return `
+        <article class="product-tile reveal"
+          id="tile-${p.id}"
+          data-name="${p.name_es || p.name}"
+          data-name-en="${p.name}"
+          data-price="${Number(p.price).toFixed(2)}"
+          data-icon="${p.emoji || '🍞'}"
+          data-toast-emoji="${p.emoji || '🍞'}"
+          data-has-flavors="${(p.flavors && p.flavors.length) ? '1' : ''}">
+          <div class="tile-header">
+            ${icon}
+            <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
+          </div>
+          <h3 class="tile-title lang-fade" data-es="${p.name_es || p.name}" data-en="${p.name}">${name}</h3>
+          <p class="tile-desc lang-fade" data-es="${p.description_es || p.description || ''}" data-en="${p.description || ''}">${desc}</p>
+          ${flavors}
+          <div class="tile-bottom">
+            <span class="tile-price">$${Number(p.price).toFixed(2)} <span class="lang-fade" data-es="c/u" data-en="ea">ea</span></span>
+            <div class="tile-actions">
+              <div class="qty-stepper">
+                <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
+                <span class="qty-value">0</span>
+                <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
+              </div>
+              <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+            </div>
+          </div>
+        </article>`;
+    }
+
+    function renderProducts(products) {
+      const grid = document.getElementById('products-grid');
+      if (!grid) return;
+      if (!products || !products.length) {
+        grid.innerHTML = '<p class="lang-fade" data-es="No hay productos disponibles." data-en="No products available.">No products available.</p>';
+        return;
+      }
+      grid.innerHTML = products.map(renderProductTile).join('');
+      applyLangToDOM(currentLang);
+      if (window.initProductReveals) initProductReveals();
+    }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch((ORDER_API || '') + '/api/products');
+        if (!res.ok) throw new Error('products fetch failed: ' + res.status);
+        const data = await res.json();
+        renderProducts(data.products || []);
+      } catch (err) {
+        console.warn('Could not load live products, showing fallback menu:', err);
+        // Keep the static hard-coded tiles already in the DOM
+        if (window.initProductReveals) initProductReveals();
+      }
+    }
 
     const persistLang = (lang) => {
       try { localStorage.setItem('lang', lang); } catch (e) {}
     };
+
+    // Init language from localStorage before loadProducts() runs
+    (function initLangEarly() {
+      const saved = (() => { try { return localStorage.getItem('lang'); } catch(e) { return null; } })();
+      if (saved === 'es' || saved === 'en') currentLang = saved;
+    })();
 
       if (!prefersReduced) {
         const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
@@ -897,15 +1021,22 @@
       });
 
       // Only animate .reveal tiles, NOT the order panel
-      gsap.utils.toArray('.product-tile.reveal').forEach((el, i) => {
-        gsap.fromTo(el,
-          { y: 40, autoAlpha: 0 },
-          {
-            scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none none' },
-            y: 0, autoAlpha: 1, duration: 0.7, delay: (i % 4) * 0.08, ease: 'power3.out'
-          }
-        );
-      });
+      // Extracted so it can re-run after live products are injected.
+      window.initProductReveals = function () {
+        gsap.utils.toArray('.product-tile.reveal').forEach((el, i) => {
+          gsap.fromTo(el,
+            { y: 40, autoAlpha: 0 },
+            {
+              scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none none' },
+              y: 0, autoAlpha: 1, duration: 0.7, delay: (i % 4) * 0.08, ease: 'power3.out'
+            }
+          );
+        });
+      };
+      window.initProductReveals();
+
+      // Load live product menu (replaces the static fallback tiles)
+      loadProducts();
 
       gsap.from('.footer-hib-row', { scale: 0.8, autoAlpha: 0, duration: 0.8, ease: 'back.out(1.5)', scrollTrigger: { trigger: '.site-footer', start: 'top 95%' } });
       gsap.from('.footer-coqui-divider > *', { scale: 0, autoAlpha: 0, duration: 0.4, stagger: 0.08, ease: 'back.out(2)', scrollTrigger: { trigger: '.site-footer', start: 'top 92%' } });
@@ -914,6 +1045,9 @@
     } else {
       // Reduced motion: show everything immediately
       document.querySelectorAll('.reveal, .hero-ctas .btn').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; el.style.visibility = 'visible'; });
+      // Inject live products without scroll animations
+      window.initProductReveals = function () {};  // no-op under reduced motion
+      loadProducts();
     }
 
     // ── Language ──────────────────────────────────────────────────
@@ -1194,16 +1328,34 @@
         language: currentLang
       };
 
-      fetch(FORMSPREE_URL, {
+      const totalCentsForApi = Math.round(getCartTotal() * 100);
+      const apiPayload = {
+        customer_name: formData.name,
+        phone: formData.phone || null,
+        pickup_date: formData.date,
+        items_json: cart.map(c => ({ name: c.displayName || c.name, qty: c.qty, price: c.price, emoji: c.toastEmoji || '🍞' })),
+        total_cents: totalCentsForApi,
+        payment_method: 'cash',
+        payment_status: 'unpaid',
+        status: 'pending',
+        notes: [
+          formData.notes,
+          formData.contactMethod ? 'Contact via: ' + formData.contactMethod : ''
+        ].filter(Boolean).join(' | ') || null,
+        source: 'website'
+      };
+
+      fetch(ORDER_API + '/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(formData)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload)
       })
       .then(res => {
-        if (!res.ok) throw new Error('Formspree rejected');
+        if (!res.ok) throw new Error('API rejected');
         return res.json();
       })
       .then(() => {
+
         document.getElementById('order-form-el').style.display = 'none';
 
         const totalNum = getCartTotal();
@@ -1309,10 +1461,7 @@
 
     // Init language & render cart on load
     (function initLang() {
-      const saved = (() => { try { return localStorage.getItem('lang'); } catch(e) { return null; } })();
-      const initialLang = (saved === 'es' || saved === 'en') ? saved : 'en';
-      currentLang = initialLang;
-      applyLangToDOM(initialLang);
+      applyLangToDOM(currentLang);
       renderCart(); // always render the empty state on load
 
       if (window.location.search.includes('paid=true')) {
@@ -1322,6 +1471,24 @@
         history.replaceState({}, '', window.location.pathname);
       }
     })();
+
+    // ---- Hamburger toggle ----
+    const hamburgerBtn = document.getElementById('hamburger-btn');
+    const mobileDrawer = document.getElementById('mobile-nav-drawer');
+    if (hamburgerBtn && mobileDrawer) {
+      hamburgerBtn.addEventListener('click', () => {
+        const isOpen = hamburgerBtn.classList.toggle('open');
+        hamburgerBtn.setAttribute('aria-expanded', isOpen);
+        mobileDrawer.style.display = isOpen ? 'flex' : 'none';
+      });
+      mobileDrawer.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          hamburgerBtn.classList.remove('open');
+          hamburgerBtn.setAttribute('aria-expanded', 'false');
+          mobileDrawer.style.display = 'none';
+        });
+      });
+    }
   </script>
 </body>
 </html>

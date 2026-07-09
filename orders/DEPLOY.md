@@ -49,14 +49,21 @@ After deploy, copy the URL — e.g. `https://muy-rico-orders-api.YOUR-SUBDOMAIN.
 - Add new order: `https://muy-rico.pages.dev/intake.html`
 - View / manage orders: `https://muy-rico.pages.dev/dashboard`
 
-## Optional — Telegram notifications
-Add to `wrangler.toml`:
-```toml
-[vars]
-TELEGRAM_BOT_TOKEN=***   # Drogon bot or a new one
-TELEGRAM_CHAT_ID = "your-chat-id"     # Jeff's DM with Drogon, or a group
-```
-Re-run `npx wrangler deploy`. New orders ping Telegram automatically.
+## Notifications (optional)
+
+New orders can send alerts via Telegram, email, or both.
+
+### Telegram
+1. Create a bot via [@BotFather](https://t.me/botfather) on Telegram — get the bot token.
+2. Start a chat with your bot, then visit `https://api.telegram.org/bot<TOKEN>/getUpdates` to find your chat ID.
+3. Uncomment `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `wrangler.toml`.
+4. Run `npx wrangler deploy`.
+
+### Email (Cloudflare Email Sending)
+1. Go to **Cloudflare Dashboard → Email → Email Sending**.
+2. Add and verify a sender domain or address (e.g. `orders@yourdomain.com`).
+3. Set `EMAIL_FROM` to your verified sender address and `EMAIL_RECIPIENT` to where you want notifications.
+4. Run `npx wrangler deploy`.
 
 ## Local dev
 ```bash

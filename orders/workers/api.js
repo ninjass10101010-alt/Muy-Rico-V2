@@ -9,13 +9,36 @@
 //   DELETE /api/orders/:id    — soft cancel
 //   GET    /api/stats         — counts for dashboard chips
 //
+//   GET    /api/products      — list active products (public)
+//   GET    /api/products/:id  — single product (public)
+//   POST   /api/products      — create product (admin)
+//   PATCH  /api/products/:id  — update product (admin)
+//   DELETE /api/products/:id  — soft delete (admin)
+//
+//   GET    /api/inventory        — list inventory (admin only)
+//   GET    /api/inventory/:id    — single item (admin)
+//   POST   /api/inventory        — create (admin)
+//   PATCH  /api/inventory/:id    — update (admin)
+//   DELETE /api/inventory/:id    — soft delete (admin)
+//
 // Access: all routes require a Cloudflare Access session.
 // Cloudflare injects the authenticated user email as cf-access-authenticated-user-email.
 // We trust that header (Access blocks unauthenticated requests at the edge).
+// EXCEPTIONS (public, no Access required):
+//   POST /api/orders            — order submissions from order.html
+//   GET  /api/products + /:id    — public read for order.html menu rendering
+//   INVENTORY: never public — leaks cost/supplier data, admin-only
 
-const ALLOWED_PAYMENT = ['venmo', 'cashapp', 'applepay', 'cash'];
-const ALLOWED_STATUS  = ['pending', 'ready', 'done', 'cancelled'];
-const ALLOWED_PAYSTAT = ['unpaid', 'paid'];
+const ALLOWED_PAYMENT = ['venmo', 'cashapp', 'applepay', 'cash', 'stripe'];
+const ALLOWED_STATUS  = ['pending', 'in-progress', 'ready', 'completed', 'done', 'cancelled'];
+const ALLOWED_PAYSTAT = ['unpaid', 'paid', 'partial'];
+const ALLOWED_SOURCE  = ['website', 'in-person'];
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
 export default {
   async fetch(request, env) {
@@ -23,26 +46,57 @@ export default {
     const path = url.pathname;
     const method = request.method.toUpperCase();
 
-    if (method === 'OPTIONS') return new Response(null, { status: 204 });
+    if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
     // --- Access check ---
-    const actorEmail = request.headers.get('cf-access-authenticated-user-email') || '';
-    const actorName  = actorEmail.split('@')[0] || 'unknown';
-    if (!actorEmail) {
+    const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    let actorEmail = isLocal ? 'local@dev' : (request.headers.get('cf-access-authenticated-user-email') || '');
+    let actorName  = actorEmail.split('@')[0] || 'unknown';
+
+    // Allow public POST to /api/orders, public GETs to /api/products
+    const isPublicPost = path === '/api/orders' && method === 'POST';
+    const isPublicProductGet =
+      (path === '/api/products' || path.match(/^\/api\/products\/[^/]+$/)) && method === 'GET';
+
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
+    }
+
+    if (isPublicPost && !actorEmail && !isLocal) {
+      actorName = 'website';
     }
 
     try {
       if (path === '/api/orders' && method === 'POST')  return await createOrder(request, env, actorName);
       if (path === '/api/orders' && method === 'GET')   return await listOrders(request, env, actorName);
       if (path === '/api/stats'  && method === 'GET')   return await getStats(env, actorName);
+      if (path === '/api/products' && method === 'GET') return await listProducts(env);
+      if (path === '/api/products' && method === 'POST') return await createProduct(request, env, actorName);
+      if (path === '/api/inventory' && method === 'GET') return await listInventory(env);
+      if (path === '/api/inventory' && method === 'POST') return await createInventory(request, env, actorName);
 
-      const m = path.match(/^\/api\/orders\/(\d+)$/);
-      if (m) {
-        const id = Number(m[1]);
+      const om = path.match(/^\/api\/orders\/(\d+)$/);
+      if (om) {
+        const id = Number(om[1]);
         if (method === 'GET')    return await getOrder(id, env, actorName);
         if (method === 'PATCH')  return await updateOrder(id, request, env, actorName);
         if (method === 'DELETE') return await cancelOrder(id, env, actorName);
+      }
+
+      const pm = path.match(/^\/api\/products\/([A-Za-z0-9_-]+)$/);
+      if (pm) {
+        const id = pm[1];
+        if (method === 'GET')    return await getProduct(id, env);
+        if (method === 'PATCH')  return await updateProduct(id, request, env, actorName);
+        if (method === 'DELETE') return await deleteProduct(id, env, actorName);
+      }
+
+      const im = path.match(/^\/api\/inventory\/([A-Za-z0-9_-]+)$/);
+      if (im) {
+        const id = im[1];
+        if (method === 'GET')    return await getInventoryItem(id, env);
+        if (method === 'PATCH')  return await updateInventoryItem(id, request, env, actorName);
+        if (method === 'DELETE') return await deleteInventoryItem(id, env, actorName);
       }
 
       return json({ error: 'Not found' }, 404);
@@ -53,12 +107,14 @@ export default {
   },
 };
 
-function json(data, status = 200) {
+function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS, ...extra },
   });
 }
+
+
 
 async function createOrder(request, env, actor) {
   const body = await request.json();
@@ -74,14 +130,17 @@ async function createOrder(request, env, actor) {
   if (body.status && !ALLOWED_STATUS.includes(body.status)) {
     return json({ error: `Invalid status. Must be one of: ${ALLOWED_STATUS.join(', ')}` }, 400);
   }
+  if (body.source && !ALLOWED_SOURCE.includes(body.source)) {
+    return json({ error: `Invalid source. Must be one of: ${ALLOWED_SOURCE.join(', ')}` }, 400);
+  }
 
   const items = typeof body.items_json === 'string' ? body.items_json : JSON.stringify(body.items_json);
 
   const result = await env.DB.prepare(`
     INSERT INTO orders
       (customer_name, phone, pickup_date, pickup_time,
-       items_json, total_cents, payment_method, payment_status, status, notes, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       items_json, total_cents, payment_method, payment_status, status, notes, created_by, source)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.customer_name.trim(),
     body.phone || null,
@@ -94,6 +153,7 @@ async function createOrder(request, env, actor) {
     body.status || 'pending',
     body.notes || null,
     actor,
+    body.source || 'in-person',
   ).run();
 
   const id = result.meta.last_row_id;
@@ -101,7 +161,60 @@ async function createOrder(request, env, actor) {
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
   `).bind(id, actor).run();
 
+  // Fire notifications in the background (don't block response)
+  notifyOrderCreated(env, body, id, actor);
+
   return json({ ok: true, id }, 201);
+}
+
+async function notifyOrderCreated(env, body, id, actor) {
+  const customer = body.customer_name.trim();
+  const total = body.total_cents ? '$' + (body.total_cents / 100).toFixed(2) : '—';
+  const items = typeof body.items_json === 'string' ? body.items_json : JSON.stringify(body.items_json);
+  let itemsStr = '';
+  try { itemsStr = JSON.parse(items).map(i => `${i.qty}× ${i.name}`).join(', '); } catch { itemsStr = items; }
+  const date = body.pickup_date || '—';
+  const time = body.pickup_time || '—';
+  const msg = `🆕 Order #${id}\n👤 ${customer}\n📦 ${itemsStr}\n💰 ${total}\n📅 ${date} ${time}\n💳 ${body.payment_method}\n👤 by ${actor}`;
+
+  // Telegram
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+
+  // Email
+  if (env.EMAIL_RECIPIENT && env.EMAIL && env.EMAIL.send) {
+    notifyEmail(env, msg, id);
+  }
+}
+
+async function notifyTelegram(env, msg) {
+  try {
+    const chatIds = String(env.TELEGRAM_CHAT_ID).split(',').map(id => id.trim()).filter(Boolean);
+    await Promise.all(chatIds.map(chat_id => 
+      fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id,
+          text: msg,
+          parse_mode: 'Markdown',
+        }),
+      })
+    ));
+  } catch (e) { console.error('Telegram notify failed:', e); }
+}
+
+async function notifyEmail(env, msg, id) {
+  try {
+    const emails = String(env.EMAIL_RECIPIENT).split(',').map(e => e.trim()).filter(Boolean);
+    await env.EMAIL.send({
+      from: env.EMAIL_FROM || 'orders@muy-rico.bakery',
+      to: emails,
+      subject: `🆕 Order #${id} — New Muy Rico Order`,
+      text: msg,
+    });
+  } catch (e) { console.error('Email notify failed:', e); }
 }
 
 async function listOrders(request, env, actor) {
@@ -179,14 +292,228 @@ async function cancelOrder(id, env, actor) {
 async function getStats(env, actor) {
   const { results } = await env.DB.prepare(`
     SELECT
-      SUM(CASE WHEN status IN ('pending','ready') THEN 1 ELSE 0 END) AS active,
-      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
-      SUM(CASE WHEN status = 'ready'   THEN 1 ELSE 0 END) AS ready,
-      SUM(CASE WHEN status = 'done'    THEN 1 ELSE 0 END) AS done,
-      SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
-      SUM(CASE WHEN payment_status = 'unpaid' AND status != 'cancelled' THEN 1 ELSE 0 END) AS unpaid,
-      SUM(CASE WHEN payment_status = 'paid'   THEN 1 ELSE 0 END) AS paid
+      SUM(CASE WHEN status IN ('pending','in-progress','ready') THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN status = 'pending'     THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END) AS in_progress,
+      SUM(CASE WHEN status = 'ready'       THEN 1 ELSE 0 END) AS ready,
+      SUM(CASE WHEN status IN ('completed','done') THEN 1 ELSE 0 END) AS done,
+      SUM(CASE WHEN status = 'cancelled'   THEN 1 ELSE 0 END) AS cancelled,
+      SUM(CASE WHEN payment_status = 'unpaid' AND status NOT IN ('cancelled') THEN 1 ELSE 0 END) AS unpaid,
+      SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) AS paid
     FROM orders
   `).all();
   return json(results[0] || {}, 200);
+}
+
+// ─── Products ────────────────────────────────────────────────────────────────
+
+function parseFlavors(v) {
+  if (v == null || v === '') return '[]';
+  if (Array.isArray(v)) return JSON.stringify(v);
+  try {
+    const parsed = JSON.parse(v);
+    if (Array.isArray(parsed)) return JSON.stringify(parsed);
+  } catch {}
+  return JSON.stringify(String(v).split(',').map((s) => s.trim()).filter(Boolean));
+}
+
+function parseRecipe(v) {
+  if (v == null || v === '') return '[]';
+  if (Array.isArray(v)) return JSON.stringify(v);
+  try {
+    const parsed = JSON.parse(v);
+    if (Array.isArray(parsed)) return JSON.stringify(parsed);
+    return '[]';
+  } catch {
+    return '[]';
+  }
+}
+
+async function listProducts(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM products
+    WHERE active = 1
+    ORDER BY display_order ASC, name ASC
+  `).all();
+  return json({ products: results }, 200);
+}
+
+async function getProduct(id, env) {
+  const row = await env.DB.prepare('SELECT * FROM products WHERE id = ?').bind(id).first();
+  if (!row) return json({ error: 'Not found' }, 404);
+  return json({ product: row }, 200);
+}
+
+const PRODUCT_FIELDS = [
+  'name', 'name_es', 'description', 'description_es', 'category',
+  'price', 'cost', 'sku', 'emoji', 'image_url',
+  'active', 'ingredients', 'allergens',
+  'flavors', 'recipe', 'display_order', 'auto_generate_label',
+];
+
+async function createProduct(request, env, actor) {
+  const body = await request.json();
+  if (!body.id || !body.name || !body.category || !body.emoji) {
+    return json({ error: 'Missing required fields: id, name, category, emoji' }, 400);
+  }
+  if (typeof body.id !== 'string' || body.id.length > 64) {
+    return json({ error: 'id must be a short string' }, 400);
+  }
+  try {
+    await env.DB.prepare(`
+      INSERT INTO products
+        (id, name, name_es, description, description_es, category, price, cost,
+         sku, emoji, image_url, active, ingredients, allergens, flavors, recipe, display_order, auto_generate_label)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      body.id,
+      body.name,
+      body.name_es || null,
+      body.description || null,
+      body.description_es || null,
+      body.category,
+      Number(body.price) || 0,
+      Number(body.cost) || 0,
+      body.sku || null,
+      body.emoji,
+      body.image_url || null,
+      body.active === false ? 0 : 1,
+      body.ingredients || null,
+      body.allergens || null,
+      parseFlavors(body.flavors),
+      parseRecipe(body.recipe),
+      Number(body.display_order) || 0,
+      body.auto_generate_label === false ? 0 : 1,
+    ).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id: body.id }, 201);
+}
+
+async function updateProduct(id, request, env, actor) {
+  const body = await request.json();
+  const sets = [];
+  const binds = [];
+  for (const f of PRODUCT_FIELDS) {
+    if (body[f] === undefined) continue;
+    let val = body[f];
+    if (f === 'active') val = val ? 1 : 0;
+    if (f === 'flavors') val = parseFlavors(val);
+    if (f === 'recipe')  val = parseRecipe(val);
+    if (f === 'price' || f === 'cost' || f === 'display_order') val = Number(val) || 0;
+    sets.push(`${f} = ?`);
+    binds.push(val);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  const r = await env.DB.prepare(`UPDATE products SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+async function deleteProduct(id, env, actor) {
+  const r = await env.DB.prepare(`UPDATE products SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Inventory ─────────────────────────────────────────────────────────────
+// All endpoints are admin-only — never in the public allowlist. Inventory
+// leaks cost/supplier/reorder-level data.
+
+const INVENTORY_FIELDS = [
+  'name', 'category', 'quantity', 'unit',
+  'reorder_level', 'cost_per_unit', 'supplier',
+  'ingredients_label', 'allergens', 'unit_weight',
+  'active',
+];
+
+function parseAllergens(v) {
+  if (v == null || v === '') return '[]';
+  if (Array.isArray(v)) return JSON.stringify(v);
+  try {
+    const parsed = JSON.parse(v);
+    if (Array.isArray(parsed)) return JSON.stringify(parsed);
+  } catch {}
+  return JSON.stringify(String(v).split(',').map((s) => s.trim()).filter(Boolean));
+}
+
+async function listInventory(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM inventory
+    WHERE active = 1
+    ORDER BY category ASC, name ASC
+  `).all();
+  return json({ inventory: results }, 200);
+}
+
+async function getInventoryItem(id, env) {
+  const row = await env.DB.prepare('SELECT * FROM inventory WHERE id = ?').bind(id).first();
+  if (!row) return json({ error: 'Not found' }, 404);
+  return json({ item: row }, 200);
+}
+
+async function createInventory(request, env, actor) {
+  const body = await request.json();
+  if (!body.id || !body.name || !body.category || !body.unit) {
+    return json({ error: 'Missing required fields: id, name, category, unit' }, 400);
+  }
+  if (typeof body.id !== 'string' || body.id.length > 64) {
+    return json({ error: 'id must be a short string' }, 400);
+  }
+  try {
+    await env.DB.prepare(`
+      INSERT INTO inventory
+        (id, name, category, quantity, unit, reorder_level, cost_per_unit, supplier,
+         ingredients_label, allergens, unit_weight, active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      body.id,
+      body.name,
+      body.category,
+      Number(body.quantity) || 0,
+      body.unit,
+      Number(body.reorder_level) || 0,
+      Number(body.cost_per_unit) || 0,
+      body.supplier || null,
+      body.ingredients_label || null,
+      parseAllergens(body.allergens),
+      typeof body.unit_weight === 'number' && !Number.isNaN(body.unit_weight) ? body.unit_weight : null,
+      body.active === false ? 0 : 1,
+    ).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id: body.id }, 201);
+}
+
+async function updateInventoryItem(id, request, env, actor) {
+  const body = await request.json();
+  const sets = [];
+  const binds = [];
+  for (const f of INVENTORY_FIELDS) {
+    if (body[f] === undefined) continue;
+    let val = body[f];
+    if (f === 'active') val = val ? 1 : 0;
+    if (f === 'allergens') val = parseAllergens(val);
+    if (f === 'quantity' || f === 'reorder_level' || f === 'cost_per_unit' || f === 'unit_weight') {
+      val = val === null || val === '' ? null : Number(val);
+    }
+    sets.push(`${f} = ?`);
+    binds.push(val);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  const r = await env.DB.prepare(`UPDATE inventory SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+async function deleteInventoryItem(id, env, actor) {
+  const r = await env.DB.prepare(`UPDATE inventory SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
 }
