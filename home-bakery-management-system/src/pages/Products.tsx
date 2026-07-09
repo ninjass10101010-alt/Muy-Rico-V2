@@ -50,7 +50,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
   function openEdit(p: Product) {
     setDraft(p);
     setEditingId(p.id);
-    setFlavorsText((p.flavors || []).join(", "));
+    setFlavorsText((p.flavor_groups || []).join(", "));
     setModalOpen(true);
   }
 

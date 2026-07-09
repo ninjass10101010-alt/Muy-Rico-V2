@@ -11,6 +11,7 @@ import {
 import type {
   BusinessProfile,
   Customer,
+  FlavorGroup,
   InventoryItem,
   LabelTemplate,
   Order,
@@ -107,14 +108,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // ─── Products ─────────────────────────────────────────────────────────────
 
   function apiToProduct(p: ApiProduct): Product {
-    let flavors: string[] = [];
-    if (p.flavors) {
-      try { const parsed = JSON.parse(p.flavors); if (Array.isArray(parsed)) flavors = parsed; }
-      catch { flavors = []; }
+    let flavor_groups: FlavorGroup[] = [];
+    if (p.flavor_groups) {
+      if (Array.isArray(p.flavor_groups)) flavor_groups = p.flavor_groups;
     }
     let recipe: Product["recipe"] = [];
     if (p.recipe) {
-      try { const parsed = JSON.parse(p.recipe); if (Array.isArray(parsed)) recipe = parsed; }
+      try {
+        const parsed = typeof p.recipe === "string" ? JSON.parse(p.recipe) : p.recipe;
+        if (Array.isArray(parsed)) recipe = parsed;
+      }
       catch { recipe = []; }
     }
     return {
@@ -133,7 +136,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       name_es: p.name_es || undefined,
       description_es: p.description_es || undefined,
       image_url: p.image_url || undefined,
-      flavors,
+      flavor_groups: flavor_groups.length ? flavor_groups : undefined,
       display_order: typeof p.display_order === "number" ? p.display_order : 0,
       auto_generate_label: !!p.auto_generate_label,
     };
