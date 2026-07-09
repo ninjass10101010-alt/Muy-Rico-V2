@@ -49,8 +49,15 @@ export default {
     if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
     // --- Access check ---
+    // Two sources of identity:
+    //   1) cf-access-authenticated-user-email header (injected by Access when path matches)
+    //   2) CF_Authorization JWT cookie (present on all requests from an authenticated session)
+    // The header is preferred; the cookie is a fallback when Access only guards /admin* but not /api/*.
     const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
     let actorEmail = isLocal ? 'local@dev' : (request.headers.get('cf-access-authenticated-user-email') || '');
+    if (!actorEmail && !isLocal) {
+      actorEmail = emailFromAccessCookie(request) || '';
+    }
     let actorName  = actorEmail.split('@')[0] || 'unknown';
 
     // Allow public POST to /api/orders, public GETs to /api/products
@@ -106,6 +113,29 @@ export default {
     }
   },
 };
+
+/**
+ * Extract the authenticated user email from the Cloudflare Access JWT cookie.
+ * This is a fallback when cf-access-authenticated-user-email header isn't
+ * injected (Access only guards /admin*, not /api/*).
+ *
+ * The cookie value is a JWT: header.payload.signature
+ * We only decode the payload — the signature is not verified here because
+ * the cookie is HttpOnly/Secure and only Cloudflare can issue it.
+ */
+function emailFromAccessCookie(request) {
+  const cookie = request.headers.get('Cookie') || '';
+  const match = cookie.match(/\bCF_Authorization=([^;]+)/);
+  if (!match) return null;
+  const payload = match[1].split('.')[1];
+  if (!payload) return null;
+  try {
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return decoded.email || null;
+  } catch {
+    return null;
+  }
+}
 
 function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {

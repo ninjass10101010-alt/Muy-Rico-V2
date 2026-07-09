@@ -1477,7 +1477,6 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 .tropical-card--green .tropical-card-tag { color: var(--color-mid-green); }
 /* Card title */
 .tropical-card-title {
-.tropical-card-title {
   font-family: var(--font-serif);
   font-size: clamp(1.35rem, 2.2vw, 1.75rem);
   font-weight: 500;
