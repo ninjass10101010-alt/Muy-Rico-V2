@@ -1,3 +1,5 @@
+import type { FlavorGroup, RecipeLine } from "../types";
+
 const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE = isDev ? "http://localhost:8787" : "";
 
@@ -116,13 +118,13 @@ export interface ApiProduct {
   sku?: string | null;
   emoji: string;
   image_url?: string | null;
-  active: number;
+  active: number | boolean;
   ingredients?: string | null;
   allergens?: string | null;
-  flavors?: string;
-  recipe?: string;
+  flavor_groups?: FlavorGroup[];
+  recipe?: string | RecipeLine[];
   display_order?: number;
-  auto_generate_label?: number;
+  auto_generate_label?: number | boolean;
   created_at?: string;
   updated_at?: string | null;
 }
@@ -172,6 +174,17 @@ export async function deleteProduct(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/products/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+export async function uploadImage(file: File): Promise<{ url: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/upload', { method: 'POST', body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Upload failed');
+  }
+  return res.json();
 }
 
 // ─── Inventory ─────────────────────────────────────────────────────────────

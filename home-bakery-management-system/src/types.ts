@@ -11,6 +11,11 @@ export interface RecipeLine {
   qtyPerUnit: number;
 }
 
+export interface FlavorGroup {
+  name: string;
+  options: string[];
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -27,7 +32,7 @@ export interface Product {
   name_es?: string;
   description_es?: string;
   image_url?: string;
-  flavors?: string[];
+  flavor_groups?: FlavorGroup[];
   display_order?: number;
   auto_generate_label?: boolean;
 }
