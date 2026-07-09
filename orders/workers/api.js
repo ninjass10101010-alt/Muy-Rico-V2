@@ -454,6 +454,9 @@ async function createProduct(request, env, actor) {
 
 async function updateProduct(id, request, env, actor) {
   const body = await request.json();
+  if (body.flavor_groups !== undefined && body.flavors === undefined) {
+    body = { ...body, flavors: body.flavor_groups };
+  }
   const sets = [];
   const binds = [];
   for (const f of PRODUCT_FIELDS) {
