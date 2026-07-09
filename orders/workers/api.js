@@ -347,6 +347,17 @@ function parseFlavors(v) {
   return JSON.stringify(String(v).split(',').map((s) => s.trim()).filter(Boolean));
 }
 
+function safeJsonParse(v, fallback) {
+  if (v == null) return fallback;
+  if (typeof v !== 'string') return v; // already parsed (array/object)
+  try {
+    const parsed = JSON.parse(v);
+    return parsed;
+  } catch {
+    return fallback;
+  }
+}
+
 function parseRecipe(v) {
   if (v == null || v === '') return '[]';
   if (Array.isArray(v)) return JSON.stringify(v);
@@ -365,13 +376,33 @@ async function listProducts(env) {
     WHERE active = 1
     ORDER BY display_order ASC, name ASC
   `).all();
-  return json({ products: results }, 200);
+  const products = (results || []).map(r => {
+    const flavorGroups = safeJsonParse(r.flavors, []);
+    return {
+      ...r,
+      flavor_groups: flavorGroups,  // canonical new name
+      flavors: flavorGroups,         // legacy alias for any old reader
+      recipe: safeJsonParse(r.recipe, []),
+      active: Boolean(r.active),
+      auto_generate_label: Boolean(r.auto_generate_label),
+    };
+  });
+  return json({ products }, 200);
 }
 
 async function getProduct(id, env) {
   const row = await env.DB.prepare('SELECT * FROM products WHERE id = ?').bind(id).first();
   if (!row) return json({ error: 'Not found' }, 404);
-  return json({ product: row }, 200);
+  const flavorGroups = safeJsonParse(row.flavors, []);
+  const product = {
+    ...row,
+    flavor_groups: flavorGroups,
+    flavors: flavorGroups,
+    recipe: safeJsonParse(row.recipe, []),
+    active: Boolean(row.active),
+    auto_generate_label: Boolean(row.auto_generate_label),
+  };
+  return json({ product }, 200);
 }
 
 const PRODUCT_FIELDS = [
@@ -410,7 +441,7 @@ async function createProduct(request, env, actor) {
       body.active === false ? 0 : 1,
       body.ingredients || null,
       body.allergens || null,
-      parseFlavors(body.flavors),
+      parseFlavors(body.flavor_groups || body.flavors || []),
       parseRecipe(body.recipe),
       Number(body.display_order) || 0,
       body.auto_generate_label === false ? 0 : 1,
@@ -429,7 +460,7 @@ async function updateProduct(id, request, env, actor) {
     if (body[f] === undefined) continue;
     let val = body[f];
     if (f === 'active') val = val ? 1 : 0;
-    if (f === 'flavors') val = parseFlavors(val);
+    if (f === 'flavors') val = parseFlavors(body.flavor_groups || body.flavors || []);
     if (f === 'recipe')  val = parseRecipe(val);
     if (f === 'price' || f === 'cost' || f === 'display_order') val = Number(val) || 0;
     sets.push(`${f} = ?`);
