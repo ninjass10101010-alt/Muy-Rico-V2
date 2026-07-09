@@ -78,6 +78,7 @@ export default {
       if (path === '/api/orders' && method === 'GET')   return await listOrders(request, env, actorName);
       if (path === '/api/stats'  && method === 'GET')   return await getStats(env, actorName);
       if (path === '/api/products' && method === 'GET') return await listProducts(env);
+      if (path === '/api/upload' && method === 'POST') return await uploadImage(request, env);
       if (path === '/api/products' && method === 'POST') return await createProduct(request, env, actorName);
       if (path === '/api/inventory' && method === 'GET') return await listInventory(env);
       if (path === '/api/inventory' && method === 'POST') return await createInventory(request, env, actorName);
@@ -355,6 +356,34 @@ function safeJsonParse(v, fallback) {
     return parsed;
   } catch {
     return fallback;
+  }
+}
+
+const ALLOWED_IMG = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_IMG_BYTES = 5 * 1024 * 1024;
+
+async function uploadImage(request, env) {
+  try {
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file || typeof file === 'string') {
+      return json({ error: 'No file provided' }, 400);
+    }
+    if (!ALLOWED_IMG.includes(file.type)) {
+      return json({ error: 'Only JPG, PNG, or WEBP images allowed' }, 400);
+    }
+    if (file.size > MAX_IMG_BYTES) {
+      return json({ error: 'Image must be 5MB or smaller' }, 400);
+    }
+    const ext = (file.type.split('/')[1] || 'bin').replace('jpeg', 'jpg');
+    const key = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    await env.IMAGES_BUCKET.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+    const url = `https://pub-${env.R2_PUBLIC_ID || '71c703c51efd43de8dde4439bd02a8af'}.r2.dev/${key}`;
+    return json({ url }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
   }
 }
 
