@@ -359,6 +359,15 @@ function safeJsonParse(v, fallback) {
   }
 }
 
+function migrateFlavorGroups(v) {
+  if (!Array.isArray(v)) return [];
+  if (!v.length) return [];
+  if (typeof v[0] === 'string') {
+    return [{ name: 'Flavor', options: [...v] }];
+  }
+  return v;
+}
+
 const ALLOWED_IMG = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMG_BYTES = 5 * 1024 * 1024;
 
@@ -406,7 +415,7 @@ async function listProducts(env) {
     ORDER BY display_order ASC, name ASC
   `).all();
   const products = (results || []).map(r => {
-    const flavorGroups = safeJsonParse(r.flavors, []);
+    const flavorGroups = migrateFlavorGroups(safeJsonParse(r.flavors, []));
     return {
       ...r,
       flavor_groups: flavorGroups,  // canonical new name
@@ -422,7 +431,7 @@ async function listProducts(env) {
 async function getProduct(id, env) {
   const row = await env.DB.prepare('SELECT * FROM products WHERE id = ?').bind(id).first();
   if (!row) return json({ error: 'Not found' }, 404);
-  const flavorGroups = safeJsonParse(row.flavors, []);
+  const flavorGroups = migrateFlavorGroups(safeJsonParse(row.flavors, []));
   const product = {
     ...row,
     flavor_groups: flavorGroups,
@@ -482,7 +491,7 @@ async function createProduct(request, env, actor) {
 }
 
 async function updateProduct(id, request, env, actor) {
-  const body = await request.json();
+  let body = await request.json();
   if (body.flavor_groups !== undefined && body.flavors === undefined) {
     body = { ...body, flavors: body.flavor_groups };
   }
