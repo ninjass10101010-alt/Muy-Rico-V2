@@ -6,10 +6,10 @@ compatibility_flags = [ "nodejs_compat" ]
 [[d1_databases]]
 binding = "DB"
 database_name = "muy-rico-orders"
-database_id = "PASTE_AFTER_D1_CREATE"   # ← run `wrangler d1 create muy-rico-orders` first
+database_id = "ca6cb20b-8884-4cb2-a51e-aff8f7be8502"
 
-[email_sending]
-binding = "EMAIL"
+[[send_email]]
+name = "EMAIL"
 
 [vars]
 ALLOWED_ORIGIN = "https://muy-rico.pages.dev"
