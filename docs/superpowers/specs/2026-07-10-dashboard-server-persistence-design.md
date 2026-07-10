@@ -260,10 +260,11 @@ TS-boolean at the boundary (same `Boolean(r.active)` coercion already used by
 `listProducts`, line 426).
 
 ```ts
-// customers
+// customers — camelCase on the TS boundary (API functions map to snake_case
+// request bodies, matching the existing `createOrder` pattern at api.ts:6-18)
 export interface ApiCustomer {
   id: string; name: string; phone: string | null; email: string | null;
-  notes: string | null; created_at: string; updated_at: string | null; active: boolean;
+  notes: string | null; createdAt: string; updatedAt: string | null; active: boolean;
 }
 export interface CustomerCreate { id: string; name: string; phone?: string; email?: string; notes?: string; }
 export type CustomerUpdate = Partial<CustomerCreate>;
@@ -274,13 +275,13 @@ export async function deleteCustomer(id: string): Promise<{ ok: boolean }>;
 
 // payments
 export interface ApiPayment {
-  id: string; order_id: number | null; order_number: string | null;
-  customer_name: string; amount: number; method: PaymentMethod;
-  date: string; created_at: string; active: boolean;
+  id: string; orderId: number | null; orderNumber: string | null;
+  customerName: string; amount: number; method: PaymentMethod;
+  date: string; createdAt: string; active: boolean;
 }
 export interface PaymentCreate {
-  id: string; order_id?: number | null; order_number?: string | null;
-  customer_name: string; amount: number; method: PaymentMethod; date?: string;
+  id: string; orderId?: number | null; orderNumber?: string | null;
+  customerName: string; amount: number; method: PaymentMethod; date?: string;
 }
 export async function fetchPayments(): Promise<ApiPayment[]>;
 export async function createPayment(p: PaymentCreate): Promise<{ ok: boolean; id: string }>;
@@ -329,7 +330,13 @@ Five concrete changes to the file.
 - Initial state is empty / null — server is the source of truth.
 
 ### 9.2 Add refreshers
-Mirror `refreshProducts` (lines 145-153) and `refreshInventory` (lines 185-197):
+Mirror `refreshProducts` (lines 145-153) and `refreshInventory` (lines 185-197).
+
+Four private mapper functions live in the file (`apiToCustomer`, `apiToPayment`,
+`apiToLabelTemplate`, `apiToProfile`). They convert `Api*` rows (snake_case from
+the DB) to the TS interfaces (camelCase), normalizing nulls to fit the TS shape —
+same role as the existing `apiToProduct` (lines 110-143) and `apiToInventoryItem`
+(lines 161-183). No unit conversion.
 
 ```ts
 const refreshCustomers = useCallback(async () => {
@@ -372,10 +379,6 @@ const refreshProfile = useCallback(async () => {
   }
 }, []);
 ```
-
-`apiToCustomer`, `apiToPayment`, `apiToLabelTemplate`, `apiToProfile` are private mappers
-in the file (no field conversion; they just normalize nulls to fits TS interface, like
-`apiToProduct` does at lines 110-143).
 
 Add a `useEffect` per refresher (same shape as lines 104-106, 155-157, 195-197).
 
