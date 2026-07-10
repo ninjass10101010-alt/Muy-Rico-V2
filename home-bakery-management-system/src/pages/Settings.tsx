@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, RefreshCcw, Save } from "lucide-react";
 import { useStore } from "../context/StoreContext";
-import type { PaymentMethod } from "../types";
+import type { BusinessProfile, PaymentMethod } from "../types";
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
 
 const METHOD_ICONS: Record<PaymentMethod, string> = {
@@ -13,12 +13,16 @@ const METHOD_ICONS: Record<PaymentMethod, string> = {
 };
 
 export default function Settings() {
-  const { profile, setProfile, resetAllData } = useStore();
-  const [draft, setDraft] = useState(profile);
+  const { profile, handleUpdateProfile, resetAllData } = useStore();
+  const [draft, setDraft] = useState<BusinessProfile>(profile);
   const [saved, setSaved] = useState(false);
 
-  function save() {
-    setProfile(draft);
+  async function save() {
+    try {
+      await handleUpdateProfile(draft);
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -65,11 +69,11 @@ export default function Settings() {
             <RefreshCcw size={15} /> Data management
           </h3>
           <p className="mb-3 text-xs text-hibiscus">
-            All information is stored locally in this browser. Resetting will restore the original demo data.
+            All information is stored on the server and shared across your devices. Resetting will restore the original demo data.
           </p>
           <button
-            onClick={() => {
-              if (confirm("Reset all data to the original demo content? This cannot be undone.")) resetAllData();
+            onClick={async () => {
+              if (confirm("Reset all data to the original demo content? This cannot be undone.")) await resetAllData();
             }}
             className="rounded-xl border border-hibiscus bg-white px-4 py-2 text-xs font-medium text-hibiscus hover:bg-hibiscus-light/10"
           >

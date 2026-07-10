@@ -25,7 +25,15 @@ import { formatCurrency, formatDate, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABEL
 import type { Page } from "../App";
 
 export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
-  const { orders, inventory, payments, products } = useStore();
+  const { orders, inventory, payments, products, loading } = useStore();
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-palm border-t-transparent" />
+      </div>
+    );
+  }
 
   const stats = useMemo(() => {
     const now = new Date();

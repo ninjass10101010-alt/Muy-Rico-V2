@@ -6,7 +6,7 @@ import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../ty
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
 
 export default function OrderModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { products, customers, setCustomers, profile, apiCreateOrder } = useStore();
+  const { products, customers, handleCreateCustomer, profile, apiCreateOrder } = useStore();
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -111,7 +111,13 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
 
       // Only add customer if the order succeeds
       if (newCustomer) {
-        setCustomers((prev) => [newCustomer, ...prev]);
+        await handleCreateCustomer({
+          id: newCustomer.id,
+          name: newCustomer.name,
+          phone: newCustomer.phone,
+          email: newCustomer.email,
+          notes: newCustomer.notes,
+        });
       }
 
       resetForm();

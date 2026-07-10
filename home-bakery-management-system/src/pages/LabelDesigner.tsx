@@ -38,7 +38,7 @@ const LABEL_SIZES = [
 const EMOJI_CHOICES = ["\u{1F9C1}", "\u{1F382}", "\u{1F36A}", "\u{1F950}", "\u{1F35E}", "\u{1F369}", "\u{1F967}", "\u{1F36B}", "\u2728", "\u{1F33F}"];
 
 export default function LabelDesigner() {
-  const { labelTemplates, setLabelTemplates, products, profile } = useStore();
+  const { labelTemplates, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, products, profile } = useStore();
   const [label, setLabel] = useState<LabelTemplate>(labelTemplates[0]);
   const previewRef = useRef<HTMLDivElement>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
@@ -65,29 +65,29 @@ export default function LabelDesigner() {
     }));
   }
 
-  function saveTemplate() {
+  async function saveTemplate() {
     const exists = labelTemplates.find((t) => t.id === label.id);
     if (exists) {
-      setLabelTemplates((prev) => prev.map((t) => (t.id === label.id ? label : t)));
+      await handleUpdateLabel(label.id, label);
     } else {
       const saved = { ...label, id: newId("label") };
-      setLabelTemplates((prev) => [saved, ...prev]);
+      await handleCreateLabel(saved);
       setLabel(saved);
     }
   }
 
-  function newTemplate() {
+  async function newTemplate() {
     const fresh: LabelTemplate = {
       ...label,
       id: newId("label"),
       name: "Untitled Label",
     };
-    setLabelTemplates((prev) => [fresh, ...prev]);
+    await handleCreateLabel(fresh);
     setLabel(fresh);
   }
 
   function removeTemplate(id: string) {
-    setLabelTemplates((prev) => prev.filter((t) => t.id !== id));
+    handleDeleteLabel(id);
     if (label.id === id && labelTemplates.length > 1) {
       setLabel(labelTemplates.find((t) => t.id !== id)!);
     }

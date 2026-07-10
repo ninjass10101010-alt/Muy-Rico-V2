@@ -1,4 +1,4 @@
-import type { FlavorGroup, RecipeLine } from "../types";
+import type { BusinessProfile, FlavorGroup, PaymentMethod, RecipeLine } from "../types";
 
 const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE = isDev ? "http://localhost:8787" : "";

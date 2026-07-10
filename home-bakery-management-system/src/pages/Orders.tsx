@@ -49,11 +49,11 @@ export default function Orders({ search }: { search: string }) {
     }
   }
 
-  function confirmPayment() {
+  async function confirmPayment() {
     if (!payFor) return;
     const updated: Order = { ...payFor, paymentStatus: "paid", paymentMethod: payMethod };
     apiUpdateOrder(Number(payFor.id), { payment_status: "paid" });
-    recordPayment(updated);
+    await recordPayment(updated);
     setPayFor(null);
   }
 

@@ -15,7 +15,7 @@ const emptyCustomer = (): Customer => ({
 });
 
 export default function Customers({ search }: { search: string }) {
-  const { customers, setCustomers, orders } = useStore();
+  const { customers, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, orders } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<Customer>(emptyCustomer());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,18 +46,33 @@ export default function Customers({ search }: { search: string }) {
     setModalOpen(true);
   }
 
-  function save() {
+  async function save() {
     if (!draft.name.trim()) return;
-    if (editingId) {
-      setCustomers((prev) => prev.map((c) => (c.id === editingId ? draft : c)));
-    } else {
-      setCustomers((prev) => [{ ...draft, id: newId("cust") }, ...prev]);
+    try {
+      if (editingId) {
+        await handleUpdateCustomer(editingId, {
+          name: draft.name,
+          phone: draft.phone,
+          email: draft.email,
+          notes: draft.notes,
+        });
+      } else {
+        await handleCreateCustomer({
+          id: newId("cust"),
+          name: draft.name,
+          phone: draft.phone,
+          email: draft.email,
+          notes: draft.notes,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save customer:", err);
     }
     setModalOpen(false);
   }
 
   function remove(id: string) {
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
+    handleDeleteCustomer(id);
   }
 
   return (
