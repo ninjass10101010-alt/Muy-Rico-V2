@@ -404,6 +404,31 @@
       font-size: 0.78rem; color: var(--color-text-cocoa); outline: none; cursor: pointer;
     }
     .flavor-selects select:focus { border-color: var(--color-accent-coral); box-shadow: 0 0 0 2px rgba(247,168,164,0.15); }
+
+    /* Pack sizes (bulk pricing) */
+    .pack-selects { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.4rem; }
+    .pack-option {
+      display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start;
+      padding: 0.4rem 0.7rem; border: 1.5px solid rgba(44,37,35,0.14);
+      border-radius: 12px; cursor: pointer; background: #fff; transition: all 0.18s ease;
+      position: relative;
+    }
+    .pack-option:hover { border-color: var(--color-accent-coral); }
+    .pack-option.selected {
+      border-color: var(--color-accent-coral);
+      background: rgba(247,168,164,0.12);
+      box-shadow: 0 0 0 2px rgba(247,168,164,0.3);
+    }
+    .pack-btn {
+      background: none; border: none; font-weight: 600; font-size: 0.85rem;
+      cursor: pointer; padding: 0; color: var(--color-text-cocoa); text-align: left;
+    }
+    .pack-badge {
+      display: inline-block; background: var(--color-accent-coral); color: #fff;
+      font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 6px;
+      margin-top: 0.1rem; letter-spacing: 0.02em;
+    }
+    .pack-unit-price { font-size: 0.72rem; color: var(--color-text-muted); }
   </style>
   </head>
   <body>
@@ -566,19 +591,26 @@
                The script at the bottom replaces this inner content with live
                products from /api/products when JS + API are available. -->
 
-          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg">
+          <article class="product-tile reveal has-packs" id="tile-cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
             <div class="tile-header">
               <img class="tile-icon" src="cookies.svg" alt="Chocolate Chip Cookie" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
             </div>
             <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Cookie">Galleta de Chispas de Chocolate</h3>
-            <p class="tile-desc lang-fade"
-               data-es="Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40."
-               data-en="Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40.">
-              Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &ldquo;Treat yo self&rdquo;. Shhhhhhhhhhhhhh... listen... they are calling you. Dozen Pricing: $40.
-            </p>
+            <p class="tile-desc lang-fade" data-es="Galletas con chispas de chocolate horneadas suaves. Elige una individual o ahorra en la docena." data-en="Soft-baked chocolate chip cookies. Choose a single or save on a dozen.">Soft-baked chocolate chip cookies. Choose a single or save on a dozen.</p>
+            <div class="pack-selects">
+              <div class="pack-option selected" data-pack-id="single" data-pack-price="4" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual">
+                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single" onclick="selectPack(this)">Single</button>
+                <span class="pack-unit-price lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="dozen" data-pack-price="40" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)">
+                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)" onclick="selectPack(this)">Dozen (12)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $8!" data-en="Save $8">Save $8</span>
+                <span class="pack-unit-price lang-fade" data-es="$3.33 c/u" data-en="$3.33 ea">$3.33 ea</span>
+              </div>
+            </div>
             <div class="tile-bottom">
-              <span class="tile-price">$4 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <span class="tile-price" id="price-cookies">$4 <span class="lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span></span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -598,15 +630,15 @@
             <h3 class="tile-title lang-fade" data-es="Conchas" data-en="Conchas">Conchas</h3>
             <p class="tile-desc lang-fade"
                data-es="Este pan mexicano es un ícono. Suave y esponjoso con vainilla y canela en la masa. La hermosa cobertura en forma de concha viene en vainilla, chocolate y fresa. Honestamente, lo necesitas para acompañar tu café."
-               data-en="This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.">
-              This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and strawberry. Honestly, you need it to go with your coffee.
+               data-en="This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and fresa. Honestly, you need it to go with your coffee.">
+              This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and fresa. Honestly, you need it to go with your coffee.
             </p>
             <div class="flavor-selects">
               <select class="concha-flavor" aria-label="Concha flavor">
                 <option value="" data-es="Sabor" data-en="Flavor">Flavor</option>
                 <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
                 <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
-                <option value="Strawberry" data-es="Fresa" data-en="Strawberry">Strawberry</option>
+                <option value="Fresa" data-es="Fresa" data-en="Fresa">Fresa</option>
               </select>
             </div>
             <div class="tile-bottom">
@@ -622,7 +654,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-bolillos" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖">
+          <article class="product-tile reveal has-packs" id="tile-bolillos" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖" data-has-packs="1" data-pack-price="2" data-pack-qty="1" data-pack-label="Single">
             <div class="tile-header">
               <img class="tile-icon" src="bolillos.svg" alt="Bolillos" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -633,8 +665,19 @@
                data-en="This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.">
               This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.
             </p>
+            <div class="pack-selects">
+              <div class="pack-option selected" data-pack-id="single" data-pack-price="2" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual">
+                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single" onclick="selectPack(this)">Single</button>
+                <span class="pack-unit-price lang-fade" data-es="$2.00 c/u" data-en="$2.00 ea">$2.00 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="dozen" data-pack-price="20" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)">
+                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)" onclick="selectPack(this)">Dozen (12)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $4!" data-en="Save $4">Save $4</span>
+                <span class="pack-unit-price lang-fade" data-es="$1.67 c/u" data-en="$1.67 ea">$1.67 ea</span>
+              </div>
+            </div>
             <div class="tile-bottom">
-              <span class="tile-price">$2 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <span class="tile-price" id="price-bolillos">$2 <span class="lang-fade" data-es="$2.00 c/u" data-en="$2.00 ea">$2.00 ea</span></span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -937,32 +980,55 @@
       const hero = p.image_url
         ? `<div class="tile-hero">${cartBadge}<img class="tile-hero-img" src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" loading="lazy" /></div>`
         : `<div class="tile-header">${cartBadge}<span class="tile-icon" style="font-size:48px;line-height:1;">${p.emoji || '🍞'}</span></div>`;
-      const flavorHTML = (p.flavor_groups && p.flavor_groups.length)
-        ? `<div class="flavor-selects">` + p.flavor_groups.map(g => `
+      // Flavor groups (bilingual group name)
+      const flavorGroups = (p.flavor_groups && p.flavor_groups.length) ? p.flavor_groups : [];
+      const flavorHTML = flavorGroups.length
+        ? `<div class="flavor-selects">` + flavorGroups.map(g => `
             <div class="flavor-group">
-              <label class="flavor-label">${escapeHtml(g.name)}</label>
+              <label class="flavor-label lang-fade" data-es="${escapeHtml(g.name_es || g.name)}" data-en="${escapeHtml(g.name)}">${escapeHtml(g.name)}</label>
               <select class="flavor-select" data-group="${escapeHtml(g.name)}">
-                <option value="">— Select —</option>
+                <option value="" class="lang-fade" data-es="— Seleccionar —" data-en="— Select —">— Select —</option>
                 ${g.options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}
               </select>
             </div>`).join('') + `</div>`
         : '';
+      // Pack sizes (bulk pricing) — first pack is the default selection
+      const packSizes = (p.pack_sizes && p.pack_sizes.length) ? p.pack_sizes : [];
+      const hasPacks = packSizes.length > 0;
+      const initialPack = hasPacks ? packSizes[0] : null;
+      const priceNum = hasPacks ? initialPack.price : Number(p.price);
+      const unitLabel = hasPacks
+        ? (currentLang === 'es' ? (initialPack.unit_label_es || initialPack.unit_label) : initialPack.unit_label)
+        : null;
+      const packHTML = hasPacks
+        ? `<div class="pack-selects">` + packSizes.map(pk => `
+            <div class="pack-option" data-pack-id="${escapeHtml(pk.id)}" data-pack-price="${pk.price}" data-pack-qty="${pk.qty}" data-pack-label="${escapeHtml(pk.label)}" data-pack-label-es="${escapeHtml(pk.label_es || pk.label)}">
+              <button type="button" class="pack-btn lang-fade" data-es="${escapeHtml(pk.label_es || pk.label)}" data-en="${escapeHtml(pk.label)}" onclick="selectPack(this)">${escapeHtml(pk.label)}</button>
+              ${pk.badge ? `<span class="pack-badge lang-fade" data-es="${escapeHtml(pk.badge_es || pk.badge)}" data-en="${escapeHtml(pk.badge)}">${escapeHtml(pk.badge)}</span>` : ''}
+              <span class="pack-unit-price lang-fade" data-es="${escapeHtml(pk.unit_label_es || pk.unit_label || '')}" data-en="${escapeHtml(pk.unit_label || '')}">${escapeHtml(pk.unit_label || '')}</span>
+            </div>`).join('') + `</div>`
+        : '';
       return `
-        <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}"
+        <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''} ${hasPacks ? 'has-packs' : ''}"
           id="tile-${p.id}"
-          data-name="${p.name_es || p.name}"
-          data-name-en="${p.name}"
+          data-name="${escapeHtml(p.name_es || p.name)}"
+          data-name-en="${escapeHtml(p.name)}"
           data-price="${Number(p.price).toFixed(2)}"
           data-icon="${p.emoji || '🍞'}"
           data-image-url="${p.image_url || ''}"
           data-toast-emoji="${p.emoji || '🍞'}"
-          data-has-flavors="${(p.flavor_groups && p.flavor_groups.length) ? '1' : ''}">
+          data-has-flavors="${flavorGroups.length ? '1' : ''}"
+          data-has-packs="${hasPacks ? '1' : ''}"
+          data-pack-price="${hasPacks ? priceNum : ''}"
+          data-pack-qty="${hasPacks ? (initialPack ? initialPack.qty : '') : ''}"
+          data-pack-label="${hasPacks ? (currentLang === 'es' ? (initialPack.label_es || initialPack.label) : initialPack.label) : ''}">
           ${hero}
-          <h3 class="tile-title lang-fade" data-es="${p.name_es || p.name}" data-en="${p.name}">${name}</h3>
-          <p class="tile-desc lang-fade" data-es="${p.description_es || p.description || ''}" data-en="${p.description || ''}">${desc}</p>
+          <h3 class="tile-title lang-fade" data-es="${escapeHtml(p.name_es || p.name)}" data-en="${escapeHtml(p.name)}">${name}</h3>
+          <p class="tile-desc lang-fade" data-es="${escapeHtml(p.description_es || p.description || '')}" data-en="${escapeHtml(p.description || '')}">${desc}</p>
+          ${packHTML}
           ${flavorHTML}
           <div class="tile-bottom">
-            <span class="tile-price">$${Number(p.price).toFixed(2)} <span class="lang-fade" data-es="c/u" data-en="ea">ea</span></span>
+            <span class="tile-price" id="price-${p.id}">$${priceNum.toFixed(2)}${unitLabel ? ` <span class="lang-fade" data-es="${escapeHtml(unitLabel)}" data-en="${escapeHtml(unitLabel)}">${escapeHtml(unitLabel)}</span>` : ` <span class="lang-fade" data-es="c/u" data-en="ea">ea</span>`}</span>
             <div class="tile-actions">
               <div class="qty-stepper">
                 <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -984,6 +1050,11 @@
       }
       grid.innerHTML = products.map(renderProductTile).join('');
       applyLangToDOM(currentLang);
+      // Auto-select the first (default) pack on each pack-enabled tile
+      grid.querySelectorAll('.pack-selects').forEach(ps => {
+        const firstBtn = ps.querySelector('.pack-option .pack-btn');
+        if (firstBtn) selectPack(firstBtn);
+      });
       if (window.initProductReveals) initProductReveals();
     }
 
@@ -1146,6 +1217,28 @@
       gsap.fromTo(display, { scale: 1.45 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' });
     }
 
+    function selectPack(btn) {
+      const tile = btn.closest('.product-tile');
+      const opt = btn.closest('.pack-option');
+      tile.querySelectorAll('.pack-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      const price = parseFloat(opt.dataset.packPrice);
+      const unitLabel = currentLang === 'es'
+        ? (opt.querySelector('.pack-unit-price')?.getAttribute('data-es') || '')
+        : (opt.querySelector('.pack-unit-price')?.getAttribute('data-en') || '');
+      const id = tile.id.replace('tile-', '');
+      const priceEl = document.getElementById('price-' + id);
+      if (priceEl) {
+        priceEl.innerHTML = '$' + price.toFixed(2) + (unitLabel
+          ? ` <span class="lang-fade" data-es="${escapeHtml(unitLabel)}" data-en="${escapeHtml(unitLabel)}">${escapeHtml(unitLabel)}</span>`
+          : ' <span class="lang-fade" data-es="c/u" data-en="ea">ea</span>');
+      }
+      tile.setAttribute('data-pack-price', price);
+      tile.setAttribute('data-pack-qty', opt.dataset.packQty);
+      tile.setAttribute('data-pack-label', currentLang === 'es' ? opt.dataset.packLabelEs : opt.dataset.packLabel);
+      applyLangToDOM(currentLang);
+    }
+
     function addToCart(btn) {
       const tile = btn.closest('.product-tile');
       const name = tile.getAttribute('data-name');
@@ -1154,6 +1247,16 @@
       const toastEmoji = tile.getAttribute('data-toast-emoji') || '🍞';
       let displayName = currentLang === 'en' && nameEn ? nameEn : name;
       const price = parseFloat(tile.getAttribute('data-price'));
+      let packLabel = '';
+      let packId = '';
+      if (tile.getAttribute('data-has-packs') === '1') {
+        const selectedOpt = tile.querySelector('.pack-option.selected') || tile.querySelector('.pack-option');
+        if (selectedOpt) {
+          price = parseFloat(selectedOpt.dataset.packPrice);
+          packId = selectedOpt.dataset.packId || '';
+          packLabel = ' (' + (currentLang === 'es' ? (selectedOpt.dataset.packLabelEs || selectedOpt.dataset.packLabel) : selectedOpt.dataset.packLabel) + ')';
+        }
+      }
       let qty = parseInt(tile.querySelector('.qty-value').textContent);
 
       var flavorNote = '';
@@ -1164,15 +1267,15 @@
       });
       if (selectedFlavors.length) {
         flavorNote = ' (' + selectedFlavors.join(', ') + ')';
-        displayName = displayName + flavorNote;
       }
+      displayName = displayName + packLabel + flavorNote;
 
       if (qty === 0) {
         // UX Improvement: Default to 1 if user just clicks Add directly
         qty = 1;
       }
 
-      const existing = cart.find(item => item.name === name && (item.flavorNote || '') === flavorNote);
+      const existing = cart.find(item => item.name === name && (item.packId || '') === packId && (item.flavorNote || '') === flavorNote);
       if (existing) { existing.qty += qty; existing.displayName = displayName; }
       else {
         cart.push({
@@ -1185,6 +1288,8 @@
           image_url: tile.getAttribute('data-image-url') || '',
           toastEmoji,
           flavorNote,
+          packNote: packLabel,
+          packId,
         });
       }
 
