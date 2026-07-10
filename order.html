@@ -566,7 +566,7 @@
                The script at the bottom replaces this inner content with live
                products from /api/products when JS + API are available. -->
 
-          <article class="product-tile reveal" id="tile-cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg">
+          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg">
             <div class="tile-header">
               <img class="tile-icon" src="cookies.svg" alt="Chocolate Chip Cookie" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -590,7 +590,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
+          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="conchas.svg" alt="Conchas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -622,7 +622,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-bolillos" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖">
+          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-bolillos" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖">
             <div class="tile-header">
               <img class="tile-icon" src="bolillos.svg" alt="Bolillos" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -646,7 +646,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-tortillas" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
+          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-tortillas" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
             <div class="tile-header">
               <img class="tile-icon" src="tortilla.svg" alt="Flour Tortillas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -670,7 +670,7 @@
             </div>
           </article>
 
-           <article class="product-tile reveal" id="tile-cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
+           <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
             <div class="tile-header">
               <img class="tile-icon" src="cakepop.svg" alt="Cakepops" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -694,7 +694,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
+          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="cake.svg" alt="Custom Cake" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -731,7 +731,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
+          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="cupcake.svg" alt="Cupcakes" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -932,9 +932,11 @@
     function renderProductTile(p) {
       const name = (currentLang === 'es' && p.name_es) ? p.name_es : p.name;
       const desc = (currentLang === 'es' && p.description_es) ? p.description_es : (p.description || '');
-      const icon = p.image_url
-        ? `<img class="tile-icon" src="${p.image_url}" alt="${p.name}" width="42" height="42" style="object-fit:contain;" />`
-        : `<span class="tile-icon" style="font-size:42px;line-height:1;">${p.emoji || '🍞'}</span>`;
+      const cartBadge = `<span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>`;
+      // Image products: large full-width square hero. Emoji products: compact header.
+      const hero = p.image_url
+        ? `<div class="tile-hero">${cartBadge}<img class="tile-hero-img" src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" loading="lazy" /></div>`
+        : `<div class="tile-header">${cartBadge}<span class="tile-icon" style="font-size:48px;line-height:1;">${p.emoji || '🍞'}</span></div>`;
       const flavorHTML = (p.flavor_groups && p.flavor_groups.length)
         ? `<div class="flavor-selects">` + p.flavor_groups.map(g => `
             <div class="flavor-group">
@@ -946,7 +948,7 @@
             </div>`).join('') + `</div>`
         : '';
       return `
-        <article class="product-tile reveal"
+        <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}"
           id="tile-${p.id}"
           data-name="${p.name_es || p.name}"
           data-name-en="${p.name}"
@@ -955,10 +957,7 @@
           data-image-url="${p.image_url || ''}"
           data-toast-emoji="${p.emoji || '🍞'}"
           data-has-flavors="${(p.flavor_groups && p.flavor_groups.length) ? '1' : ''}">
-          <div class="tile-header">
-            ${icon}
-            <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-          </div>
+          ${hero}
           <h3 class="tile-title lang-fade" data-es="${p.name_es || p.name}" data-en="${p.name}">${name}</h3>
           <p class="tile-desc lang-fade" data-es="${p.description_es || p.description || ''}" data-en="${p.description || ''}">${desc}</p>
           ${flavorHTML}
@@ -1290,9 +1289,9 @@
         total += line;
         let iconHtml;
         if (item.image_url) {
-          iconHtml = `<img src="${item.image_url}" alt="" width="36" height="36" style="object-fit:cover;border-radius:8px;" />`;
+          iconHtml = `<img src="${item.image_url}" alt="" width="56" height="56" style="object-fit:cover;border-radius:10px;" />`;
         } else {
-          iconHtml = `<span style="font-size:28px;line-height:1;">${item.toastEmoji || '🍞'}</span>`;
+          iconHtml = `<span style="font-size:40px;line-height:1;">${item.toastEmoji || '🍞'}</span>`;
         }
         return `<li>
           <div class="cart-item-left">
