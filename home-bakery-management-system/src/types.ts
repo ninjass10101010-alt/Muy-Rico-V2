@@ -73,6 +73,7 @@ export interface Customer {
   email: string;
   notes: string;
   createdAt: string;
+  active?: boolean;
 }
 
 export interface OrderItem {
@@ -111,6 +112,7 @@ export interface Payment {
   amount: number;
   method: PaymentMethod;
   date: string;
+  active?: boolean;
 }
 
 export type LabelShape = "rounded" | "circle" | "square" | "oval";
@@ -144,6 +146,7 @@ export interface LabelTemplate {
   showDisclaimer: boolean;
   labelWidth: number;
   labelHeight: number;
+  active?: boolean;
 }
 
 export interface BusinessProfile {

@@ -252,3 +252,221 @@ export async function deleteInventoryItem(id: string): Promise<{ ok: boolean }> 
     method: "DELETE",
   });
 }
+
+// ─── Customers ───────────────────────────────────────────────────────────────
+
+export interface ApiCustomer {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  active: boolean;
+}
+
+export interface CustomerCreate {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+}
+
+export type CustomerUpdate = Partial<CustomerCreate>;
+
+export async function fetchCustomers(): Promise<ApiCustomer[]> {
+  const data = await apiFetch<{ customers: ApiCustomer[] }>("/api/customers");
+  return data.customers;
+}
+
+export async function createCustomer(c: CustomerCreate): Promise<{ ok: boolean; id: string }> {
+  return apiFetch("/api/customers", {
+    method: "POST",
+    body: JSON.stringify(c),
+  });
+}
+
+export async function updateCustomer(id: string, patch: CustomerUpdate): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/customers/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteCustomer(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/customers/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+
+export interface ApiPayment {
+  id: string;
+  orderId: number | null;
+  orderNumber: string | null;
+  customerName: string;
+  amount: number;
+  method: PaymentMethod;
+  date: string;
+  createdAt: string;
+  active: boolean;
+}
+
+export interface PaymentCreate {
+  id: string;
+  orderId?: number | null;
+  orderNumber?: string | null;
+  customerName: string;
+  amount: number;
+  method: PaymentMethod;
+  date?: string;
+}
+
+export async function fetchPayments(): Promise<ApiPayment[]> {
+  const data = await apiFetch<{ payments: ApiPayment[] }>("/api/payments");
+  return data.payments;
+}
+
+export async function createPayment(p: PaymentCreate): Promise<{ ok: boolean; id: string }> {
+  return apiFetch("/api/payments", {
+    method: "POST",
+    body: JSON.stringify(p),
+  });
+}
+
+export async function deletePayment(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/payments/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+// ─── Label templates ──────────────────────────────────────────────────────────
+
+export interface ApiLabelTemplate {
+  id: string;
+  name: string;
+  shape: string | null;
+  bgColor: string | null;
+  accentColor: string | null;
+  textColor: string | null;
+  businessName: string | null;
+  productName: string | null;
+  details: string | null;
+  ingredients: string | null;
+  allergens: string | null;
+  netWeight: string | null;
+  price: string | null;
+  showPrice: number | null;
+  showBestBy: number | null;
+  bestByDays: number | null;
+  logoEmoji: string | null;
+  logoImage: string | null;
+  font: string | null;
+  businessIdMode: string | null;
+  address: string | null;
+  phoneNumber: string | null;
+  registrationNumber: string | null;
+  showDisclaimer: number | null;
+  labelWidth: number | null;
+  labelHeight: number | null;
+  displayOrder: number;
+  active: boolean;
+}
+
+export interface LabelTemplateCreate {
+  id: string;
+  name: string;
+  shape?: string | null;
+  bgColor?: string | null;
+  accentColor?: string | null;
+  textColor?: string | null;
+  businessName?: string | null;
+  productName?: string | null;
+  details?: string | null;
+  ingredients?: string | null;
+  allergens?: string | null;
+  netWeight?: string | null;
+  price?: string | null;
+  showPrice?: boolean | null;
+  showBestBy?: boolean | null;
+  bestByDays?: number | null;
+  logoEmoji?: string | null;
+  logoImage?: string | null;
+  font?: string | null;
+  businessIdMode?: string | null;
+  address?: string | null;
+  phoneNumber?: string | null;
+  registrationNumber?: string | null;
+  showDisclaimer?: boolean | null;
+  labelWidth?: number | null;
+  labelHeight?: number | null;
+  displayOrder?: number | null;
+}
+
+export type LabelTemplateUpdate = Partial<LabelTemplateCreate>;
+
+export async function fetchLabelTemplates(): Promise<ApiLabelTemplate[]> {
+  const data = await apiFetch<{ labelTemplates: ApiLabelTemplate[] }>("/api/labels");
+  return data.labelTemplates;
+}
+
+export async function createLabelTemplate(t: LabelTemplateCreate): Promise<{ ok: boolean; id: string }> {
+  return apiFetch("/api/labels", {
+    method: "POST",
+    body: JSON.stringify(t),
+  });
+}
+
+export async function updateLabelTemplate(id: string, patch: LabelTemplateUpdate): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/labels/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteLabelTemplate(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/labels/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+// ─── Business profile (singleton) ─────────────────────────────────────────────
+
+export interface ApiBusinessProfile {
+  id: string;
+  name: string | null;
+  tagline: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  registrationNumber: string | null;
+  acceptedMethods: string | null;
+  cashtag: string | null;
+  venmoHandle: string | null;
+  applePayEnabled: number | null;
+  stripeConnected: number | null;
+  updatedAt: string | null;
+}
+
+export async function fetchProfile(): Promise<ApiBusinessProfile | null> {
+  const data = await apiFetch<{ profile: ApiBusinessProfile | null }>("/api/profile");
+  return data.profile;
+}
+
+export async function updateProfile(p: BusinessProfile): Promise<{ ok: boolean }> {
+  return apiFetch("/api/profile", {
+    method: "PUT",
+    body: JSON.stringify(p),
+  });
+}
+
+// ─── Seed reset ────────────────────────────────────────────────────────────────
+
+export async function resetSeedData(): Promise<{ ok: boolean }> {
+  return apiFetch("/api/seed/reset", {
+    method: "POST",
+  });
+}
