@@ -107,6 +107,32 @@ export default {
         if (method === 'DELETE') return await deleteInventoryItem(id, env, actorName);
       }
 
+      const lm = path.match(/^\/api\/labels\/([A-Za-z0-9_-]+)$/);
+      if (lm) {
+        const id = lm[1];
+        if (method === 'GET')    return await getLabelTemplate(id, env);
+        if (method === 'PATCH')  return await updateLabelTemplate(id, request, env, actorName);
+        if (method === 'DELETE') return await deleteLabelTemplate(id, env, actorName);
+      }
+
+      const cm = path.match(/^\/api\/customers\/([A-Za-z0-9_-]+)$/);
+      if (cm) {
+        const id = cm[1];
+        if (method === 'GET')    return await getCustomer(id, env);
+        if (method === 'PATCH')  return await updateCustomer(id, request, env, actorName);
+        if (method === 'DELETE') return await deleteCustomer(id, env, actorName);
+      }
+
+      if (path === '/api/customers' && method === 'GET') return await listCustomers(env);
+      if (path === '/api/customers' && method === 'POST') return await createCustomer(request, env, actorName);
+      if (path === '/api/payments' && method === 'GET') return await listPayments(env);
+      if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
+      if (path === '/api/labels' && method === 'GET') return await listLabelTemplates(env);
+      if (path === '/api/labels' && method === 'POST') return await createLabelTemplate(request, env, actorName);
+      if (path === '/api/profile' && method === 'GET') return await getProfile(env);
+      if (path === '/api/profile' && method === 'PUT') return await updateProfile(request, env, actorName);
+      if (path === '/api/seed/reset' && method === 'POST') return await resetSeed(env, actorName);
+
       return json({ error: 'Not found' }, 404);
     } catch (err) {
       console.error(err);
@@ -621,5 +647,265 @@ async function updateInventoryItem(id, request, env, actor) {
 async function deleteInventoryItem(id, env, actor) {
   const r = await env.DB.prepare(`UPDATE inventory SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Customers ──────────────────────────────────────────────────────────────
+
+const CUSTOMER_FIELDS = ['name', 'phone', 'email', 'notes'];
+
+async function listCustomers(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM customers WHERE active = 1 ORDER BY created_at DESC
+  `).all();
+  return json({ customers: results }, 200);
+}
+
+async function getCustomer(id, env) {
+  const row = await env.DB.prepare('SELECT * FROM customers WHERE id = ?').bind(id).first();
+  if (!row) return json({ error: 'Not found' }, 404);
+  return json({ customer: row }, 200);
+}
+
+async function createCustomer(request, env, actor) {
+  const body = await request.json();
+  if (!body.id || !body.name) return json({ error: 'Missing required fields: id, name' }, 400);
+  if (typeof body.id !== 'string' || body.id.length > 64) return json({ error: 'id must be a short string' }, 400);
+  try {
+    await env.DB.prepare(`
+      INSERT INTO customers (id, name, phone, email, notes, created_at, active)
+      VALUES (?, ?, ?, ?, ?, datetime('now'), 1)
+    `).bind(
+      body.id, body.name, body.phone || null, body.email || null, body.notes || null
+    ).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id: body.id }, 201);
+}
+
+async function updateCustomer(id, request, env, actor) {
+  const body = await request.json();
+  const sets = [], binds = [];
+  for (const f of CUSTOMER_FIELDS) {
+    if (body[f] === undefined) continue;
+    sets.push(`${f} = ?`); binds.push(body[f]);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  const r = await env.DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+async function deleteCustomer(id, env, actor) {
+  const r = await env.DB.prepare(`UPDATE customers SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Payments ───────────────────────────────────────────────────────────────
+
+async function listPayments(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM payments WHERE active = 1 ORDER BY date DESC, created_at DESC
+  `).all();
+  return json({ payments: results }, 200);
+}
+
+async function createPayment(request, env, actor) {
+  const body = await request.json();
+  if (!body.id || !body.customer_name || !body.method) {
+    return json({ error: 'Missing required fields: id, customer_name, method' }, 400);
+  }
+  if (!ALLOWED_PAYMENT.includes(body.method)) {
+    return json({ error: `Invalid method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
+  }
+  try {
+    await env.DB.prepare(`
+      INSERT INTO payments (id, order_id, order_number, customer_name, amount, method, date, created_at, active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
+    `).bind(
+      body.id,
+      body.order_id ?? null,
+      body.order_number || null,
+      body.customer_name,
+      Number(body.amount) || 0,
+      body.method,
+      body.date || null,
+    ).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id: body.id }, 201);
+}
+
+async function deletePayment(id, env, actor) {
+  const r = await env.DB.prepare(`UPDATE payments SET active = 0 WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Label templates ─────────────────────────────────────────────────────────
+
+const LABEL_FIELDS = [
+  'name', 'shape', 'bg_color', 'accent_color', 'text_color', 'business_name',
+  'product_name', 'details', 'ingredients', 'allergens', 'net_weight', 'price',
+  'show_price', 'show_best_by', 'best_by_days', 'logo_emoji', 'logo_image',
+  'font', 'business_id_mode', 'address', 'phone_number', 'registration_number',
+  'show_disclaimer', 'label_width', 'label_height', 'display_order',
+];
+
+async function uploadDataUrlToR2(dataUrl, env) {
+  const [meta, b64] = dataUrl.split(',');
+  const mimeMatch = meta.match(/data:(.*?);base64/);
+  const ext = (mimeMatch ? mimeMatch[1].split('/')[1] : 'png').replace('jpeg', 'jpg');
+  const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const key = `labels/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  await env.IMAGES_BUCKET.put(key, bin, { httpMetadata: { contentType: mimeMatch ? mimeMatch[1] : 'image/png' } });
+  return `https://pub-${env.R2_PUBLIC_ID || '71c703c51efd43de8dde4439bd02a8af'}.r2.dev/${key}`;
+}
+
+async function listLabelTemplates(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM label_templates WHERE active = 1 ORDER BY display_order ASC, name ASC
+  `).all();
+  return json({ labelTemplates: results }, 200);
+}
+
+async function getLabelTemplate(id, env) {
+  const row = await env.DB.prepare('SELECT * FROM label_templates WHERE id = ?').bind(id).first();
+  if (!row) return json({ error: 'Not found' }, 404);
+  return json({ labelTemplate: row }, 200);
+}
+
+async function createLabelTemplate(request, env, actor) {
+  const body = await request.json();
+  if (!body.id || !body.name) return json({ error: 'Missing required fields: id, name' }, 400);
+  if (typeof body.id !== 'string' || body.id.length > 64) return json({ error: 'id must be a short string' }, 400);
+  if (body.logo_image && typeof body.logo_image === 'string' && body.logo_image.startsWith('data:')) {
+    try {
+      body.logo_image = await uploadDataUrlToR2(body.logo_image, env);
+    } catch (e) { return json({ error: 'logo upload failed: ' + String(e) }, 400); }
+  }
+  const cols = ['id', ...LABEL_FIELDS];
+  const placeholders = cols.map(() => '?').join(', ');
+  const binds = [body.id];
+  for (const f of LABEL_FIELDS) {
+    let val = body[f] ?? null;
+    if (f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
+    if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? 0 : Number(val);
+    binds.push(val);
+  }
+  try {
+    await env.DB.prepare(`INSERT INTO label_templates (${cols.join(', ')}) VALUES (${placeholders})`).bind(...binds).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id: body.id }, 201);
+}
+
+async function updateLabelTemplate(id, request, env, actor) {
+  const body = await request.json();
+  if (body.logo_image && typeof body.logo_image === 'string' && body.logo_image.startsWith('data:')) {
+    try {
+      body.logo_image = await uploadDataUrlToR2(body.logo_image, env);
+    } catch (e) { return json({ error: 'logo upload failed: ' + String(e) }, 400); }
+  }
+  const sets = [], binds = [];
+  for (const f of LABEL_FIELDS) {
+    if (body[f] === undefined) continue;
+    let val = body[f];
+    if (f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
+    if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? null : Number(val);
+    sets.push(`${f} = ?`); binds.push(val);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  const r = await env.DB.prepare(`UPDATE label_templates SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+async function deleteLabelTemplate(id, env, actor) {
+  const r = await env.DB.prepare(`UPDATE label_templates SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Business profile (singleton) ────────────────────────────────────────────
+
+const PROFILE_FIELDS = [
+  'name', 'tagline', 'address', 'phone', 'email', 'registration_number',
+  'accepted_methods', 'cashtag', 'venmo_handle', 'apple_pay_enabled', 'stripe_connected',
+];
+
+async function getProfile(env) {
+  const row = await env.DB.prepare("SELECT * FROM business_profile WHERE id = 'singleton'").first();
+  if (!row) return json({ profile: null }, 200);
+  return json({ profile: row }, 200);
+}
+
+async function updateProfile(request, env, actor) {
+  const body = await request.json();
+  const cols = ['id', ...PROFILE_FIELDS];
+  const binds = [];
+  for (const f of PROFILE_FIELDS) {
+    let val = body[f];
+    if (f === 'apple_pay_enabled' || f === 'stripe_connected') val = val ? 1 : 0;
+    if (f === 'accepted_methods' && typeof val === 'object') val = JSON.stringify(val);
+    binds.push(val ?? null);
+  }
+  try {
+    await env.DB.prepare(`
+      INSERT INTO business_profile (${cols.join(', ')}) VALUES (?, ${PROFILE_FIELDS.map(() => '?').join(', ')})
+      ON CONFLICT(id) DO UPDATE SET ${PROFILE_FIELDS.map((f) => `${f} = excluded.${f}`).join(', ')}, updated_at = datetime('now')
+    `).bind('singleton', ...binds).run();
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
+  return json({ ok: true }, 200);
+}
+
+// ─── Seed reset (re-runs INSERT OR IGNORE blocks) ───────────────────────────
+
+async function resetSeed(env, actor) {
+  const seed = `
+    INSERT OR IGNORE INTO customers (id, name, phone, email, notes, created_at)
+    VALUES
+      ('cust_1','Maria Gonzalez','(616) 555-0142','maria.g@example.com','Regular — allergic to nuts.',datetime('now','-120 days')),
+      ('cust_2','James Whitfield','(616) 555-0290','jwhitfield@example.com','Prefers pickup after 5pm.',datetime('now','-88 days')),
+      ('cust_3','Aisha Thompson','(616) 555-0345','aisha.t@example.com','Orders birthday cakes monthly.',datetime('now','-64 days')),
+      ('cust_4','Kevin Park','(616) 555-0321','kevin.park@example.com','',datetime('now','-30 days')),
+      ('cust_5','Sophie Nguyen','(616) 555-0098','sophie.n@example.com','Found us via Instagram.',datetime('now','-14 days'));
+
+    INSERT OR IGNORE INTO label_templates
+      (id, name, shape, bg_color, accent_color, text_color, business_name, product_name,
+       details, ingredients, allergens, net_weight, price, show_price, show_best_by,
+       best_by_days, logo_emoji, font, business_id_mode, address, phone_number,
+       registration_number, show_disclaimer, label_width, label_height, display_order)
+    VALUES
+      ('label_default','Classic Kraft Round','circle','#FBF3E7','#d93d59','#2c2523','Muy Rico',
+       'Chocolate Chip Cookie','Made fresh with real butter & love',
+       'Enriched flour (wheat flour, niacin, reduced iron, thiamine mononitrate, riboflavin, folic acid), butter (cream, salt), chocolate chips (sugar, chocolate liquor, cocoa butter, butterfat, soy lecithin), sugar, brown sugar, eggs, vanilla extract, baking soda, salt.',
+       'Contains: wheat, milk, eggs, soy.','Net Wt. 3 oz','$4.00',1,1,3,'🍪',
+       '''Cormorant Garamond'', serif','registration','','(616) 218-3582','',1,3,4,0);
+
+    INSERT OR IGNORE INTO business_profile
+      (id, name, tagline, address, phone, email, registration_number,
+       accepted_methods, cashtag, venmo_handle, apple_pay_enabled, stripe_connected)
+    VALUES
+      ('singleton','Muy Rico','Familia · Tradición · Sabor','Holland, MI','(616) 218-3582',
+       'hello@muy-rico.com','',
+       '{"stripe":false,"cashapp":true,"venmo":true,"applepay":true,"cash":true}',
+       '$MuyRicoBakery','@Muy-Rico',1,0);
+  `;
+  try {
+    await env.DB.exec(seed);
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
   return json({ ok: true }, 200);
 }
