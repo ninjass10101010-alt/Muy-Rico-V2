@@ -13,7 +13,20 @@ export interface RecipeLine {
 
 export interface FlavorGroup {
   name: string;
+  name_es?: string;
   options: string[];
+}
+
+export interface PackSize {
+  id: string;
+  label: string;
+  label_es?: string;
+  qty: number;
+  price: number;
+  badge?: string;
+  badge_es?: string;
+  unit_label?: string;
+  unit_label_es?: string;
 }
 
 export interface Product {
@@ -33,6 +46,7 @@ export interface Product {
   description_es?: string;
   image_url?: string;
   flavor_groups?: FlavorGroup[];
+  pack_sizes?: PackSize[];
   display_order?: number;
   auto_generate_label?: boolean;
 }

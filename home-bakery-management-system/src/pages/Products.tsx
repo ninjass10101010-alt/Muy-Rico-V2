@@ -5,7 +5,7 @@ import Modal from "../components/ui/Modal";
 import { formatCurrency } from "../utils/format";
 import { composeLabelFromRecipe } from "../utils/label";
 import { uploadImage } from "../utils/api";
-import type { FlavorGroup, Product } from "../types";
+import type { FlavorGroup, PackSize, Product } from "../types";
 import type { Page } from "../App";
 
 const EMOJI_CHOICES = ["🧁", "🎂", "🍪", "🥐", "🍞", "🍩", "🥧", "🍫", "🥯", "🍰"];
@@ -32,6 +32,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
   const [draft, setDraft] = useState<Product>(emptyProduct());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [flavorGroups, setFlavorGroups] = useState<FlavorGroup[]>([]);
+  const [packSizes, setPackSizes] = useState<PackSize[]>([]);
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -51,10 +52,18 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
     return [];
   }
 
+  function normalizePacks(p: Product): PackSize[] {
+    if (Array.isArray((p as any).pack_sizes) && (p as any).pack_sizes.length) {
+      return (p as any).pack_sizes;
+    }
+    return [];
+  }
+
   function openNew() {
     setDraft(emptyProduct());
     setEditingId(null);
     setFlavorGroups([]);
+    setPackSizes([]);
     setModalOpen(true);
   }
 
@@ -62,6 +71,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
     setDraft(p);
     setEditingId(p.id);
     setFlavorGroups(normalizeFlavors(p));
+    setPackSizes(normalizePacks(p));
     setModalOpen(true);
   }
 
@@ -74,6 +84,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
       ...draft,
       name_es: draft.name_es || null,
       flavor_groups: flavorGroups.filter(g => g.name.trim() && g.options.length),
+      pack_sizes: packSizes.filter(pk => pk.label.trim() && pk.price >= 0),
       ingredients,
       allergens,
       auto_generate_label: useAuto,
@@ -204,15 +215,23 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Price ($)">
-                <input
-                  type="number"
-                  step="0.01"
-                  value={draft.price}
-                  onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })}
-                  className="input"
-                />
-              </Field>
+              {packSizes.length > 0 ? (
+                <Field label="Price ($)">
+                  <p className="input flex items-center text-sm text-cocoa-muted">
+                    Set per pack size below
+                  </p>
+                </Field>
+              ) : (
+                <Field label="Price ($)">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={draft.price}
+                    onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })}
+                    className="input"
+                  />
+                </Field>
+              )}
               <Field label="Cost to make ($)">
                 <input
                   type="number"
@@ -257,6 +276,16 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                         setFlavorGroups(next);
                       }}
                     />
+                    <input
+                      className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                      placeholder="Spanish name (e.g. Sabor)"
+                      value={grp.name_es || ''}
+                      onChange={(e) => {
+                        const next = [...flavorGroups];
+                        next[gi] = { ...grp, name_es: e.target.value };
+                        setFlavorGroups(next);
+                      }}
+                    />
                     <button
                       type="button"
                       className="rounded-lg bg-red-50 px-2 py-1 text-xs text-red-600"
@@ -294,9 +323,114 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                 type="button"
                 className="rounded-lg border border-dashed border-cocoa-muted px-3 py-1.5 text-xs font-medium text-cocoa-muted"
                 onClick={() => setFlavorGroups([...flavorGroups, { name: '', options: [] }])}
-              >+ Add Flavor Group</button>
-            </Field>
-            <Field label="Product Image">
+                >+ Add Flavor Group</button>
+              </Field>
+              <Field label="Pack Sizes (bulk pricing)">
+                {packSizes.map((pk, pi) => (
+                  <div key={pi} className="mb-3 rounded-lg border border-sand-200 p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <input
+                        className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        placeholder="Pack label (e.g. Dozen)"
+                        value={pk.label}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, label: e.target.value };
+                          setPackSizes(next);
+                        }}
+                      />
+                      <input
+                        className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        placeholder="Spanish label (e.g. Docena)"
+                        value={pk.label_es || ''}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, label_es: e.target.value };
+                          setPackSizes(next);
+                        }}
+                      />
+                      <input
+                        className="w-20 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        type="number"
+                        placeholder="Qty"
+                        value={pk.qty}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, qty: Number(e.target.value) || 1 };
+                          setPackSizes(next);
+                        }}
+                      />
+                      <input
+                        className="w-24 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        value={pk.price}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, price: Number(e.target.value) || 0 };
+                          setPackSizes(next);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="rounded-lg bg-red-50 px-2 py-1 text-xs text-red-600"
+                        onClick={() => setPackSizes(packSizes.filter((_, i) => i !== pi))}
+                      >Remove</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        placeholder="Badge (e.g. Save $8)"
+                        value={pk.badge || ''}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, badge: e.target.value };
+                          setPackSizes(next);
+                        }}
+                      />
+                      <input
+                        className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        placeholder="Badge ES (e.g. ¡Ahorra $8!)"
+                        value={pk.badge_es || ''}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, badge_es: e.target.value };
+                          setPackSizes(next);
+                        }}
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        placeholder="Unit label (e.g. $3.33 ea)"
+                        value={pk.unit_label || ''}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, unit_label: e.target.value };
+                          setPackSizes(next);
+                        }}
+                      />
+                      <input
+                        className="flex-1 rounded-lg border border-sand-200 px-3 py-2 text-sm"
+                        placeholder="Unit label ES (e.g. $3.33 c/u)"
+                        value={pk.unit_label_es || ''}
+                        onChange={(e) => {
+                          const next = [...packSizes];
+                          next[pi] = { ...pk, unit_label_es: e.target.value };
+                          setPackSizes(next);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="rounded-lg border border-dashed border-cocoa-muted px-3 py-1.5 text-xs font-medium text-cocoa-muted"
+                  onClick={() => setPackSizes([...packSizes, { id: `pack_${Date.now().toString(36)}`, label: '', qty: 1, price: 0 }])}
+                >+ Add Pack Size</button>
+              </Field>
+              <Field label="Product Image">
               {draft.image_url && (
                 <img src={draft.image_url} alt="" className="mb-2 h-16 w-16 rounded-lg object-cover" />
               )}
