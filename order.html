@@ -1246,7 +1246,7 @@
       const icon = tile.getAttribute('data-icon') || 'cookies.svg';
       const toastEmoji = tile.getAttribute('data-toast-emoji') || '🍞';
       let displayName = currentLang === 'en' && nameEn ? nameEn : name;
-      const price = parseFloat(tile.getAttribute('data-price'));
+      let price = parseFloat(tile.getAttribute('data-price'));
       let packLabel = '';
       let packId = '';
       if (tile.getAttribute('data-has-packs') === '1') {
