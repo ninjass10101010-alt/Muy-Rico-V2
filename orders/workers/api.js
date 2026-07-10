@@ -420,6 +420,7 @@ async function listProducts(env) {
       ...r,
       flavor_groups: flavorGroups,  // canonical new name
       flavors: flavorGroups,         // legacy alias for any old reader
+      pack_sizes: safeJsonParse(r.pack_sizes, []),
       recipe: safeJsonParse(r.recipe, []),
       active: Boolean(r.active),
       auto_generate_label: Boolean(r.auto_generate_label),
@@ -436,6 +437,7 @@ async function getProduct(id, env) {
     ...row,
     flavor_groups: flavorGroups,
     flavors: flavorGroups,
+    pack_sizes: safeJsonParse(row.pack_sizes, []),
     recipe: safeJsonParse(row.recipe, []),
     active: Boolean(row.active),
     auto_generate_label: Boolean(row.auto_generate_label),
@@ -447,7 +449,7 @@ const PRODUCT_FIELDS = [
   'name', 'name_es', 'description', 'description_es', 'category',
   'price', 'cost', 'sku', 'emoji', 'image_url',
   'active', 'ingredients', 'allergens',
-  'flavors', 'recipe', 'display_order', 'auto_generate_label',
+  'flavors', 'pack_sizes', 'recipe', 'display_order', 'auto_generate_label',
 ];
 
 async function createProduct(request, env, actor) {
@@ -462,8 +464,8 @@ async function createProduct(request, env, actor) {
     await env.DB.prepare(`
       INSERT INTO products
         (id, name, name_es, description, description_es, category, price, cost,
-         sku, emoji, image_url, active, ingredients, allergens, flavors, recipe, display_order, auto_generate_label)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         sku, emoji, image_url, active, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.name,
@@ -480,6 +482,7 @@ async function createProduct(request, env, actor) {
       body.ingredients || null,
       body.allergens || null,
       parseFlavors(body.flavor_groups || body.flavors || []),
+      parseFlavors(body.pack_sizes || []),
       parseRecipe(body.recipe),
       Number(body.display_order) || 0,
       body.auto_generate_label === false ? 0 : 1,
@@ -502,6 +505,7 @@ async function updateProduct(id, request, env, actor) {
     let val = body[f];
     if (f === 'active') val = val ? 1 : 0;
     if (f === 'flavors') val = parseFlavors(body.flavor_groups || body.flavors || []);
+    if (f === 'pack_sizes') val = parseFlavors(body.pack_sizes || []);
     if (f === 'recipe')  val = parseRecipe(val);
     if (f === 'price' || f === 'cost' || f === 'display_order') val = Number(val) || 0;
     sets.push(`${f} = ?`);
