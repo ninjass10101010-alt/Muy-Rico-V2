@@ -869,30 +869,10 @@ async function updateProfile(request, env, actor) {
   return json({ ok: true }, 200);
 }
 
-// ─── Seed reset (re-runs INSERT OR IGNORE blocks) ───────────────────────────
+// ─── Seed reset (re-runs INSERT OR IGNORE for the profile only) ──────────────
 
 async function resetSeed(env, actor) {
   const seed = `
-    INSERT OR IGNORE INTO customers (id, name, phone, email, notes, created_at)
-    VALUES
-      ('cust_1','Maria Gonzalez','(616) 555-0142','maria.g@example.com','Regular — allergic to nuts.',datetime('now','-120 days')),
-      ('cust_2','James Whitfield','(616) 555-0290','jwhitfield@example.com','Prefers pickup after 5pm.',datetime('now','-88 days')),
-      ('cust_3','Aisha Thompson','(616) 555-0345','aisha.t@example.com','Orders birthday cakes monthly.',datetime('now','-64 days')),
-      ('cust_4','Kevin Park','(616) 555-0321','kevin.park@example.com','',datetime('now','-30 days')),
-      ('cust_5','Sophie Nguyen','(616) 555-0098','sophie.n@example.com','Found us via Instagram.',datetime('now','-14 days'));
-
-    INSERT OR IGNORE INTO label_templates
-      (id, name, shape, bg_color, accent_color, text_color, business_name, product_name,
-       details, ingredients, allergens, net_weight, price, show_price, show_best_by,
-       best_by_days, logo_emoji, font, business_id_mode, address, phone_number,
-       registration_number, show_disclaimer, label_width, label_height, display_order)
-    VALUES
-      ('label_default','Classic Kraft Round','circle','#FBF3E7','#d93d59','#2c2523','Muy Rico',
-       'Chocolate Chip Cookie','Made fresh with real butter & love',
-       'Enriched flour (wheat flour, niacin, reduced iron, thiamine mononitrate, riboflavin, folic acid), butter (cream, salt), chocolate chips (sugar, chocolate liquor, cocoa butter, butterfat, soy lecithin), sugar, brown sugar, eggs, vanilla extract, baking soda, salt.',
-       'Contains: wheat, milk, eggs, soy.','Net Wt. 3 oz','$4.00',1,1,3,'🍪',
-       '''Cormorant Garamond'', serif','registration','','(616) 218-3582','',1,3,4,0);
-
     INSERT OR IGNORE INTO business_profile
       (id, name, tagline, address, phone, email, registration_number,
        accepted_methods, cashtag, venmo_handle, apple_pay_enabled, stripe_connected)

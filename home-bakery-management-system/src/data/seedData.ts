@@ -1,4 +1,4 @@
-import { daysFromNow, newId } from "../utils/format";
+import { daysFromNow } from "../utils/format";
 import type {
   BusinessProfile,
   Customer,
@@ -243,13 +243,7 @@ export const seedProducts: Product[] = [
   },
 ];
 
-export const seedCustomers: Customer[] = [
-  { id: "cust_1", name: "Maria Gonzalez", phone: "(616) 555-0142", email: "maria.g@example.com", notes: "Regular — allergic to nuts.", createdAt: daysFromNow(-120) },
-  { id: "cust_2", name: "James Whitfield", phone: "(616) 555-0290", email: "jwhitfield@example.com", notes: "Prefers pickup after 5pm.", createdAt: daysFromNow(-88) },
-  { id: "cust_3", name: "Aisha Thompson", phone: "(616) 555-0345", email: "aisha.t@example.com", notes: "Orders birthday cakes monthly.", createdAt: daysFromNow(-64) },
-  { id: "cust_4", name: "Kevin Park", phone: "(616) 555-0321", email: "kevin.park@example.com", notes: "", createdAt: daysFromNow(-30) },
-  { id: "cust_5", name: "Sophie Nguyen", phone: "(616) 555-0098", email: "sophie.n@example.com", notes: "Found us via Instagram.", createdAt: daysFromNow(-14) },
-];
+export const seedCustomers: Customer[] = [];
 
 function line(productId: string, name: string, emoji: string, qty: number, price: number) {
   return { productId, name, emoji, qty, price };
@@ -359,47 +353,9 @@ export const seedOrders: Order[] = [
   },
 ];
 
-export const seedPayments: Payment[] = seedOrders
-  .filter((o) => o.paymentStatus === "paid" && o.paymentMethod)
-  .map((o) => ({
-    id: newId("pay"),
-    orderId: o.id,
-    orderNumber: o.orderNumber,
-    customerName: o.customerName,
-    amount: o.total,
-    method: o.paymentMethod!,
-    date: o.createdAt,
-  }));
+export const seedPayments: Payment[] = [];
 
-export const seedLabelTemplates: LabelTemplate[] = [
-  {
-    id: "label_default",
-    name: "Classic Kraft Round",
-    shape: "circle",
-    bgColor: "#FBF3E7",
-    accentColor: "#d93d59",
-    textColor: "#2c2523",
-    businessName: "Muy Rico",
-    productName: "Chocolate Chip Cookie",
-    details: "Made fresh with real butter & love",
-    ingredients: "Enriched flour (wheat flour, niacin, reduced iron, thiamine mononitrate, riboflavin, folic acid), butter (cream, salt), chocolate chips (sugar, chocolate liquor, cocoa butter, butterfat, soy lecithin), sugar, brown sugar, eggs, vanilla extract, baking soda, salt.",
-    allergens: "Contains: wheat, milk, eggs, soy.",
-    netWeight: "Net Wt. 3 oz",
-    price: "$4.00",
-    showPrice: true,
-    showBestBy: true,
-    bestByDays: 3,
-    logoEmoji: "🍪",
-    font: "'Cormorant Garamond', serif",
-    businessIdMode: "registration",
-    address: "",
-    phoneNumber: "(616) 218-3582",
-    registrationNumber: "",
-    showDisclaimer: true,
-    labelWidth: 3,
-    labelHeight: 4,
-  },
-];
+export const seedLabelTemplates: LabelTemplate[] = [];
 
 export const seedProfile: BusinessProfile = {
   name: "Muy Rico",
