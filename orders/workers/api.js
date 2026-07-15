@@ -790,7 +790,7 @@ async function deletePayment(id, env, actor) {
 const LABEL_FIELDS = [
   'name', 'shape', 'bg_color', 'accent_color', 'text_color', 'business_name',
   'product_name', 'details', 'ingredients', 'allergens', 'net_weight', 'price',
-  'show_price', 'show_best_by', 'best_by_days', 'logo_emoji', 'logo_image',
+  'show_price', 'show_best_by', 'best_by_days', 'logo_emoji', 'logo_image', 'logo_size',
   'font', 'business_id_mode', 'address', 'phone_number', 'registration_number',
   'show_disclaimer', 'label_width', 'label_height', 'display_order',
 ];
@@ -863,6 +863,7 @@ async function generateLabelsForOrder(env, orderId, body) {
       best_by_days: 7,
       logo_emoji: product.emoji || '🧁',
       logo_image: product.image_url || null,
+      logo_size: 16,
       font: "'Cormorant Garamond', Georgia, serif",
       business_id_mode: 'registration',
       address: profile.address || '',

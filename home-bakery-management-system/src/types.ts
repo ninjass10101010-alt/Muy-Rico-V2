@@ -139,6 +139,7 @@ export interface LabelTemplate {
   bestByDays: number;
   logoEmoji: string;
   logoImage?: string;
+  logoSize?: number;
   font: string;
   businessIdMode: BusinessIdMode;
   address: string;

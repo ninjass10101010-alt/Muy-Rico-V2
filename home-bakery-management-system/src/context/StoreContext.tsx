@@ -265,6 +265,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       bestByDays: Number(row.bestByDays) || 0,
       logoEmoji: row.logoEmoji || "",
       logoImage: row.logoImage || undefined,
+      logoSize: Number(row.logoSize) || 16,
       font: row.font || "'Cormorant Garamond', Georgia, serif",
       businessIdMode: (row.businessIdMode as LabelTemplate["businessIdMode"]) || "address",
       address: row.address || "",

@@ -174,6 +174,8 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
   const effectiveBg = label.bgColor;
   const effectiveAccent = label.accentColor;
   const effectiveText = label.textColor;
+  const logoSize = label.logoSize ?? 16;
+  const hasLogo = Boolean(label.logoImage) || Boolean(label.logoEmoji);
   const isRegistered = label.businessIdMode === "registration";
 
   return (
@@ -270,11 +272,23 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
                 <Upload size={14} /> Upload Custom Logo
                 <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
               </label>
+              <button
+                onClick={() => {
+                  update("logoImage", undefined);
+                  update("logoEmoji", "");
+                }}
+                className={`flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-medium ${
+                  !hasLogo ? "border-coral bg-coral-light/20 text-coral" : "border-sand-300 text-cocoa-muted hover:bg-sand-50"
+                }`}
+                title="No logo"
+              >
+                None
+              </button>
               {label.logoImage && (
                 <button
                   onClick={() => update("logoImage", undefined)}
                   className="flex items-center justify-center rounded-lg border border-hibiscus/30 px-3 py-2 text-hibiscus hover:bg-hibiscus-light/10"
-                  title="Remove Logo"
+                  title="Remove uploaded logo"
                 >
                   <X size={14} />
                 </button>
@@ -296,6 +310,21 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
                   {em}
                 </button>
               ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="whitespace-nowrap text-[10px] text-cocoa-muted">Logo size</span>
+              <input
+                type="range"
+                min={8}
+                max={40}
+                step={1}
+                value={logoSize}
+                disabled={!hasLogo}
+                onChange={(e) => update("logoSize", Number(e.target.value))}
+                className="flex-1 accent-coral"
+              />
+              <span className="w-8 text-right text-[10px] tabular-nums text-cocoa-muted">{logoSize}</span>
             </div>
           </div>
         </Section>
@@ -336,10 +365,12 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             >
               {/* Header: icon + business name */}
               <div className="flex flex-col items-center gap-0.5">
-                {label.logoImage ? (
-                  <img src={label.logoImage} alt="Logo" crossOrigin="anonymous" className="object-contain" style={{ width: "16cqw", height: "16cqw" }} />
-                ) : (
-                  <span className="leading-none" style={{ fontSize: "16cqw" }}>{label.logoEmoji}</span>
+                {hasLogo && (
+                  label.logoImage ? (
+                    <img src={label.logoImage} alt="Logo" crossOrigin="anonymous" className="object-contain" style={{ width: `${logoSize}cqw`, height: `${logoSize}cqw` }} />
+                  ) : (
+                    <span className="leading-none" style={{ fontSize: `${logoSize}cqw` }}>{label.logoEmoji}</span>
+                  )
                 )}
                 <p
                   className="font-semibold uppercase tracking-widest"

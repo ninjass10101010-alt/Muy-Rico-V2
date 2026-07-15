@@ -366,6 +366,7 @@ export interface ApiLabelTemplate {
   bestByDays: number | null;
   logoEmoji: string | null;
   logoImage: string | null;
+  logoSize: number | null;
   font: string | null;
   businessIdMode: string | null;
   address: string | null;
@@ -397,6 +398,7 @@ export interface LabelTemplateCreate {
   bestByDays?: number | null;
   logoEmoji?: string | null;
   logoImage?: string | null;
+  logoSize?: number | null;
   font?: string | null;
   businessIdMode?: string | null;
   address?: string | null;
