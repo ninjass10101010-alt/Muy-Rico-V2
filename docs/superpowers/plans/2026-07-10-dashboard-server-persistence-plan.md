@@ -30,7 +30,7 @@
 **Interfaces:**
 - Produces: tables `customers`, `payments`, `label_templates`, `business_profile`; seed rows consumed by the migration's own `resetSeed` reuse.
 
-- [ ] **Step 1: Write the migration file**
+- [x] **Step 1: Write the migration file**
 
 ```sql
 -- Muy Rico — server-side storage for customers, payments, labels, profile
@@ -150,13 +150,13 @@ VALUES
 
 Note: `payments` are intentionally NOT seeded — `seedPayments` in `seedData.ts` is derived from `seedOrders`, but real payments only exist after orders are marked paid in the live DB (orders are not seeded into D1 either). Seeding payments here would create orphan rows the user didn't enter.
 
-- [ ] **Step 2: Apply migration to local D1 (verify it runs)**
+- [x] **Step 2: Apply migration to local D1 (verify it runs)**
 
 Run: `cd /Users/garciafam/Documents/website/Muy-Rico-V2/orders && npx wrangler d1 execute muy-rico-orders --file=migrations/0006_server_storage.sql`
 
 Expected: output showing the SQL executed with no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add orders/migrations/0006_server_storage.sql
@@ -174,7 +174,7 @@ git commit -m "feat(db): add customers, payments, label_templates, business_prof
 - Consumes: existing `env.DB`, `json()`, `ALLOWED_PAYMENT` (line 32), `emailFromAccessCookie`, `uploadImage` (lines 374-397).
 - Produces: endpoints `GET/POST /api/customers`, `GET /api/customers/:id`, `PATCH/DELETE /api/customers/:id`, `GET/POST /api/payments`, `DELETE /api/payments/:id`, `GET/POST /api/labels`, `PATCH/DELETE /api/labels/:id`, `GET/PUT /api/profile`, `POST /api/seed/reset`.
 
-- [ ] **Step 1: Add route matches**
+- [x] **Step 1: Add route matches**
 
 In the `try` block, after the inventory match (line 108), add:
 
@@ -206,7 +206,7 @@ In the `try` block, after the inventory match (line 108), add:
       if (path === '/api/seed/reset' && method === 'POST') return await resetSeed(env, actorName);
 ```
 
-- [ ] **Step 2: Add handler functions** (before the closing `};` of the default export, after `deleteInventoryItem` at line 625)
+- [x] **Step 2: Add handler functions** (before the closing `};` of the default export, after `deleteInventoryItem` at line 625)
 
 ```js
 // ─── Customers ──────────────────────────────────────────────────────────────
@@ -477,12 +477,12 @@ async function resetSeed(env, actor) {
 }
 ```
 
-- [ ] **Step 3: Verify the Worker parses** by running `npx wrangler deploy --dry-run` (from `orders/`) or `node --check workers/api.js`.
+- [x] **Step 3: Verify the Worker parses** by running `npx wrangler deploy --dry-run` (from `orders/`) or `node --check workers/api.js`.
 
 Run: `cd /Users/garciafam/Documents/website/Muy-Rico-V2/orders && node --check workers/api.js`
 Expected: no syntax error output.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add orders/workers/api.js
@@ -499,7 +499,7 @@ git commit -m "feat(api): add customers, payments, labels, profile, seed/reset e
 **Interfaces:**
 - Produces: `active?: boolean` on `Customer`, `Payment`, `LabelTemplate` (read-only from server; pages ignore it).
 
-- [ ] **Step 1: Add `active?` to `Customer`**
+- [x] **Step 1: Add `active?` to `Customer`**
 
 In `home-bakery-management-system/src/types.ts`, change:
 ```ts
@@ -525,7 +525,7 @@ export interface Customer {
 }
 ```
 
-- [ ] **Step 2: Add `active?` to `Payment`**
+- [x] **Step 2: Add `active?` to `Payment`**
 
 Change:
 ```ts
@@ -553,7 +553,7 @@ export interface Payment {
 }
 ```
 
-- [ ] **Step 3: Add `active?` to `LabelTemplate`**
+- [x] **Step 3: Add `active?` to `LabelTemplate`**
 
 In the `LabelTemplate` interface (ends at line 147, `}`), add `active?: boolean;` after `labelHeight: number;`. The interface currently ends:
 ```ts
@@ -569,7 +569,7 @@ Change to:
 }
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add home-bakery-management-system/src/types.ts
@@ -587,7 +587,7 @@ git commit -m "feat(types): add optional active flag to Customer/Payment/LabelTe
 - Consumes: `API_BASE`, `apiFetch` (lines 47-61).
 - Produces: `fetchCustomers`, `createCustomer`, `updateCustomer`, `deleteCustomer`, `fetchPayments`, `createPayment`, `deletePayment`, `fetchLabelTemplates`, `createLabelTemplate`, `updateLabelTemplate`, `deleteLabelTemplate`, `fetchProfile`, `updateProfile`, `resetSeedData`.
 
-- [ ] **Step 1: Append client functions**
+- [x] **Step 1: Append client functions**
 
 At the end of `home-bakery-management-system/src/utils/api.ts`, add:
 
@@ -811,7 +811,7 @@ export async function resetSeedData(): Promise<{ ok: boolean }> {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add home-bakery-management-system/src/utils/api.ts
@@ -829,7 +829,7 @@ git commit -m "feat(api): add client functions for customers, payments, labels, 
 - Consumes: client functions from Task 4; `newId` from `utils/format`; seeds from `seedData`.
 - Produces: `loading`, `handleCreateCustomer`, `handleUpdateCustomer`, `handleDeleteCustomer`, `handleCreateLabel`, `handleUpdateLabel`, `handleDeleteLabel`, `handleUpdateProfile`, async `recordPayment`, async `resetAllData`. Removes public `setCustomers`/`setPayments`/`setLabelTemplates`/`setProfile`.
 
-- [ ] **Step 1: Remove `useLocalStorage` import**
+- [x] **Step 1: Remove `useLocalStorage` import**
 
 Change line 2:
 ```ts
@@ -840,7 +840,7 @@ to remove it (delete the line). Keep line 1:
 import { createContext, useCallback, useEffect, useContext, useMemo, useState, type ReactNode } from "react";
 ```
 
-- [ ] **Step 2: Replace the four `useLocalStorage` state calls**
+- [x] **Step 2: Replace the four `useLocalStorage` state calls**
 
 Replace lines 62-69:
 ```ts
@@ -872,7 +872,7 @@ to:
 import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, deletePayment as apiDeletePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, type ApiProduct, type ApiInventoryItem } from "../utils/api";
 ```
 
-- [ ] **Step 3: Add private mappers + refreshers**
+- [x] **Step 3: Add private mappers + refreshers**
 
 After `refreshInventory` (ends line 197), add:
 
@@ -996,7 +996,7 @@ After `refreshInventory` (ends line 197), add:
   }, []);
 ```
 
-- [ ] **Step 4: Add a single `refreshAll` + loading effect**
+- [x] **Step 4: Add a single `refreshAll` + loading effect**
 
 After the last `useEffect` (the `refreshInventory` one, line 197), add:
 
@@ -1024,7 +1024,7 @@ After the last `useEffect` (the `refreshInventory` one, line 197), add:
   }, [refreshAll]);
 ```
 
-- [ ] **Step 5: Rewrite `recordPayment` to async + persist**
+- [x] **Step 5: Rewrite `recordPayment` to async + persist**
 
 Replace lines 247-261:
 ```ts
@@ -1065,7 +1065,7 @@ with:
   }, [refreshPayments]);
 ```
 
-- [ ] **Step 6: Rewrite `resetAllData`**
+- [x] **Step 6: Rewrite `resetAllData`**
 
 Replace lines 284-292:
 ```ts
@@ -1091,7 +1091,7 @@ with:
   }, [refreshAll]);
 ```
 
-- [ ] **Step 7: Add handler wrappers**
+- [x] **Step 7: Add handler wrappers**
 
 After `handleApiDeleteInventoryItem` (ends line 245), add:
 
@@ -1134,7 +1134,7 @@ After `handleApiDeleteInventoryItem` (ends line 245), add:
   }, [refreshProfile]);
 ```
 
-- [ ] **Step 8: Update the context interface + value**
+- [x] **Step 8: Update the context interface + value**
 
 In `StoreContextValue` (lines 25-55), replace the `setCustomers`/`setPayments`/`setLabelTemplates`/`setProfile`/`recordPayment`/`resetAllData` declarations:
 
@@ -1228,12 +1228,12 @@ In the `value` useMemo (lines 294-327), replace the old `setCustomers`/`setPayme
 ```
 and `resetAllData,` stays (now async). Also add the new callbacks to the useMemo deps array (line 326): append `handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, loading`.
 
-- [ ] **Step 9: Typecheck**
+- [x] **Step 9: Typecheck**
 
 Run: `cd /Users/garciafam/Documents/website/Muy-Rico-V2/home-bakery-management-system && npx tsc --noEmit`
 Expected: errors about `setCustomers`/`setPayments`/`setLabelTemplates`/`setProfile` usage in pages (expected — fixed in Task 6). Errors about `profile` being possibly null where it was non-null before — fix call sites in Task 6.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add home-bakery-management-system/src/context/StoreContext.tsx
@@ -1254,7 +1254,7 @@ git commit -m "refactor(store): move customers/payments/labels/profile to D1-bac
 **Interfaces:**
 - Consumes: handlers from Task 5 (`handleCreateCustomer`, `handleUpdateCustomer`, `handleDeleteCustomer`, `handleCreateLabel`, `handleUpdateLabel`, `handleDeleteLabel`, `handleUpdateProfile`, async `recordPayment`, async `resetAllData`, `loading`).
 
-- [ ] **Step 1: Customers.tsx**
+- [x] **Step 1: Customers.tsx**
 
 Change line 18:
 ```ts
@@ -1320,7 +1320,7 @@ to:
 
 Note: `newId` is still imported (line 5) and used in `save()`. Keep it.
 
-- [ ] **Step 2: OrderModal.tsx**
+- [x] **Step 2: OrderModal.tsx**
 
 Change line 9:
 ```ts
@@ -1354,7 +1354,7 @@ to:
 
 Check the enclosing function is `async` (it must be — it already `await`s `apiCreateOrder` at line 100). Verify the `try` block wraps this. It does (lines 95-124). Note: after `await handleCreateCustomer`, the `customers` list in context refreshes; the local `customers` prop won't update synchronously, but the next render after the context refresh will include it. No further change needed.
 
-- [ ] **Step 3: LabelDesigner.tsx**
+- [x] **Step 3: LabelDesigner.tsx**
 
 Change line 41:
 ```ts
@@ -1438,7 +1438,7 @@ to:
 
 Note: `saveTemplate`/`newTemplate` are referenced by `onClick={saveTemplate}` / `onClick={newTemplate}` — these become async but the click handlers don't await, which is fine. The `+ Duplicate as new` button calls `newTemplate` (line 586). Good.
 
-- [ ] **Step 4: Settings.tsx**
+- [x] **Step 4: Settings.tsx**
 
 Change line 16:
 ```ts
@@ -1512,7 +1512,7 @@ to:
 
 Note: `draft.name` etc. are now possibly null — `Settings.tsx` inputs use `value={draft.name}` which is fine for controlled inputs (null renders as empty). If a null-safety lint/TS check complains, the `value={draft?.name ?? ""}` form is acceptable, but `useState<BusinessProfile | null>(profile)` plus `value={draft.name}` will surface as "Object is possibly null" on `draft.name`. To avoid that, change the `value` bindings from `value={draft.xxx}` to `value={draft?.xxx ?? ""}` for every `draft.` field in the file (lines 37-54, 85-127). Use `draft?.name ?? ""`, `draft?.tagline ?? ""`, `draft?.address ?? ""`, `draft?.phone ?? ""`, `draft?.email ?? ""`, `draft?.registrationNumber ?? ""`, `draft?.cashtag ?? ""`, `draft?.venmoHandle ?? ""`, `draft?.acceptedMethods?.[m] ?? false`, `draft?.stripeConnected ?? false`, `draft?.applePayEnabled ?? false`.
 
-- [ ] **Step 5: Orders.tsx**
+- [x] **Step 5: Orders.tsx**
 
 Change line 56:
 ```ts
@@ -1533,12 +1533,12 @@ to:
   async function confirmPayment() {
 ```
 
-- [ ] **Step 6: Typecheck**
+- [x] **Step 6: Typecheck**
 
 Run: `cd /Users/garciafam/Documents/website/Muy-Rico-V2/home-bakery-management-system && npx tsc --noEmit`
 Expected: PASS (no type errors).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add home-bakery-management-system/src/pages/Customers.tsx home-bakery-management-system/src/components/OrderModal.tsx home-bakery-management-system/src/pages/LabelDesigner.tsx home-bakery-management-system/src/pages/Settings.tsx home-bakery-management-system/src/pages/Orders.tsx
@@ -1556,14 +1556,14 @@ git commit -m "refactor(pages): route customer/payment/label/profile mutations t
 **Interfaces:**
 - Consumes: `loading` from `useStore`.
 
-- [ ] **Step 1: Delete the hook file**
+- [x] **Step 1: Delete the hook file**
 
 Run:
 ```bash
 cd /Users/garciafam/Documents/website/Muy-Rico-V2 && rm home-bakery-management-system/src/hooks/useLocalStorage.ts
 ```
 
-- [ ] **Step 2: Add loading guard to Dashboard**
+- [x] **Step 2: Add loading guard to Dashboard**
 
 Open `home-bakery-management-system/src/pages/Dashboard.tsx`. Add `loading` to the `useStore()` destructure (find the `const { ... } = useStore();` line at the top of the `Dashboard` component) and add a guard before the main return:
 
@@ -1586,12 +1586,12 @@ Simplest: add `loading` to the existing destructure, then wrap the top of the `r
 
 Insert this `if (loading)` block as the first statement inside the component body after the hooks, before the existing `return`. Match the file's existing class names (`palm`, `cocoa`) which are already used throughout.
 
-- [ ] **Step 3: Typecheck + build**
+- [x] **Step 3: Typecheck + build**
 
 Run: `cd /Users/garciafam/Documents/website/Muy-Rico-V2/home-bakery-management-system && npx tsc --noEmit && npm run build`
 Expected: typecheck PASS, `vite build` succeeds, `postbuild.sh` regenerates `admin/index.html`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -1605,26 +1605,26 @@ git commit -m "chore: delete useLocalStorage hook, add dashboard loading guard"
 **Files:**
 - None (build/deploy/verify only)
 
-- [ ] **Step 1: Apply migration to remote D1**
+- [x] **Step 1: Apply migration to remote D1**
 
 Run: `cd /Users/garciafam/Documents/website/Muy-Rico-V2/orders && npx wrangler d1 execute muy-rico-orders --remote --file=migrations/0006_server_storage.sql`
 Expected: migration applied to remote DB.
 
-- [ ] **Step 2: Deploy Worker**
+- [x] **Step 2: Deploy Worker**
 
 Run: `cd /Users/garciafam/Documents/website/Muy-Rico-V2/orders && npx wrangler deploy`
 Expected: Worker deployed; new endpoints live.
 
-- [ ] **Step 3: Publish dashboard**
+- [x] **Step 3: Publish dashboard**
 
 Copy the freshly built `admin/index.html` to your Pages project (or whatever deploy step you use for `admin/`). Confirm `home-bakery-management-system/dist/` was rebuilt in Task 7.
 
-- [ ] **Step 4: Two-browser persistence test**
+- [ ] **Step 4: Two-browser persistence test (manual — see note)**
 
 1. Browser A: log in, open Settings, change the business address, click Save.
 2. Browser B: log in (different browser/session), open Settings. The changed address must appear.
 This confirms the bug is fixed.
 
-- [ ] **Step 5: Reset test**
+- [ ] **Step 5: Reset test (manual — see note)**
 
 In Settings, click "Reset to demo data", confirm. The four collections revert to demo content and `loading` flashes false→true→false.

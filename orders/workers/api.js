@@ -29,6 +29,24 @@
 //   GET  /api/products + /:id    — public read for order.html menu rendering
 //   INVENTORY: never public — leaks cost/supplier data, admin-only
 
+function snakeToCamelObject(obj) {
+  if (!obj) return obj;
+  const newObj = { ...obj };
+  for (const key of Object.keys(obj)) {
+    if (key.includes('_')) {
+      const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+      newObj[camelKey] = obj[key];
+    }
+  }
+  return newObj;
+}
+
+function getBodyField(body, snakeKey) {
+  if (body[snakeKey] !== undefined) return body[snakeKey];
+  const camelKey = snakeKey.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+  return body[camelKey];
+}
+
 const ALLOWED_PAYMENT = ['venmo', 'cashapp', 'applepay', 'cash', 'stripe'];
 const ALLOWED_STATUS  = ['pending', 'in-progress', 'ready', 'completed', 'done', 'cancelled'];
 const ALLOWED_PAYSTAT = ['unpaid', 'paid', 'partial'];
@@ -676,13 +694,13 @@ async function listCustomers(env) {
   const { results } = await env.DB.prepare(`
     SELECT * FROM customers WHERE active = 1 ORDER BY created_at DESC
   `).all();
-  return json({ customers: results }, 200);
+  return json({ customers: results.map(snakeToCamelObject) }, 200);
 }
 
 async function getCustomer(id, env) {
   const row = await env.DB.prepare('SELECT * FROM customers WHERE id = ?').bind(id).first();
   if (!row) return json({ error: 'Not found' }, 404);
-  return json({ customer: row }, 200);
+  return json({ customer: snakeToCamelObject(row) }, 200);
 }
 
 async function createCustomer(request, env, actor) {
@@ -706,8 +724,9 @@ async function updateCustomer(id, request, env, actor) {
   const body = await request.json();
   const sets = [], binds = [];
   for (const f of CUSTOMER_FIELDS) {
-    if (body[f] === undefined) continue;
-    sets.push(`${f} = ?`); binds.push(body[f]);
+    const val = getBodyField(body, f);
+    if (val === undefined) continue;
+    sets.push(`${f} = ?`); binds.push(val);
   }
   if (!sets.length) return json({ error: 'Nothing to update' }, 400);
   sets.push("updated_at = datetime('now')");
@@ -729,12 +748,13 @@ async function listPayments(env) {
   const { results } = await env.DB.prepare(`
     SELECT * FROM payments WHERE active = 1 ORDER BY date DESC, created_at DESC
   `).all();
-  return json({ payments: results }, 200);
+  return json({ payments: results.map(snakeToCamelObject) }, 200);
 }
 
 async function createPayment(request, env, actor) {
   const body = await request.json();
-  if (!body.id || !body.customer_name || !body.method) {
+  const customerName = getBodyField(body, 'customer_name');
+  if (!body.id || !customerName || !body.method) {
     return json({ error: 'Missing required fields: id, customer_name, method' }, 400);
   }
   if (!ALLOWED_PAYMENT.includes(body.method)) {
@@ -746,9 +766,9 @@ async function createPayment(request, env, actor) {
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
     `).bind(
       body.id,
-      body.order_id ?? null,
-      body.order_number || null,
-      body.customer_name,
+      getBodyField(body, 'order_id') ?? null,
+      getBodyField(body, 'order_number') || null,
+      customerName,
       Number(body.amount) || 0,
       body.method,
       body.date || null,
@@ -909,13 +929,13 @@ async function listLabelTemplates(env) {
   const { results } = await env.DB.prepare(`
     SELECT * FROM label_templates WHERE active = 1 ORDER BY display_order ASC, name ASC
   `).all();
-  return json({ labelTemplates: results }, 200);
+  return json({ labelTemplates: results.map(snakeToCamelObject) }, 200);
 }
 
 async function getLabelTemplate(id, env) {
   const row = await env.DB.prepare('SELECT * FROM label_templates WHERE id = ?').bind(id).first();
   if (!row) return json({ error: 'Not found' }, 404);
-  return json({ labelTemplate: row }, 200);
+  return json({ labelTemplate: snakeToCamelObject(row) }, 200);
 }
 
 async function createLabelTemplate(request, env, actor) {
@@ -931,7 +951,7 @@ async function createLabelTemplate(request, env, actor) {
   const placeholders = cols.map(() => '?').join(', ');
   const binds = [body.id];
   for (const f of LABEL_FIELDS) {
-    let val = body[f] ?? null;
+    let val = getBodyField(body, f) ?? null;
     if (f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
     if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? 0 : Number(val);
     binds.push(val);
@@ -953,8 +973,9 @@ async function updateLabelTemplate(id, request, env, actor) {
   }
   const sets = [], binds = [];
   for (const f of LABEL_FIELDS) {
-    if (body[f] === undefined) continue;
-    let val = body[f];
+    const valInBody = getBodyField(body, f);
+    if (valInBody === undefined) continue;
+    let val = valInBody;
     if (f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
     if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? null : Number(val);
     sets.push(`${f} = ?`); binds.push(val);
@@ -983,7 +1004,7 @@ const PROFILE_FIELDS = [
 async function getProfile(env) {
   const row = await env.DB.prepare("SELECT * FROM business_profile WHERE id = 'singleton'").first();
   if (!row) return json({ profile: null }, 200);
-  return json({ profile: row }, 200);
+  return json({ profile: snakeToCamelObject(row) }, 200);
 }
 
 async function updateProfile(request, env, actor) {
@@ -991,7 +1012,7 @@ async function updateProfile(request, env, actor) {
   const cols = ['id', ...PROFILE_FIELDS];
   const binds = [];
   for (const f of PROFILE_FIELDS) {
-    let val = body[f];
+    let val = getBodyField(body, f);
     if (f === 'apple_pay_enabled' || f === 'stripe_connected') val = val ? 1 : 0;
     if (f === 'accepted_methods' && typeof val === 'object') val = JSON.stringify(val);
     binds.push(val ?? null);
