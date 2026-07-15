@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { toPng } from "html-to-image";
-import { Download, Printer, Save, Trash2, AlertTriangle, Upload, X } from "lucide-react";
+import { Download, Printer, Save, Tag, Trash2, AlertTriangle, Upload, X } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import { newId } from "../utils/format";
 import Modal from "../components/ui/Modal";
@@ -37,9 +37,17 @@ const LABEL_SIZES = [
 
 const EMOJI_CHOICES = ["\u{1F9C1}", "\u{1F382}", "\u{1F36A}", "\u{1F950}", "\u{1F35E}", "\u{1F369}", "\u{1F967}", "\u{1F36B}", "\u2728", "\u{1F33F}"];
 
-export default function LabelDesigner() {
+export default function LabelDesigner({ filterByOrder }: { filterByOrder?: string | null }) {
   const { labelTemplates, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, products, profile } = useStore();
-  const [label, setLabel] = useState<LabelTemplate>(labelTemplates[0]);
+
+  // When coming from an order, pre-filter and load the first matching label
+  const orderTemplates = filterByOrder
+    ? labelTemplates.filter(t => t.name.includes(filterByOrder))
+    : null;
+
+  const [label, setLabel] = useState<LabelTemplate>(
+    (orderTemplates && orderTemplates.length > 0 ? orderTemplates[0] : labelTemplates[0])
+  );
   const previewRef = useRef<HTMLDivElement>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
 
@@ -583,27 +591,43 @@ export default function LabelDesigner() {
         </Section>
 
         <Section title="Saved templates">
+          {filterByOrder && orderTemplates && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-coral/10 px-2.5 py-2 text-xs font-medium text-coral">
+              <Tag size={12} />
+              Showing labels for {filterByOrder}
+              {orderTemplates.length === 0 && " — none generated yet"}
+            </div>
+          )}
           <button onClick={newTemplate} className="mb-2 w-full rounded-lg border border-dashed border-sand-300 py-1.5 text-xs font-medium text-cocoa-muted hover:bg-sand-50">
             + Duplicate as new
           </button>
           <div className="max-h-64 space-y-1.5 overflow-y-auto">
-            {labelTemplates.map((t) => (
-              <div
-                key={t.id}
-                className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-xs ${
-                  t.id === label.id ? "border-coral bg-coral-light/20" : "border-sand-200"
-                }`}
-              >
-                <button onClick={() => setLabel(t)} className="flex-1 truncate text-left font-medium text-cocoa-muted">
-                  {t.name}
-                </button>
-                <button onClick={() => removeTemplate(t.id)} className="text-hibiscus hover:text-hibiscus-light">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
+            {labelTemplates.map((t) => {
+              const isOrderMatch = filterByOrder && t.name.includes(filterByOrder);
+              return (
+                <div
+                  key={t.id}
+                  className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-xs ${
+                    t.id === label.id
+                      ? "border-coral bg-coral-light/20"
+                      : isOrderMatch
+                      ? "border-palm/50 bg-palm/5"
+                      : "border-sand-200"
+                  }`}
+                >
+                  <button onClick={() => setLabel(t)} className="flex-1 truncate text-left font-medium text-cocoa-muted">
+                    {isOrderMatch && <span className="mr-1 text-palm">🏷️</span>}
+                    {t.name}
+                  </button>
+                  <button onClick={() => removeTemplate(t.id)} className="text-hibiscus hover:text-hibiscus-light">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </Section>
+
       </div>
 
       {/* Disclaimer warning modal */}

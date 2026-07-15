@@ -3,6 +3,7 @@ import { CheckCircle2, RefreshCcw, Save } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import type { BusinessProfile, PaymentMethod } from "../types";
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
+import { backfillAllOrderLabels } from "../utils/api";
 
 const METHOD_ICONS: Record<PaymentMethod, string> = {
   stripe: "💳",
@@ -16,6 +17,8 @@ export default function Settings() {
   const { profile, handleUpdateProfile, resetAllData } = useStore();
   const [draft, setDraft] = useState<BusinessProfile>(profile);
   const [saved, setSaved] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
 
   async function save() {
     try {
@@ -25,6 +28,19 @@ export default function Settings() {
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function handleBackfill() {
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await backfillAllOrderLabels();
+      setBackfillResult(`Success! Processed ${res.ordersProcessed} orders and generated ${res.labelsGenerated} new labels.`);
+    } catch (err) {
+      setBackfillResult("Error backfilling labels. Please try again.");
+    } finally {
+      setBackfilling(false);
+    }
   }
 
   function toggleMethod(m: PaymentMethod) {
@@ -79,6 +95,25 @@ export default function Settings() {
           >
             Reset to demo data
           </button>
+        </div>
+
+        <div className="rounded-[40px_12px_40px_12px] border border-palm/30 bg-palm/5 p-5">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-palm">
+            <RefreshCcw size={15} /> Label backfill
+          </h3>
+          <p className="mb-3 text-xs text-palm/80">
+            Generate compliant ingredient labels for any past orders that do not already have them.
+          </p>
+          <button
+            disabled={backfilling}
+            onClick={handleBackfill}
+            className="rounded-xl border border-palm bg-white px-4 py-2 text-xs font-medium text-palm hover:bg-palm/10 disabled:opacity-50"
+          >
+            {backfilling ? "Backfilling..." : "Backfill past labels"}
+          </button>
+          {backfillResult && (
+            <p className="mt-2 text-xs text-palm font-medium leading-relaxed">{backfillResult}</p>
+          )}
         </div>
       </div>
 

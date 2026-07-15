@@ -21,6 +21,11 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [foodColoring, setFoodColoring] = useState("");
+
+  // Show food coloring field when order has cupcakes, cakepops, or custom cake
+  const COLORABLE_PRODUCTS = ['prod_cupcakes', 'prod_cakepop', 'prod_custom_cake'];
+  const showColoringField = items.some(i => COLORABLE_PRODUCTS.includes(i.productId));
 
   const activeProducts = products.filter((p) => p.active);
   const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[]).filter(
@@ -66,6 +71,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
     setDueDate(new Date().toISOString().slice(0, 10));
     setDiscount(0);
     setNotes("");
+    setFoodColoring("");
   }
 
   async function handleSubmit() {
@@ -101,12 +107,13 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
         customer_name: finalCustomerName || "Walk-in Customer",
         phone: finalPhone || null,
         pickup_date: dueDate,
-        items_json: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+        items_json: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId })),
         total_cents: Math.round(total * 100),
         payment_method: paymentMethod,
         payment_status: paymentStatus,
         notes: notes || null,
         source,
+        food_coloring: foodColoring.trim() || null,
       });
 
       // Only add customer if the order succeeds
@@ -252,6 +259,22 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
             />
           </div>
+
+          {showColoringField && (
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-cocoa-muted">
+                🎨 Custom food coloring
+                <span className="rounded-full bg-hibiscus-light/20 px-2 py-0.5 text-[10px] font-semibold text-hibiscus">Required on label per MI law</span>
+              </label>
+              <input
+                value={foodColoring}
+                onChange={(e) => setFoodColoring(e.target.value)}
+                placeholder='e.g. Wilton Red, Wilton Blue 1, Yellow 5 — or "none" if no added color'
+                className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              />
+              <p className="mt-1 text-[10px] text-cocoa-muted">Artificial colors will be auto-added to the generated label ingredients.</p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">

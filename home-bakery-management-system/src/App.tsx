@@ -28,6 +28,7 @@ function AdminApp() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [labelFilter, setLabelFilter] = useState<string | null>(null);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-sand-50 text-cocoa">
@@ -52,12 +53,12 @@ function AdminApp() {
         />
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           {page === "dashboard" && <Dashboard setPage={setPage} />}
-          {page === "orders" && <Orders search={search} />}
+          {page === "orders" && <Orders search={search} setPage={setPage} setLabelFilter={setLabelFilter} />}
           {page === "products" && <Products search={search} goTo={setPage} />}
           {page === "inventory" && <Inventory search={search} />}
           {page === "customers" && <Customers search={search} />}
           {page === "payments" && <Payments search={search} />}
-          {page === "labels" && <LabelDesigner />}
+          {page === "labels" && <LabelDesigner filterByOrder={labelFilter} />}
           {page === "settings" && <Settings />}
         </main>
       </div>

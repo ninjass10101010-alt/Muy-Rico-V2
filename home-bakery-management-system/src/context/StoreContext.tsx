@@ -94,6 +94,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           createdAt: r.created_at,
           notes: r.notes || "",
           inventoryDeducted: r.status === "done" || r.status === "completed",
+          foodColoring: r.food_coloring || null,
         };
       });
       setOrders(mapped);

@@ -367,8 +367,6 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   border: 1px solid rgba(247,168,164,0.2);
   backdrop-filter: blur(14px);
 }
-.cookie-hibiscus { line-height: 1; display: inline-flex; cursor: pointer; padding: 6px; border-radius: 50%; transition: background 0.2s; }
-.cookie-hibiscus:hover { background: rgba(217,61,89,0.08); }
 .cookie-text { font-size: 0.78rem; color: var(--color-text-muted); line-height: 1.5; }
 .cookie-actions { display: flex; gap: 0.5rem; }
 

@@ -102,6 +102,7 @@ export interface Order {
   createdAt: string;
   notes: string;
   inventoryDeducted: boolean;
+  foodColoring?: string | null;
 }
 
 export interface Payment {

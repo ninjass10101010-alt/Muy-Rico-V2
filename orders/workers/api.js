@@ -41,7 +41,7 @@ const CORS = {
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method.toUpperCase();
@@ -74,7 +74,7 @@ export default {
     }
 
     try {
-      if (path === '/api/orders' && method === 'POST')  return await createOrder(request, env, actorName);
+      if (path === '/api/orders' && method === 'POST')  return await createOrder(request, env, ctx, actorName);
       if (path === '/api/orders' && method === 'GET')   return await listOrders(request, env, actorName);
       if (path === '/api/stats'  && method === 'GET')   return await getStats(env, actorName);
       if (path === '/api/products' && method === 'GET') return await listProducts(env);
@@ -89,6 +89,18 @@ export default {
         if (method === 'GET')    return await getOrder(id, env, actorName);
         if (method === 'PATCH')  return await updateOrder(id, request, env, actorName);
         if (method === 'DELETE') return await cancelOrder(id, env, actorName);
+      }
+
+      // On-demand label generation for a single order
+      const glm = path.match(/^\/api\/orders\/(\d+)\/generate-labels$/);
+      if (glm && method === 'POST') {
+        const id = Number(glm[1]);
+        return await generateLabelsForOrderById(id, env);
+      }
+
+      // Bulk backfill labels for ALL past orders
+      if (path === '/api/orders/backfill-labels' && method === 'POST') {
+        return await backfillAllOrderLabels(env);
       }
 
       const pm = path.match(/^\/api\/products\/([A-Za-z0-9_-]+)$/);
@@ -173,7 +185,7 @@ function json(data, status = 200, extra = {}) {
 
 
 
-async function createOrder(request, env, actor) {
+async function createOrder(request, env, ctx, actor) {
   const body = await request.json();
   for (const f of ['customer_name', 'pickup_date', 'items_json', 'payment_method']) {
     if (!body[f]) return json({ error: `Missing field: ${f}` }, 400);
@@ -196,8 +208,8 @@ async function createOrder(request, env, actor) {
   const result = await env.DB.prepare(`
     INSERT INTO orders
       (customer_name, phone, pickup_date, pickup_time,
-       items_json, total_cents, payment_method, payment_status, status, notes, created_by, source)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       items_json, total_cents, payment_method, payment_status, status, notes, created_by, source, food_coloring)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.customer_name.trim(),
     body.phone || null,
@@ -211,6 +223,7 @@ async function createOrder(request, env, actor) {
     body.notes || null,
     actor,
     body.source || 'in-person',
+    body.food_coloring?.trim() || null,
   ).run();
 
   const id = result.meta.last_row_id;
@@ -221,8 +234,13 @@ async function createOrder(request, env, actor) {
   // Fire notifications in the background (don't block response)
   notifyOrderCreated(env, body, id, actor);
 
+  // Auto-generate labels in the background
+  ctx.waitUntil(generateLabelsForOrder(env, id, body));
+
   return json({ ok: true, id }, 201);
 }
+
+
 
 async function notifyOrderCreated(env, body, id, actor) {
   const customer = body.customer_name.trim();
@@ -315,7 +333,7 @@ async function getOrder(id, env, actor) {
 
 async function updateOrder(id, request, env, actor) {
   const body = await request.json();
-  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method'];
+  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'food_coloring'];
   const sets = [], binds = [];
   for (const f of allowed) {
     if (body[f] === undefined) continue;
@@ -756,6 +774,126 @@ const LABEL_FIELDS = [
   'font', 'business_id_mode', 'address', 'phone_number', 'registration_number',
   'show_disclaimer', 'label_width', 'label_height', 'display_order',
 ];
+
+async function generateLabelsForOrder(env, orderId, body) {
+  let items = [];
+  try {
+    items = typeof body.items_json === 'string' ? JSON.parse(body.items_json) : body.items_json;
+  } catch(e) { return; }
+
+  const profileRow = await env.DB.prepare("SELECT * FROM business_profile WHERE id = 'singleton'").first();
+  const profile = profileRow || {};
+  const foodColoring = (body.food_coloring || '').trim();
+  const orderId_str = `Order #${orderId}`;
+
+  // Load all products once for name-based fallback matching
+  const { results: allProducts } = await env.DB.prepare('SELECT * FROM products WHERE active = 1').all();
+
+  for (const item of items) {
+    // Resolve product — prefer productId, fall back to name matching
+    let product = null;
+    if (item.productId) {
+      product = await env.DB.prepare('SELECT * FROM products WHERE id = ?').bind(item.productId).first();
+    }
+    if (!product && item.name) {
+      product = allProducts.find(p =>
+        p.name.toLowerCase() === item.name.toLowerCase() ||
+        item.name.toLowerCase().includes(p.name.toLowerCase())
+      ) || null;
+    }
+    if (!product || !product.auto_generate_label) continue;
+
+    // Skip if label already exists for this order + product
+    const existing = await env.DB.prepare(
+      `SELECT id FROM label_templates WHERE name = ? LIMIT 1`
+    ).bind(`${orderId_str} - ${product.name}`).first();
+    if (existing) continue;
+
+    const labelId = `label_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const labelName = `${orderId_str} - ${product.name}`;
+
+    // Append food coloring disclosure to ingredients and allergens if provided
+    let ingredients = product.ingredients || '';
+    let allergens = product.allergens || '';
+    if (foodColoring) {
+      ingredients += ` Food coloring: ${foodColoring}.`;
+      const dyeKeywords = ['Red 40', 'Red 3', 'Blue 1', 'Blue 2', 'Green 3', 'Yellow 5', 'Yellow 6', 'Violet 1', 'FD&C'];
+      const usedDyes = dyeKeywords.filter(d => foodColoring.toLowerCase().includes(d.toLowerCase()));
+      if (usedDyes.length > 0 && !allergens.toLowerCase().includes('color')) {
+        allergens += ` Contains artificial color(s): ${usedDyes.join(', ')}.`;
+      }
+    }
+
+    const label = {
+      id: labelId,
+      name: labelName,
+      shape: 'rounded',
+      bg_color: '#FBF3E7',
+      accent_color: '#C17A3F',
+      text_color: '#4A3222',
+      business_name: profile.name || 'Muy Rico',
+      product_name: product.name,
+      details: product.description || '',
+      ingredients,
+      allergens,
+      net_weight: '',
+      price: `$${(item.price || product.price).toFixed(2)}`,
+      show_price: 1,
+      show_best_by: 1,
+      best_by_days: 7,
+      logo_emoji: product.emoji || '🧁',
+      logo_image: product.image_url || null,
+      font: "'Cormorant Garamond', Georgia, serif",
+      business_id_mode: 'registration',
+      address: profile.address || '',
+      phone_number: profile.phone || '',
+      registration_number: profile.registration_number || '',
+      show_disclaimer: 1,
+      label_width: 3,
+      label_height: 4,
+      display_order: 0,
+      active: 1
+    };
+
+    const cols = ['id', ...LABEL_FIELDS, 'active'];
+    const placeholders = cols.map(() => '?').join(', ');
+    const binds = cols.map(c => label[c] ?? null);
+
+    try {
+      await env.DB.prepare(`INSERT INTO label_templates (${cols.join(', ')}) VALUES (${placeholders})`).bind(...binds).run();
+    } catch(e) {
+      console.error('Failed to auto-generate label:', e);
+    }
+  }
+}
+
+// Generate labels for a single order by ID (on-demand, for historical orders)
+async function generateLabelsForOrderById(orderId, env) {
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
+  if (!order) return json({ error: 'Order not found' }, 404);
+  await generateLabelsForOrder(env, orderId, order);
+  return json({ ok: true, orderId }, 200);
+}
+
+// Backfill labels for ALL past orders that don't already have labels
+async function backfillAllOrderLabels(env) {
+  const { results: orders } = await env.DB.prepare(
+    `SELECT * FROM orders WHERE status NOT IN ('cancelled') ORDER BY id ASC`
+  ).all();
+
+  let generated = 0;
+  for (const order of orders) {
+    const before = await env.DB.prepare(
+      `SELECT COUNT(*) as cnt FROM label_templates WHERE name LIKE ?`
+    ).bind(`Order #${order.id} - %`).first();
+    const alreadyHasLabels = before && before.cnt > 0;
+    if (!alreadyHasLabels) {
+      await generateLabelsForOrder(env, order.id, order);
+      generated++;
+    }
+  }
+  return json({ ok: true, ordersProcessed: orders.length, labelsGenerated: generated }, 200);
+}
 
 async function uploadDataUrlToR2(dataUrl, env) {
   const [meta, b64] = dataUrl.split(',');

@@ -1,20 +1,28 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Trash2, Wallet } from "lucide-react";
+import { CheckCircle2, ChevronDown, Tag, Trash2, Wallet } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import { formatCurrency, formatDate, PAYMENT_METHOD_LABELS } from "../utils/format";
+import { generateOrderLabels } from "../utils/api";
 import type { Order, OrderStatus, PaymentMethod } from "../types";
+import type { Page } from "../App";
 
 const STATUS_FLOW: OrderStatus[] = ["pending", "in-progress", "ready", "completed", "cancelled"];
 
-export default function Orders({ search }: { search: string }) {
-  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder } = useStore();
+export default function Orders({ search, setPage, setLabelFilter }: {
+  search: string;
+  setPage: (p: Page) => void;
+  setLabelFilter: (filter: string | null) => void;
+}) {
+  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, refreshOrders } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
   const [payFor, setPayFor] = useState<Order | null>(null);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
+  const [generatingLabels, setGeneratingLabels] = useState(false);
+  const [labelGenResult, setLabelGenResult] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return orders
@@ -96,7 +104,7 @@ export default function Orders({ search }: { search: string }) {
             </thead>
             <tbody className="divide-y divide-sand-100">
               {filtered.map((o) => (
-                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" onClick={() => setSelected(o)}>
+                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" onClick={() => { setSelected(o); setLabelGenResult(null); }}>
                   <td className="px-4 py-3 font-medium text-cocoa">{o.orderNumber}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{o.customerName}</td>
                   <td className="px-4 py-3">
@@ -166,7 +174,7 @@ export default function Orders({ search }: { search: string }) {
         </div>
       </div>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected ? `Order ${selected.orderNumber}` : ""}>
+      <Modal open={!!selected} onClose={() => { setSelected(null); setLabelGenResult(null); }} title={selected ? `Order ${selected.orderNumber}` : ""}>
         {selected && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -208,10 +216,49 @@ export default function Orders({ search }: { search: string }) {
             {selected.notes && (
               <div className="rounded-xl bg-coral-light/20 p-3 text-sm text-cocoa">{selected.notes}</div>
             )}
+            {selected.foodColoring && (
+              <div className="flex items-center gap-1.5 rounded-xl bg-violet-100 p-3 text-sm font-medium text-violet-800">
+                <span>🎨 Food coloring:</span>
+                <span>{selected.foodColoring}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between text-xs text-cocoa-muted">
               <span>Ordered {formatDate(selected.createdAt)}</span>
               <span>Due {formatDate(selected.dueDate)}</span>
             </div>
+            <button
+              onClick={() => {
+                setLabelFilter(selected.orderNumber);
+                setPage("labels");
+                setSelected(null);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-coral/40 bg-coral/5 py-2.5 text-sm font-semibold text-coral transition hover:bg-coral/10"
+            >
+              <Tag size={15} />
+              View Labels for {selected.orderNumber}
+            </button>
+            <button
+              disabled={generatingLabels}
+              onClick={async () => {
+                setGeneratingLabels(true);
+                setLabelGenResult(null);
+                try {
+                  await generateOrderLabels(Number(selected.id));
+                  setLabelGenResult("Labels generated! Click \"View Labels\" to open them.");
+                  await refreshOrders();
+                } catch {
+                  setLabelGenResult("Could not generate labels — try again.");
+                } finally {
+                  setGeneratingLabels(false);
+                }
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-sand-200 bg-sand-50 py-2.5 text-sm font-semibold text-cocoa-muted transition hover:bg-sand-100 disabled:opacity-50"
+            >
+              {generatingLabels ? "Generating..." : "🔄 (Re)Generate Labels"}
+            </button>
+            {labelGenResult && (
+              <p className="text-center text-xs text-mid-green">{labelGenResult}</p>
+            )}
           </div>
         )}
       </Modal>

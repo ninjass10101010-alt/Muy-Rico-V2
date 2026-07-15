@@ -15,6 +15,7 @@ interface ApiOrderCreate {
   status?: string;
   notes?: string | null;
   source?: string;
+  food_coloring?: string | null;
 }
 
 interface ApiOrder {
@@ -32,6 +33,7 @@ interface ApiOrder {
   notes: string | null;
   created_by: string;
   source: string;
+  food_coloring: string | null;
 }
 
 export interface StatsResponse {
@@ -469,4 +471,14 @@ export async function resetSeedData(): Promise<{ ok: boolean }> {
   return apiFetch("/api/seed/reset", {
     method: "POST",
   });
+}
+
+// ─── Label generation ──────────────────────────────────────────────────────────
+
+export async function generateOrderLabels(orderId: number): Promise<{ ok: boolean; orderId: number }> {
+  return apiFetch(`/api/orders/${orderId}/generate-labels`, { method: "POST" });
+}
+
+export async function backfillAllOrderLabels(): Promise<{ ok: boolean; ordersProcessed: number; labelsGenerated: number }> {
+  return apiFetch("/api/orders/backfill-labels", { method: "POST" });
 }
