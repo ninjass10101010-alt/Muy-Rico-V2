@@ -50,6 +50,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
   );
   const previewRef = useRef<HTMLDivElement>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   function update<K extends keyof LabelTemplate>(key: K, value: LabelTemplate[K]) {
     setLabel((l) => ({ ...l, [key]: value }));
@@ -137,15 +138,25 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
 
   const downloadPng = useCallback(async () => {
     if (!previewRef.current) return;
+    setDownloadError(null);
     const el = previewRef.current;
     const rect = el.getBoundingClientRect();
     const targetWidth = effW * 203;
-    const dpr = targetWidth / rect.width;
-    const dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true });
-    const link = document.createElement("a");
-    link.download = `${label.productName || "label"}.png`;
-    link.href = dataUrl;
-    link.click();
+    const dpr = rect.width ? targetWidth / rect.width : 1;
+    try {
+      const dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true });
+      const link = document.createElement("a");
+      link.download = `${label.productName || "label"}.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Label PNG export failed:", err);
+      setDownloadError(
+        "Could not export the label image. If it uses an uploaded logo, the image host may block downloads — try removing the logo or re-uploading it."
+      );
+    }
   }, [effW, label.productName]);
 
   function printLabel() {
@@ -326,7 +337,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
               {/* Header: icon + business name */}
               <div className="flex flex-col items-center gap-0.5">
                 {label.logoImage ? (
-                  <img src={label.logoImage} alt="Logo" className="object-contain" style={{ width: "16cqw", height: "16cqw" }} />
+                  <img src={label.logoImage} alt="Logo" crossOrigin="anonymous" className="object-contain" style={{ width: "16cqw", height: "16cqw" }} />
                 ) : (
                   <span className="leading-none" style={{ fontSize: "16cqw" }}>{label.logoEmoji}</span>
                 )}
@@ -435,6 +446,12 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             <Printer size={15} /> Print
           </button>
         </div>
+
+        {downloadError && (
+          <p className="w-full rounded-xl border border-hibiscus/30 bg-hibiscus-light/10 px-4 py-2.5 text-xs text-hibiscus">
+            {downloadError}
+          </p>
+        )}
 
         {!label.showDisclaimer && (
           <div className="flex w-full items-center gap-2 rounded-xl border border-hibiscus/30 bg-hibiscus-light/10 px-4 py-2.5 text-xs text-hibiscus">
