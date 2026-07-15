@@ -4,3 +4,10 @@ home-bakery-management-system/node_modules/
 # admin/ directory is built by postbuild.sh and deployed via wrangler
 orders/.wrangler/
 workers/.wrangler/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
