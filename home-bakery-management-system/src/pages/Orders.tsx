@@ -15,7 +15,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, refreshOrders } = useStore();
+  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -49,11 +49,13 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Permanently delete this order? This cannot be undone.")) return;
     try {
-      await apiCancelOrder(Number(id));
+      await apiDeleteOrder(Number(id));
       setSelected(null);
     } catch (err) {
-      console.error("Failed to cancel order:", err);
+      console.error("Failed to delete order:", err);
+      alert("Failed to delete order. Please try again.");
     }
   }
 

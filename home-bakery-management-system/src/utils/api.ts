@@ -103,6 +103,12 @@ export async function cancelOrder(id: number): Promise<{ ok: boolean }> {
   });
 }
 
+export async function deleteOrder(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/orders/${id}?permanent=true`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchStats(): Promise<StatsResponse> {
   return apiFetch<StatsResponse>("/api/stats");
 }

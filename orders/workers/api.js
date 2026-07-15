@@ -106,7 +106,12 @@ export default {
         const id = Number(om[1]);
         if (method === 'GET')    return await getOrder(id, env, actorName);
         if (method === 'PATCH')  return await updateOrder(id, request, env, actorName);
-        if (method === 'DELETE') return await cancelOrder(id, env, actorName);
+        if (method === 'DELETE') {
+          const permanent = url.searchParams.get('permanent') === 'true';
+          return permanent
+            ? await deleteOrder(id, env, actorName)
+            : await cancelOrder(id, env, actorName);
+        }
       }
 
       // On-demand label generation for a single order
@@ -381,6 +386,14 @@ async function cancelOrder(id, env, actor) {
   await env.DB.prepare(`
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:cancelled')
   `).bind(id, actor).run();
+  return json({ ok: true }, 200);
+}
+
+async function deleteOrder(id, env, actor) {
+  // Hard-delete: remove order events first (foreign key), then the order row itself.
+  await env.DB.prepare(`DELETE FROM order_events WHERE order_id = ?`).bind(id).run();
+  const r = await env.DB.prepare(`DELETE FROM orders WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
 }
 
