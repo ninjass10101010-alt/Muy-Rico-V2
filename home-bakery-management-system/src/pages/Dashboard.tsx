@@ -27,14 +27,6 @@ import type { Page } from "../App";
 export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
   const { orders, inventory, payments, products, loading } = useStore();
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-palm border-t-transparent" />
-      </div>
-    );
-  }
-
   const stats = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -88,6 +80,14 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
   const recentOrders = [...orders]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-palm border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
