@@ -20,6 +20,8 @@ export default function Customers({ search }: { search: string }) {
   const [draft, setDraft] = useState<Customer>(emptyCustomer());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Customer | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const stats = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
@@ -37,17 +39,21 @@ export default function Customers({ search }: { search: string }) {
   function openNew() {
     setDraft(emptyCustomer());
     setEditingId(null);
+    setErrorMsg("");
     setModalOpen(true);
   }
 
   function openEdit(c: Customer) {
     setDraft(c);
     setEditingId(c.id);
+    setErrorMsg("");
     setModalOpen(true);
   }
 
   async function save() {
     if (!draft.name.trim()) return;
+    setSaving(true);
+    setErrorMsg("");
     try {
       if (editingId) {
         await handleUpdateCustomer(editingId, {
@@ -65,10 +71,13 @@ export default function Customers({ search }: { search: string }) {
           notes: draft.notes,
         });
       }
-    } catch (err) {
+      setModalOpen(false);
+    } catch (err: any) {
       console.error("Failed to save customer:", err);
+      setErrorMsg(err.message || "Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setModalOpen(false);
   }
 
   function remove(id: string) {
@@ -149,8 +158,15 @@ export default function Customers({ search }: { search: string }) {
               className="input"
             />
           </Field>
-          <button onClick={save} className="w-full rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md">
-            {editingId ? "Save Changes" : "Add Customer"}
+          {errorMsg && (
+            <p className="rounded-lg bg-hibiscus-light/10 px-3 py-2 text-xs text-hibiscus">{errorMsg}</p>
+          )}
+          <button
+            onClick={save}
+            disabled={saving}
+            className="w-full rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md disabled:opacity-50"
+          >
+            {saving ? "Saving..." : editingId ? "Save Changes" : "Add Customer"}
           </button>
         </div>
       </Modal>
