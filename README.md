@@ -46,43 +46,45 @@ Orders written to D1 via `/api/orders` POST. Customers can pay with:
 
 ## 🚀 Deployment
 
-This repo deploys to **Cloudflare** as four pieces:
+This repo deploys to **Cloudflare** as three components:
 
-### 1. Pages project `muy-rico` (marketing + admin SPA)
-- Cloudflare Dashboard → **Workers & Pages** → **Pages** → your project
-- **Root directory:** repo root
-- **Build command:** `cd home-bakery-management-system && npm ci && npm run build`
-- **Build output directory:** `/` (repo root — Pages serves whatever ends up here)
-- The build copies the SPA's bundled `dist/index.html` → `../admin/index.html`, served at `muy-rico.pages.dev/admin/`
-- Set env var: `STRIPE_SECRET_KEY` is **not** needed here — Stripe is its own Worker
+### 1. Worker `muyrico` (Static Marketing + Admin SPA)
+- Deployed as static assets using Workers Assets.
+- **Build command**:
+  ```bash
+  cd home-bakery-management-system && npm run build && cd ..
+  ```
+- **Deploy command**:
+  ```bash
+  npx wrangler versions upload --name muyrico --assets . --compatibility-date 2025-03-21
+  npx wrangler versions deploy --name muyrico <VERSION_ID>@100%
+  ```
 
 ### 2. Worker `muy-rico-orders-api` (D1-backed CRUD)
 - Source: `orders/`
-- Deploy: `npm --prefix orders run deploy` (or `cd orders && npx wrangler deploy`)
-- After first-time setup: `npx wrangler d1 create muy-rico-orders`, copy `database_id` into `orders/wrangler.toml`
-- Run pending migrations locally + remote:
+- **Deploy command**:
   ```bash
-  npx wrangler d1 execute muy-rico-orders --file=migrations/NNNN_*.sql
-  npx wrangler d1 execute muy-rico-orders --remote --file=migrations/NNNN_*.sql
+  npx wrangler deploy -c orders/wrangler.toml
+  ```
+- Run migrations (locally + remote):
+  ```bash
+  npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --remote --file=orders/migrations/NNNN_name.sql
   ```
 
 ### 3. Worker `muy-rico-checkout` (Stripe Checkout)
 - Source: `workers/`
-- Deploy: `cd workers && npx wrangler deploy`
+- **Deploy command**:
+  ```bash
+  cd workers && npx wrangler deploy && cd ..
+  ```
 - Set secret: `wrangler secret put STRIPE_SECRET_KEY`
 
 ### 4. Cloudflare Access (admin auth)
 - Zero Trust → Access → Applications → Add
 - **Type:** Self-hosted
-- **Domain:** `muy-rico.pages.dev`, **Path:** `/admin*`
+- **Domain:** `muy-rico.com` (or `muy-rico.pages.dev`), **Path:** `/admin*`
 - **Identity provider:** One-time PIN
 - Allowlist emails: `jeffery.garcia1@icloud.com`, `bexgarcia0208@gmail.com`
-
-### 5. Route the API to the Pages domain
-- Workers → Routes → Add
-- **Route:** `muy-rico.pages.dev/api/*`
-- **Worker:** `muy-rico-orders-api`
-- This lets the SPA and `order.html` use relative `/api/...` paths; the Worker's cf-access-authenticated-user-email header applies uniformly.
 
 ## ⚖️ Legal
 

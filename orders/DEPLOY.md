@@ -1,72 +1,57 @@
-# Muy Rico Order Tracker — Deploy
+# Muy Rico — Cloudflare Deployment Guide
 
-Internal tool for Jeff & Rebecca. Cloudflare Pages + Worker + D1.
+This guide explains how to build and deploy both the backend API and the static frontend assets for the Muy Rico bakery website.
 
-## One-time setup (you do this in Cloudflare dashboard)
+## 🚀 Deployed Architecture
 
-### 1. D1 database
+The application is deployed on Cloudflare using the following components:
+1. **`muyrico`** (Frontend): Serves static files (`index.html`, `order.html`, `style.css`, and the `admin/index.html` dashboard SPA) using Cloudflare Workers Assets.
+2. **`muy-rico-orders-api`** (Backend API): A Cloudflare Worker under the `orders/` folder that connects to D1 Database (`muy-rico-orders`) and R2 Bucket (`muy-rico-product-images`).
+3. **`muy-rico-checkout`** (Stripe Checkout): A Cloudflare Worker under the `workers/` folder that handles Stripe payments.
+
+---
+
+## 🛠️ Step-by-Step Deployment
+
+To update the website and admin dashboard:
+
+### Step 1: Build the Admin Dashboard React SPA
+The owner dashboard lives in `home-bakery-management-system/`. You must compile it to a single file, which the postbuild script copies automatically to `admin/index.html`.
 ```bash
-npx wrangler d1 create muy-rico-orders
+cd home-bakery-management-system
+npm run build
+cd ..
 ```
-Copy the `database_id` into `wrangler.toml` → `database_id = "..."`
 
-Run the schema (local dev DB first, then prod):
+### Step 2: Upload and Deploy Frontend Assets
+Use Cloudflare Workers Assets to deploy the frontend (including the compiled `admin/index.html`):
 ```bash
-npx wrangler d1 execute muy-rico-orders --file=migrations/0001_initial.sql
-npx wrangler d1 execute muy-rico-orders --remote --file=migrations/0001_initial.sql
+# 1. Upload assets to Cloudflare (this will output a Version ID)
+npx wrangler versions upload --name muyrico --assets . --compatibility-date 2025-03-21
+
+# 2. Deploy that Version ID to 100% of production traffic
+npx wrangler versions deploy --name muyrico <VERSION_ID>@100%
 ```
 
-### 2. Deploy the Worker (the API)
+### Step 3: Deploy the Backend API Worker (If modified)
+If you made changes to the backend API in the `orders/` directory:
 ```bash
+npx wrangler deploy -c orders/wrangler.toml
+```
+
+### Step 4: Deploy the Stripe Checkout Worker (If modified)
+If you made changes to the Stripe integration in `workers/`:
+```bash
+cd workers
 npx wrangler deploy
+cd ..
 ```
-After deploy, copy the URL — e.g. `https://muy-rico-orders-api.YOUR-SUBDOMAIN.workers.dev`
 
-### 3. Pages project (the UI)
-- Cloudflare dashboard → **Pages** → **Create** → **Direct Upload**
-- Name: `muy-rico`
-- **Upload** the contents of the `public/` folder (intake.html, dashboard.html, index.html)
-- After upload, your site is at `https://muy-rico.pages.dev`
+---
 
-### 4. Wire Worker to Pages (so /api/* calls go to the Worker)
-- Cloudflare dashboard → **Workers Routes**
-- Route: `muy-rico.pages.dev/api/*`
-- Worker: `muy-rico-orders-api`
-- Save
+## 🗄️ Database Migrations
 
-### 5. Lock it down with Cloudflare Access
-- **Zero Trust** → **Access** → **Applications** → **Add**
-- Name: `Muy Rico Orders`
-- Domain: `muy-rico.pages.dev`
-- Path: `*` (or just `/dashboard` and `/intake.html`)
-- Policy: **Allow** specific emails — add `jeffery.garcia1@icloud.com` and Rebecca's email
-- Identity provider: One-time PIN (Cloudflare sends her a 6-digit code by email)
-- Save. Done — both of you login with email, no passwords to manage.
-
-## After deploy
-
-- Public: `https://muy-rico.pages.dev` → redirects to dashboard (which requires Access login)
-- Add new order: `https://muy-rico.pages.dev/intake.html`
-- View / manage orders: `https://muy-rico.pages.dev/dashboard`
-
-## Notifications (optional)
-
-New orders can send alerts via Telegram, email, or both.
-
-### Telegram
-1. Create a bot via [@BotFather](https://t.me/botfather) on Telegram — get the bot token.
-2. Start a chat with your bot, then visit `https://api.telegram.org/bot<TOKEN>/getUpdates` to find your chat ID.
-3. Uncomment `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `wrangler.toml`.
-4. Run `npx wrangler deploy`.
-
-### Email (Cloudflare Email Sending)
-1. Go to **Cloudflare Dashboard → Email → Email Sending**.
-2. Add and verify a sender domain or address (e.g. `orders@yourdomain.com`).
-3. Set `EMAIL_FROM` to your verified sender address and `EMAIL_RECIPIENT` to where you want notifications.
-4. Run `npx wrangler deploy`.
-
-## Local dev
+If you add new migrations (e.g. `orders/migrations/0013_some_change.sql`), run them on the remote D1 database:
 ```bash
-npx wrangler dev
-# UI lives in /public — open public/dashboard.html in a browser pointed at the local Worker
+npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --remote --file=orders/migrations/NNNN_name.sql
 ```
