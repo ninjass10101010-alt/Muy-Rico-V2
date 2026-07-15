@@ -45,8 +45,36 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     ? labelTemplates.filter(t => t.name.includes(filterByOrder))
     : null;
 
+  const FALLBACK_LABEL: LabelTemplate = {
+    id: "new",
+    name: "New Label",
+    shape: "rounded",
+    bgColor: "#FBF3E7",
+    accentColor: "#C17A3F",
+    textColor: "#4A3222",
+    businessName: "",
+    productName: "",
+    details: "",
+    ingredients: "",
+    allergens: "",
+    netWeight: "",
+    price: "",
+    showPrice: false,
+    showBestBy: false,
+    bestByDays: 7,
+    logoEmoji: "\u{1F9C1}",
+    font: "'Cormorant Garamond', Georgia, serif",
+    businessIdMode: "address",
+    address: "",
+    phoneNumber: "",
+    registrationNumber: "",
+    showDisclaimer: true,
+    labelWidth: 3,
+    labelHeight: 4,
+  };
+
   const [label, setLabel] = useState<LabelTemplate>(
-    (orderTemplates && orderTemplates.length > 0 ? orderTemplates[0] : labelTemplates[0])
+    (orderTemplates && orderTemplates.length > 0 ? orderTemplates[0] : labelTemplates[0]) || FALLBACK_LABEL
   );
   const previewRef = useRef<HTMLDivElement>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
@@ -143,6 +171,32 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     const rect = el.getBoundingClientRect();
     const targetWidth = effW * 203;
     const dpr = rect.width ? targetWidth / rect.width : 1;
+
+    // Pre-flight images: any logo that fails to load (404, CORS, taint) is
+    // swapped for a transparent pixel so html-to-image can't throw on it.
+    const TRANSPARENT_PX =
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    const imgs = Array.from(el.querySelectorAll("img"));
+    await Promise.all(
+      imgs.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            const test = new Image();
+            test.crossOrigin = "anonymous";
+            test.onload = () => {
+              img.crossOrigin = "anonymous";
+              resolve();
+            };
+            test.onerror = () => {
+              img.crossOrigin = null;
+              img.src = TRANSPARENT_PX;
+              resolve();
+            };
+            test.src = img.src;
+          })
+      )
+    );
+
     try {
       const dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true });
       const link = document.createElement("a");
@@ -154,7 +208,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     } catch (err) {
       console.error("Label PNG export failed:", err);
       setDownloadError(
-        "Could not export the label image. If it uses an uploaded logo, the image host may block downloads — try removing the logo or re-uploading it."
+        "Could not export the label image. If it uses an uploaded logo, the image may be missing — try removing the logo or re-uploading it."
       );
     }
   }, [effW, label.productName]);
