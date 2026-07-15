@@ -5,6 +5,7 @@ const API_BASE = isDev ? "http://localhost:8787" : "";
 
 interface ApiOrderCreate {
   customer_name: string;
+  customer_id?: string | null;
   phone?: string | null;
   pickup_date: string;
   pickup_time?: string | null;

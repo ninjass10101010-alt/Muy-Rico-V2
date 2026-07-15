@@ -222,14 +222,16 @@ async function createOrder(request, env, ctx, actor) {
   }
 
   const items = typeof body.items_json === 'string' ? body.items_json : JSON.stringify(body.items_json);
+  const customerId = getBodyField(body, 'customer_id') || null;
 
   const result = await env.DB.prepare(`
     INSERT INTO orders
-      (customer_name, phone, pickup_date, pickup_time,
+      (customer_name, customer_id, phone, pickup_date, pickup_time,
        items_json, total_cents, payment_method, payment_status, status, notes, created_by, source, food_coloring)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.customer_name.trim(),
+    customerId,
     body.phone || null,
     body.pickup_date,
     body.pickup_time || null,

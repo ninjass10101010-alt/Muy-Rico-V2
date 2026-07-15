@@ -80,44 +80,35 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
     setErrorMsg("");
 
     try {
-      let finalCustomerName = customerName;
-      let finalPhone = phone;
-      let newCustomer = null;
+    let finalCustomerName = customerName;
+    let finalPhone = phone;
+    let customerIdForOrder: string | null = null;
+    let newCustomer = null;
 
-      if (customerMode === "existing") {
-        const c = customers.find((cc) => cc.id === customerId);
-        if (c) {
-          finalCustomerName = c.name;
-          finalPhone = c.phone;
-        }
-      } else if (customerName.trim()) {
-        newCustomer = {
-          id: `cust_${Math.random().toString(36).slice(2, 9)}`,
-          name: customerName.trim(),
-          phone: phone.trim(),
-          email: "",
-          notes: "",
-          createdAt: new Date().toISOString(),
-        };
-        finalCustomerName = newCustomer.name;
-        finalPhone = newCustomer.phone;
+    if (customerMode === "existing") {
+      const c = customers.find((cc) => cc.id === customerId);
+      if (c) {
+        finalCustomerName = c.name;
+        finalPhone = c.phone;
+        customerIdForOrder = c.id;
       }
+    } else if (customerName.trim()) {
+      newCustomer = {
+        id: `cust_${Math.random().toString(36).slice(2, 9)}`,
+        name: customerName.trim(),
+        phone: phone.trim(),
+        email: "",
+        notes: "",
+        createdAt: new Date().toISOString(),
+      };
+      customerIdForOrder = newCustomer.id;
+      finalCustomerName = newCustomer.name;
+      finalPhone = newCustomer.phone;
+    }
 
-      await apiCreateOrder({
-        customer_name: finalCustomerName || "Walk-in Customer",
-        phone: finalPhone || null,
-        pickup_date: dueDate,
-        items_json: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId })),
-        total_cents: Math.round(total * 100),
-        payment_method: paymentMethod,
-        payment_status: paymentStatus,
-        notes: notes || null,
-        source,
-        food_coloring: foodColoring.trim() || null,
-      });
-
-      // Only add customer if the order succeeds
-      if (newCustomer) {
+    // Create the customer record first so the order can be linked to it.
+    if (newCustomer) {
+      try {
         await handleCreateCustomer({
           id: newCustomer.id,
           name: newCustomer.name,
@@ -125,10 +116,27 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
           email: newCustomer.email,
           notes: newCustomer.notes,
         });
+      } catch (err) {
+        console.error("Failed to create customer record:", err);
       }
+    }
 
-      resetForm();
-      onClose();
+    await apiCreateOrder({
+      customer_name: finalCustomerName || "Walk-in Customer",
+      customer_id: customerIdForOrder,
+      phone: finalPhone || null,
+      pickup_date: dueDate,
+      items_json: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId })),
+      total_cents: Math.round(total * 100),
+      payment_method: paymentMethod,
+      payment_status: paymentStatus,
+      notes: notes || null,
+      source,
+      food_coloring: foodColoring.trim() || null,
+    });
+
+    resetForm();
+    onClose();
     } catch (err: any) {
       console.error("Failed to create order:", err);
       setErrorMsg(err.message || "Failed to submit order. Check console or connection.");

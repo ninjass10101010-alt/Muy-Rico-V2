@@ -78,7 +78,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return {
           id: String(r.id),
           orderNumber: `MR-${r.id}`,
-          customerId: null,
+          customerId: r.customer_id || null,
           customerName: r.customer_name,
           phone: r.phone || "",
           items,
