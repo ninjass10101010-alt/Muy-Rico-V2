@@ -172,15 +172,16 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     const targetWidth = effW * 203;
     const dpr = rect.width ? targetWidth / rect.width : 1;
 
-    // Pre-flight images: any logo that fails to load (404, CORS, taint) is
-    // swapped for a transparent pixel so html-to-image can't throw on it.
-    const TRANSPARENT_PX =
-      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    // Pre-flight logos: ensure crossOrigin is set so html-to-image can embed
+    // them without tainting the canvas. We only set the attribute (non-
+    // destructive — it does not change the rendered pixels) rather than swapping
+    // the live <img> src, so the on-screen preview is never mutated.
     const imgs = Array.from(el.querySelectorAll("img"));
     await Promise.all(
       imgs.map(
         (img) =>
           new Promise<void>((resolve) => {
+            if (!img.src || img.src.startsWith("data:")) return resolve();
             const test = new Image();
             test.crossOrigin = "anonymous";
             test.onload = () => {
@@ -188,8 +189,8 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
               resolve();
             };
             test.onerror = () => {
-              img.crossOrigin = null;
-              img.src = TRANSPARENT_PX;
+              // Leave as-is; html-to-image will skip a tainted image and
+              // the catch below surfaces a friendly error.
               resolve();
             };
             test.src = img.src;
@@ -197,20 +198,35 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
       )
     );
 
+    let dataUrl: string | null = null;
     try {
-      const dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true });
-      const link = document.createElement("a");
-      link.download = `${label.productName || "label"}.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error("Label PNG export failed:", err);
-      setDownloadError(
-        "Could not export the label image. If it uses an uploaded logo, the image may be missing — try removing the logo or re-uploading it."
-      );
+      dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true });
+    } catch (fontErr) {
+      // html-to-image tries to inline remote @font-face stylesheets
+      // (e.g. Google Fonts). Reading cssRules on a cross-origin sheet
+      // throws a SecurityError and rejects the whole export — which is why
+      // the PNG download silently failed. Fall back to skipping web-font
+      // embedding so the PNG still renders (with the system fallback font)
+      // instead of producing a blank/failed download.
+      console.warn("Label PNG font inlining failed, retrying without fonts:", fontErr);
+      try {
+        dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true, skipFonts: true });
+      } catch (err) {
+        console.error("Label PNG export failed:", err);
+        setDownloadError(
+          "Could not export the label image. If it uses an uploaded logo, the image may be missing — try removing the logo or re-uploading it."
+        );
+        return;
+      }
     }
+
+    if (!dataUrl) return;
+    const link = document.createElement("a");
+    link.download = `${label.productName || "label"}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }, [effW, label.productName]);
 
   function printLabel() {
@@ -551,7 +567,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
         <Section title="Label text">
           <div className="space-y-2">
             <input
-              value={label.businessName}
+              value={label.businessName || effectiveBusinessName}
               onChange={(e) => update("businessName", e.target.value)}
               placeholder="Business name"
               className="input"
@@ -644,21 +660,21 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             {isRegistered ? (
               <>
                 <input
-                  value={label.phoneNumber}
+                  value={label.phoneNumber || effectivePhone}
                   onChange={(e) => update("phoneNumber", e.target.value)}
-                  placeholder={`Phone (default: ${profile.phone})`}
+                  placeholder="Phone"
                   className="input"
                 />
                 <input
-                  value={label.registrationNumber}
+                  value={label.registrationNumber || effectiveReg}
                   onChange={(e) => update("registrationNumber", e.target.value)}
-                  placeholder={`Registration # (from MSU Product Center)`}
+                  placeholder="Registration # (from MSU Product Center)"
                   className="input"
                 />
               </>
             ) : (
               <textarea
-                value={label.address}
+                value={label.address || effectiveAddress}
                 onChange={(e) => update("address", e.target.value)}
                 placeholder={`Address (default: ${profile.address})`}
                 rows={2}
