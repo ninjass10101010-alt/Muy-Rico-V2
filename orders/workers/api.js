@@ -82,8 +82,12 @@ export default {
     const isPublicPost = path === '/api/orders' && method === 'POST';
     const isPublicProductGet =
       (path === '/api/products' || path.match(/^\/api\/products\/[^/]+$/)) && method === 'GET';
+    // Internal mark-paid endpoint: public (no Cloudflare Access) but authenticated
+    // by the shared X-Webhook-Secret header inside markOrderPaid().
+    const isPublicMarkPaid =
+      path.match(/^\/api\/orders\/\d+\/mark-paid$/) && method === 'POST';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicMarkPaid) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -407,7 +411,7 @@ async function markOrderPaid(id, request, env) {
 
   if (!alreadyPaid) {
     await env.DB.prepare(`
-      UPDATE orders SET payment_status = 'paid', payment_method = ?, updated_at = datetime('now') WHERE id = ?
+      UPDATE orders SET payment_status = 'paid', payment_method = ? WHERE id = ?
     `).bind(method, id).run();
   }
 
