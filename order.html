@@ -1202,6 +1202,7 @@
 
     // ── Cart ──────────────────────────────────────────────────────
     const cart = [];
+    let pendingOrderId = null;
 
     function updateQty(btn, delta) {
       const stepper = btn.closest('.qty-stepper');
@@ -1477,7 +1478,9 @@
         if (!res.ok) throw new Error('API rejected');
         return res.json();
       })
-      .then(() => {
+      .then(data => {
+        pendingOrderId = data && data.id ? Number(data.id) : null;
+        if (!pendingOrderId) throw new Error('No order id returned');
 
         document.getElementById('order-form-el').style.display = 'none';
 
@@ -1493,32 +1496,47 @@
         const stripeBtn = document.getElementById('stripe-pay-btn');
         if (stripeBtn) {
           const stripeOriginalHTML = stripeBtn.innerHTML;
-          const stripeFallback = 'https://buy.stripe.com/6oUdR93Zn2tQb9lgek3wQ00';
           stripeBtn.onclick = async function () {
+            if (!pendingOrderId) {
+              showToast('❌',
+                currentLang === 'en' ? 'Order not created yet.' : 'Orden no creada.',
+                currentLang === 'en' ? 'Submit the order again.' : 'Envía la orden de nuevo.');
+              return;
+            }
             this.innerHTML = (currentLang === 'en' ? 'Opening...' : 'Abriendo...');
             this.disabled = true;
             try {
               const res = await fetch(CHECKOUT_WORKER + '/create-checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: totalCents, items: itemList, origin: window.location.origin })
+                body: JSON.stringify({ amount: totalCents, items: itemList, origin: window.location.origin, orderId: pendingOrderId })
               });
               const data = await res.json();
               if (data.url) {
                 window.location.href = data.url;
                 return;
               }
-            } catch (e) {}
-            window.open(stripeFallback, '_blank');
-            this.innerHTML = stripeOriginalHTML;
-            this.disabled = false;
+              throw new Error(data.error || 'No checkout url');
+            } catch (e) {
+              showToast('❌',
+                currentLang === 'en' ? 'Could not start payment.' : 'No se pudo iniciar el pago.',
+                currentLang === 'en' ? String(e.message || e) : String(e.message || e));
+              this.innerHTML = stripeOriginalHTML;
+              this.disabled = false;
+            }
           };
         }
 
-        function loadPayPal() {
+        async function loadPayPal() {
           if (window.paypal) { renderPayPal(); return; }
+          let clientId = 'AT5cA2qVyupShHwAp9_u-tXINUCTYSVLbc1zVSwyhj1GYB5U3mg6nMiS2TSwjidRqz4_H20eFGpJQkSn';
+          try {
+            const r = await fetch(CHECKOUT_WORKER + '/paypal-client-id');
+            const j = await r.json();
+            if (j.clientId) clientId = j.clientId;
+          } catch (e) {}
           var script = document.createElement('script');
-          script.src = 'https://www.paypal.com/sdk/js?client-id=AT5cA2qVyupShHwAp9_u-tXINUCTYSVLbc1zVSwyhj1GYB5U3mg6nMiS2TSwjidRqz4_H20eFGpJQkSn&currency=USD&locale=' + (currentLang === 'es' ? 'es_ES' : 'en_US');
+          script.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(clientId) + '&currency=USD&locale=' + (currentLang === 'es' ? 'es_ES' : 'en_US');
           script.onload = renderPayPal;
           document.head.appendChild(script);
         }
@@ -1531,7 +1549,11 @@
             style: { layout: 'horizontal', color: 'gold', shape: 'pill', label: 'paypal', tagline: false },
             createOrder: function (_data, actions) {
               return actions.order.create({
-                purchase_units: [{ amount: { value: totalStr } }]
+                purchase_units: [{
+                  amount: { value: totalStr },
+                  custom_id: String(pendingOrderId || ''),
+                  invoice_id: 'MR-' + (pendingOrderId || '0')
+                }]
               });
             },
             onApprove: function (_data, actions) {
