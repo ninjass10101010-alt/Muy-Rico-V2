@@ -1,5 +1,6 @@
 .agents/
 .assetsignore
+.git/
 .wrangler/
 home-bakery-management-system/
 node_modules/
