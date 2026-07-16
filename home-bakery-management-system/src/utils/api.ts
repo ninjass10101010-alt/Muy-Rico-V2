@@ -89,7 +89,12 @@ export async function createOrder(order: ApiOrderCreate): Promise<{ ok: boolean;
 
 export async function updateOrder(
   id: number,
-  patch: { status?: string; payment_status?: string; notes?: string }
+  patch: {
+    status?: string;
+    payment_status?: string;
+    payment_method?: string;
+    notes?: string;
+  }
 ): Promise<{ ok: boolean }> {
   return apiFetch(`/api/orders/${id}`, {
     method: "PATCH",

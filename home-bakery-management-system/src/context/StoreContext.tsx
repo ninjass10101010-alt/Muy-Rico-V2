@@ -53,7 +53,7 @@ interface StoreContextValue {
   resetAllData: () => Promise<void>;
   refreshOrders: () => Promise<void>;
   apiCreateOrder: (order: Parameters<typeof apiCreateOrder>[0]) => Promise<{ id: number }>;
-  apiUpdateOrder: (id: number, patch: { status?: string; payment_status?: string }) => Promise<void>;
+  apiUpdateOrder: (id: number, patch: { status?: string; payment_status?: string; payment_method?: string }) => Promise<void>;
   apiCancelOrder: (id: number) => Promise<void>;
   apiDeleteOrder: (id: number) => Promise<void>;
 }

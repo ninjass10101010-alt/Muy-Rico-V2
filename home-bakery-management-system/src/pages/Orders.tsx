@@ -62,7 +62,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   async function confirmPayment() {
     if (!payFor) return;
     const updated: Order = { ...payFor, paymentStatus: "paid", paymentMethod: payMethod };
-    apiUpdateOrder(Number(payFor.id), { payment_status: "paid" });
+    await apiUpdateOrder(Number(payFor.id), { payment_status: "paid", payment_method: payMethod });
     await recordPayment(updated);
     setPayFor(null);
   }
