@@ -156,6 +156,82 @@ async function markOrderPaidViaApi(orderId, method, env) {
 }
 
 async function handlePayPalWebhook(request, env) {
-  // Implemented in Task 5
+  const body = await request.text();
+  const headers = {
+    authAlg: request.headers.get("PAYPAL-AUTH-ALGO") || "",
+    certUrl: request.headers.get("PAYPAL-CERT-URL") || "",
+    transmissionId: request.headers.get("PAYPAL-TRANSMISSION-ID") || "",
+    transmissionSig: request.headers.get("PAYPAL-TRANSMISSION-SIG") || "",
+    transmissionTime: request.headers.get("PAYPAL-TRANSMISSION-TIME") || "",
+  };
+  const webhookId = env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) return json({ error: "PAYPAL_WEBHOOK_ID not configured" }, 500);
+
+  // Get OAuth token
+  const auth = await paypalAuth(env);
+  if (!auth) return json({ error: "paypal auth failed" }, 500);
+
+  const verifyRes = await fetch(env.PAYPAL_API_BASE + "/v1/notifications/verify-webhook-signature", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + auth,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      auth_algorithm: headers.authAlg,
+      cert_url: headers.certUrl,
+      transmission_id: headers.transmissionId,
+      transmission_sig: headers.transmissionSig,
+      transmission_time: headers.transmissionTime,
+      webhook_id: webhookId,
+      webhook_event: JSON.parse(body),
+    }),
+  });
+  const verify = await verifyRes.json();
+  if (verify.verification_status !== "SUCCESS") {
+    console.warn("paypal webhook verification failed:", verify.verification_status);
+    return new Response("Invalid signature", { status: 400 });
+  }
+
+  let event;
+  try { event = JSON.parse(body); } catch { return new Response("Bad JSON", { status: 400 }); }
+
+  const handled = ["CHECKOUT.ORDER.APPROVED", "PAYMENT.CAPTURE.COMPLETED"];
+  if (handled.includes(event.event_type)) {
+    const resource = event.resource || {};
+    const orderId =
+      resource.custom_id ||
+      (resource.supplementary_data &&
+        resource.supplementary_data.related_ids &&
+        resource.supplementary_data.related_ids.order_id);
+    if (!orderId) {
+      console.warn("paypal event without order id — ignored");
+      return json({ received: true });
+    }
+    const ok = await markOrderPaidViaApi(orderId, "paypal", env);
+    if (!ok) return json({ error: "mark-paid failed" }, 500);
+  } else {
+    console.log("paypal event ignored:", event.event_type);
+  }
+
   return json({ received: true });
+}
+
+async function paypalAuth(env) {
+  const basic = btoa(env.PAYPAL_CLIENT_ID + ":" + env.PAYPAL_CLIENT_SECRET);
+  try {
+    const res = await fetch(env.PAYPAL_API_BASE + "/v1/oauth2/token", {
+      method: "POST",
+      headers: {
+        Authorization: "Basic " + basic,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials",
+    });
+    const j = await res.json();
+    return j.access_token || null;
+  } catch (e) {
+    console.error("paypal auth error", e);
+    return null;
+  }
 }
