@@ -266,7 +266,7 @@ async function createOrder(request, env, ctx, actor) {
   `).bind(id, actor).run();
 
   // Fire notifications in the background (don't block response)
-  notifyOrderCreated(env, body, id, actor);
+  ctx.waitUntil(notifyOrderCreated(env, body, id, actor));
 
   // Auto-generate labels in the background
   ctx.waitUntil(generateLabelsForOrder(env, id, body));
@@ -284,7 +284,16 @@ async function notifyOrderCreated(env, body, id, actor) {
   try { itemsStr = JSON.parse(items).map(i => `${i.qty}× ${i.name}`).join(', '); } catch { itemsStr = items; }
   const date = body.pickup_date || '—';
   const time = body.pickup_time || '—';
-  const msg = `🆕 Order #${id}\n👤 ${customer}\n📦 ${itemsStr}\n💰 ${total}\n📅 ${date} ${time}\n💳 ${body.payment_method}\n👤 by ${actor}`;
+  const paymentLabel = body.payment_method.charAt(0).toUpperCase() + body.payment_method.slice(1);
+  const msg = [
+    `🆕 Order #${id}`,
+    `👤 ${customer}`,
+    `📦 ${itemsStr}`,
+    `💰 ${total}`,
+    `📅 ${date} ${time}`,
+    `💳 ${paymentLabel}`,
+    `🆔 #${id}`,
+  ].join('\n');
 
   // Telegram
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
@@ -293,7 +302,7 @@ async function notifyOrderCreated(env, body, id, actor) {
 
   // Email
   if (env.EMAIL_RECIPIENT && env.EMAIL && env.EMAIL.send) {
-    notifyEmail(env, msg, id);
+    notifyEmail(env, msg, id, { customer, itemsStr, total, date, time, paymentLabel, actor });
   }
 }
 
@@ -314,14 +323,26 @@ async function notifyTelegram(env, msg) {
   } catch (e) { console.error('Telegram notify failed:', e); }
 }
 
-async function notifyEmail(env, msg, id) {
+async function notifyEmail(env, msg, id, info = {}) {
   try {
     const emails = String(env.EMAIL_RECIPIENT).split(',').map(e => e.trim()).filter(Boolean);
+    const html = `<div style="font-family: sans-serif; max-width: 480px; padding: 16px;">
+  <h2 style="color: #333;">🆕 Order #${id}</h2>
+  <table style="width: 100%; border-collapse: collapse;">
+    <tr><td style="padding: 6px 0; color: #555; width: 100px;"><strong>Customer</strong></td><td style="padding: 6px 0;">${info.customer || ''}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Items</strong></td><td style="padding: 6px 0;">${info.itemsStr || ''}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Total</strong></td><td style="padding: 6px 0;">${info.total || ''}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Pickup</strong></td><td style="padding: 6px 0;">${info.date || ''} ${info.time || ''}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Payment</strong></td><td style="padding: 6px 0;">${info.paymentLabel || ''}</td></tr>
+  </table>
+  <p style="color: #999; font-size: 12px; margin-top: 16px;">Order #${id} · Muy Rico Bakery</p>
+</div>`;
     await env.EMAIL.send({
-      from: env.EMAIL_FROM || 'orders@muy-rico.bakery',
+      from: env.EMAIL_FROM || 'orders@muy-rico.com',
       to: emails,
       subject: `🆕 Order #${id} — New Muy Rico Order`,
       text: msg,
+      html,
     });
   } catch (e) { console.error('Email notify failed:', e); }
 }
