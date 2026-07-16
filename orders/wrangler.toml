@@ -24,3 +24,7 @@ R2_PUBLIC_ID = "71c703c51efd43de8dde4439bd02a8af"
 # Optional — Telegram notifications on new orders (create a bot via @BotFather)
 # TELEGRAM_BOT_TOKEN = "***"
 # TELEGRAM_CHAT_ID = "***"
+
+# Payment webhook reconciliation (set via `wrangler secret put PAYMENT_WEBHOOK_SECRET --name muy-rico-orders-api`)
+# Shared with muy-rico-checkout so it can call POST /api/orders/:id/mark-paid
+# PAYMENT_WEBHOOK_SECRET = "***"

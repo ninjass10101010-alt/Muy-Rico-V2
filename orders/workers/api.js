@@ -114,6 +114,11 @@ export default {
         }
       }
 
+      const mpm = path.match(/^\/api\/orders\/(\d+)\/mark-paid$/);
+      if (mpm && method === 'POST') {
+        return await markOrderPaid(Number(mpm[1]), request, env);
+      }
+
       // On-demand label generation for a single order
       const glm = path.match(/^\/api\/orders\/(\d+)\/generate-labels$/);
       if (glm && method === 'POST') {
@@ -377,6 +382,54 @@ async function updateOrder(id, request, env, actor) {
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:updated')
   `).bind(id, actor).run();
 
+  return json({ ok: true }, 200);
+}
+
+async function markOrderPaid(id, request, env) {
+  // Authenticate via shared secret (no Cloudflare Access on this public route)
+  const provided = request.headers.get('X-Webhook-Secret') || '';
+  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+    return json({ error: 'Forbidden — invalid webhook secret' }, 401);
+  }
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const method = body.method;
+  if (!method || !ALLOWED_PAYMENT.includes(method)) {
+    return json({ error: `Invalid or missing method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
+  }
+
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+  if (!order) return json({ error: 'Not found' }, 404);
+
+  // Idempotent: already paid with the same method → no-op (still log the event below)
+  const alreadyPaid = order.payment_status === 'paid' && order.payment_method === method;
+
+  if (!alreadyPaid) {
+    await env.DB.prepare(`
+      UPDATE orders SET payment_status = 'paid', payment_method = ?, updated_at = datetime('now') WHERE id = ?
+    `).bind(method, id).run();
+  }
+
+  // Audit trail (additive — always record the webhook fired)
+  await env.DB.prepare(`
+    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:paid')
+  `).bind(id, 'system').run();
+
+  // Mirror the dashboard's recordPayment: insert a payments row so the Payments page shows it.
+  // Guard against double-counting on replay: only insert when not already paid.
+  // NOTE: orders table has NO order_number column, so we bind null for it.
+  if (!alreadyPaid) {
+    const payId = `pay_${id}_${Date.now().toString(36)}`;
+    const customerName = order.customer_name || '';
+    const amount = Number(order.total_cents) || 0;
+    await env.DB.prepare(`
+      INSERT INTO payments (id, order_id, customer_name, amount, method, date, created_at, active)
+      VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+    `).bind(payId, id, customerName, amount, method).run();
+  }
+
+  if (alreadyPaid) return json({ ok: true, skipped: 'already-paid' }, 200);
   return json({ ok: true }, 200);
 }
 
