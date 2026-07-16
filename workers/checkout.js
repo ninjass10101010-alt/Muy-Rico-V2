@@ -89,6 +89,13 @@ async function handleStripeWebhook(request, env) {
   });
   if (!parts.t || !parts.v1) return new Response("Invalid signature", { status: 400 });
 
+  // Replay protection: reject signatures older than 5 minutes
+  const TIMESTAMP_TOLERANCE = 300;
+  const eventTime = parseInt(parts.t, 10);
+  if (isNaN(eventTime) || Math.abs(Date.now() / 1000 - eventTime) > TIMESTAMP_TOLERANCE) {
+    return new Response("Invalid signature", { status: 400 });
+  }
+
   const signedPayload = parts.t + "." + rawBody;
   const expected = await hmacSha256(secret, signedPayload);
   const got = parts.v1;

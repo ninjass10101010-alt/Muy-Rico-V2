@@ -47,7 +47,7 @@ function getBodyField(body, snakeKey) {
   return body[camelKey];
 }
 
-const ALLOWED_PAYMENT = ['venmo', 'cashapp', 'applepay', 'cash', 'stripe'];
+const ALLOWED_PAYMENT = ['venmo', 'cashapp', 'applepay', 'cash', 'stripe', 'paypal'];
 const ALLOWED_STATUS  = ['pending', 'in-progress', 'ready', 'completed', 'done', 'cancelled'];
 const ALLOWED_PAYSTAT = ['unpaid', 'paid', 'partial'];
 const ALLOWED_SOURCE  = ['website', 'in-person'];
@@ -406,8 +406,9 @@ async function markOrderPaid(id, request, env) {
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   if (!order) return json({ error: 'Not found' }, 404);
 
-  // Idempotent: already paid with the same method → no-op (still log the event below)
-  const alreadyPaid = order.payment_status === 'paid' && order.payment_method === method;
+  // Idempotent: already paid → no-op (still log the event below).
+  // If a replay with a different method arrives, we reject it to avoid silently overwriting.
+  const alreadyPaid = order.payment_status === 'paid';
 
   if (!alreadyPaid) {
     await env.DB.prepare(`

@@ -1529,7 +1529,7 @@
 
         async function loadPayPal() {
           if (window.paypal) { renderPayPal(); return; }
-          let clientId = 'AT5cA2qVyupShHwAp9_u-tXINUCTYSVLbc1zVSwyhj1GYB5U3mg6nMiS2TSwjidRqz4_H20eFGpJQkSn';
+          let clientId = 'BAAksZjUQv405OGh130edPt8VARpnP-9wmc4lJFm1w572Mvx5pm2pCu7Nsjy3HC2948Fny-rFBIfnAr4qI';
           try {
             const r = await fetch(CHECKOUT_WORKER + '/paypal-client-id');
             const j = await r.json();
