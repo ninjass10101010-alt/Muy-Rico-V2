@@ -167,6 +167,10 @@ async function handlePayPalWebhook(request, env) {
   const webhookId = env.PAYPAL_WEBHOOK_ID;
   if (!webhookId) return json({ error: "PAYPAL_WEBHOOK_ID not configured" }, 500);
 
+  // Parse early so a malformed body returns a clean 400 (not a 500 mid-verify)
+  let event;
+  try { event = JSON.parse(body); } catch { return new Response("Bad JSON", { status: 400 }); }
+
   // Get OAuth token
   const auth = await paypalAuth(env);
   if (!auth) return json({ error: "paypal auth failed" }, 500);
@@ -184,7 +188,7 @@ async function handlePayPalWebhook(request, env) {
       transmission_sig: headers.transmissionSig,
       transmission_time: headers.transmissionTime,
       webhook_id: webhookId,
-      webhook_event: JSON.parse(body),
+      webhook_event: event,
     }),
   });
   const verify = await verifyRes.json();
@@ -192,9 +196,6 @@ async function handlePayPalWebhook(request, env) {
     console.warn("paypal webhook verification failed:", verify.verification_status);
     return new Response("Invalid signature", { status: 400 });
   }
-
-  let event;
-  try { event = JSON.parse(body); } catch { return new Response("Bad JSON", { status: 400 }); }
 
   const handled = ["CHECKOUT.ORDER.APPROVED", "PAYMENT.CAPTURE.COMPLETED"];
   if (handled.includes(event.event_type)) {
