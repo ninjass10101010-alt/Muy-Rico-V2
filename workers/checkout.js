@@ -76,8 +76,83 @@ async function handleCreateCheckout(request, env) {
 }
 
 async function handleStripeWebhook(request, env) {
-  // Implemented in Task 4
+  const sig = request.headers.get("Stripe-Signature") || "";
+  const rawBody = await request.text();
+  const secret = env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) return json({ error: "webhook secret not configured" }, 500);
+
+  // Verify signature: t=<ts>,v1=<hmac>
+  const parts = {};
+  sig.split(",").forEach((p) => {
+    const [k, v] = p.split("=");
+    if (k && v !== undefined) parts[k] = v;
+  });
+  if (!parts.t || !parts.v1) return new Response("Invalid signature", { status: 400 });
+
+  const signedPayload = parts.t + "." + rawBody;
+  const expected = await hmacSha256(secret, signedPayload);
+  const got = parts.v1;
+  // constant-time compare
+  let diff = expected.length ^ got.length;
+  for (let i = 0; i < Math.max(expected.length, got.length); i++) {
+    diff |= (expected[i] || "").charCodeAt(0) ^ (got[i] || "").charCodeAt(0);
+  }
+  if (diff !== 0) return new Response("Invalid signature", { status: 400 });
+
+  let event;
+  try { event = JSON.parse(rawBody); } catch { return new Response("Bad JSON", { status: 400 }); }
+
+  // Only reconcile completed checkout sessions
+  if (event.type === "checkout.session.completed") {
+    const obj = event.data && event.data.object ? event.data.object : {};
+    const orderId = obj.client_reference_id || (obj.metadata && obj.metadata.order_id);
+    if (!orderId) {
+      console.warn("stripe checkout.session.completed without order id — ignored");
+      return json({ received: true });
+    }
+    const ok = await markOrderPaidViaApi(orderId, "stripe", env);
+    if (!ok) return json({ error: "mark-paid failed" }, 500);
+  } else {
+    // Acknowledge but ignore other event types (e.g. checkout.session.async_payment_*)
+    console.log("stripe event ignored:", event.type);
+  }
+
   return json({ received: true });
+}
+
+async function hmacSha256(secret, payload) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function markOrderPaidViaApi(orderId, method, env) {
+  const base = env.ORDERS_API_BASE || "https://muy-rico-orders-api.bexgarcia0208.workers.dev";
+  try {
+    const res = await fetch(base + "/api/orders/" + encodeURIComponent(orderId) + "/mark-paid", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Webhook-Secret": env.PAYMENT_WEBHOOK_SECRET || "",
+      },
+      body: JSON.stringify({ method }),
+    });
+    if (res.status === 404) {
+      console.error("mark-paid 404 for order", orderId);
+      return true; // don't retry; order missing
+    }
+    if (!res.ok) {
+      console.error("mark-paid failed", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("mark-paid network error", e);
+    return false;
+  }
 }
 
 async function handlePayPalWebhook(request, env) {
