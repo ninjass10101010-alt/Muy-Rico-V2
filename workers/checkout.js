@@ -209,6 +209,9 @@ async function handlePayPalWebhook(request, env) {
     const resource = event.resource || {};
     const orderId =
       resource.custom_id ||
+      (resource.purchase_units &&
+        resource.purchase_units[0] &&
+        resource.purchase_units[0].custom_id) ||
       (resource.supplementary_data &&
         resource.supplementary_data.related_ids &&
         resource.supplementary_data.related_ids.order_id);
