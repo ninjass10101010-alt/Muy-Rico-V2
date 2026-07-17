@@ -301,7 +301,7 @@ async function notifyOrderCreated(env, body, id, actor) {
   }
 
   // Email
-  if (env.EMAIL_RECIPIENT && env.EMAIL && env.EMAIL.send) {
+  if (env.EMAIL_RECIPIENT && env.RESEND_API_KEY) {
     notifyEmail(env, msg, id, { customer, itemsStr, total, date, time, paymentLabel, actor });
   }
 }
@@ -337,13 +337,24 @@ async function notifyEmail(env, msg, id, info = {}) {
   </table>
   <p style="color: #999; font-size: 12px; margin-top: 16px;">Order #${id} · Muy Rico Bakery</p>
 </div>`;
-    await env.EMAIL.send({
-      from: env.EMAIL_FROM || 'orders@muy-rico.com',
-      to: emails,
-      subject: `🆕 Order #${id} — New Muy Rico Order`,
-      text: msg,
-      html,
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + env.RESEND_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || "orders@muy-rico.com",
+        to: emails,
+        subject: `🆕 Order #${id} — New Muy Rico Order`,
+        text: msg,
+        html,
+      }),
     });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Resend email failed:", res.status, err);
+    }
   } catch (e) { console.error('Email notify failed:', e); }
 }
 
