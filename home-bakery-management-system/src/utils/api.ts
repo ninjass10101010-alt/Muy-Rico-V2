@@ -372,6 +372,8 @@ export interface ApiLabelTemplate {
   ingredients: string | null;
   allergens: string | null;
   netWeight: string | null;
+  netWeightUS: string | null;
+  netWeightMetric: string | null;
   price: string | null;
   showPrice: number | null;
   showBestBy: number | null;
@@ -387,6 +389,16 @@ export interface ApiLabelTemplate {
   showDisclaimer: number | null;
   labelWidth: number | null;
   labelHeight: number | null;
+  orientation: string | null;
+  websiteUrl: string | null;
+  elements: string | null;
+  disclaimerVariant: string | null;
+  productType: string | null;
+  allergenTags: string | null;
+  noAllergensConfirmed: number | null;
+  nutrientClaim: number | null;
+  bgImage: string | null;
+  averyPreset: string | null;
   displayOrder: number;
   active: boolean;
 }
@@ -404,6 +416,8 @@ export interface LabelTemplateCreate {
   ingredients?: string | null;
   allergens?: string | null;
   netWeight?: string | null;
+  netWeightUS?: string | null;
+  netWeightMetric?: string | null;
   price?: string | null;
   showPrice?: boolean | null;
   showBestBy?: boolean | null;
@@ -419,6 +433,16 @@ export interface LabelTemplateCreate {
   showDisclaimer?: boolean | null;
   labelWidth?: number | null;
   labelHeight?: number | null;
+  orientation?: string | null;
+  websiteUrl?: string | null;
+  elements?: unknown;
+  disclaimerVariant?: string | null;
+  productType?: string | null;
+  allergenTags?: string[];
+  noAllergensConfirmed?: boolean | null;
+  nutrientClaim?: boolean | null;
+  bgImage?: string | null;
+  averyPreset?: string | null;
   displayOrder?: number | null;
 }
 
@@ -458,7 +482,9 @@ export interface ApiBusinessProfile {
   address: string | null;
   phone: string | null;
   email: string | null;
+  website: string | null;
   registrationNumber: string | null;
+  businessType: string | null;
   acceptedMethods: string | null;
   cashtag: string | null;
   venmoHandle: string | null;

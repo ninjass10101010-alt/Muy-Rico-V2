@@ -70,6 +70,17 @@ export default function Settings() {
                 <input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className="input" />
               </Field>
             </div>
+            <Field label="Website (QR default)">
+              <input
+                value={draft.website || ""}
+                onChange={(e) => setDraft({ ...draft, website: e.target.value })}
+                className="input"
+                placeholder="https://muy-rico.com"
+              />
+              <p className="mt-1 text-[10px] text-cocoa-muted leading-relaxed">
+                Used as the default URL encoded in label QR codes. Override per label in the Label Designer.
+              </p>
+            </Field>
             <Field label="MSU Product Center registration number">
               <input value={draft.registrationNumber} onChange={(e) => setDraft({ ...draft, registrationNumber: e.target.value })} className="input" placeholder="e.g. C-000000000" />
               <p className="mt-1 text-[10px] text-cocoa-muted leading-relaxed">

@@ -120,6 +120,81 @@ export type LabelShape = "rounded" | "circle" | "square" | "oval";
 
 export type BusinessIdMode = "address" | "registration";
 
+export type LabelOrientation = "portrait" | "landscape";
+
+export type LabelElementType = "text" | "logo" | "qr" | "divider" | "rect" | "circle" | "line" | "nfp";
+
+export type LabelElementField =
+  | "logo"
+  | "businessName"
+  | "businessId"
+  | "productName"
+  | "details"
+  | "ingredients"
+  | "allergens"
+  | "netWeight"
+  | "price"
+  | "bestBy"
+  | "disclaimer"
+  | "qr"
+  | "divider"
+  | "shape"
+  | "nfp";
+
+export type DisclaimerVariant = "standard" | "maple" | "honey";
+export type ProductType = "standard" | "maple" | "honey" | "wedding";
+export type BusinessType = "cottage" | "licensed" | "maple-honey";
+export type AveryPreset = "single" | "5164" | "5163" | "8163";
+
+export interface NfpData {
+  servingSize: string;
+  servings: string;
+  calories: string;
+  totalFat: string;
+  satFat: string;
+  transFat: string;
+  cholesterol: string;
+  sodium: string;
+  totalCarb: string;
+  fiber: string;
+  sugars: string;
+  addedSugars: string;
+  protein: string;
+  vitD: string;
+  calcium: string;
+  iron: string;
+  potassium: string;
+  vitA: string;
+  vitC: string;
+}
+
+export interface LabelElement {
+  id: string;
+  type: LabelElementType;
+  field: LabelElementField;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+  rotation: number;
+  hidden: boolean;
+  lock?: boolean;
+  fontSizeOverride?: number;
+  fontFamilyOverride?: string;
+  colorOverride?: string;
+  alignOverride?: "left" | "center" | "right";
+  opacity?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  qrErrorLevel?: "L" | "M" | "Q" | "H";
+  strokeColor?: string;
+  strokeWidth?: number;
+  fillColor?: string;
+  nfpData?: NfpData;
+}
+
 export interface LabelTemplate {
   id: string;
   name: string;
@@ -133,6 +208,8 @@ export interface LabelTemplate {
   ingredients: string;
   allergens: string;
   netWeight: string;
+  netWeightUS: string;
+  netWeightMetric: string;
   price: string;
   showPrice: boolean;
   showBestBy: boolean;
@@ -148,6 +225,16 @@ export interface LabelTemplate {
   showDisclaimer: boolean;
   labelWidth: number;
   labelHeight: number;
+  orientation: LabelOrientation;
+  websiteUrl: string;
+  elements: LabelElement[];
+  disclaimerVariant: DisclaimerVariant;
+  productType: ProductType;
+  allergenTags: string[];
+  noAllergensConfirmed: boolean;
+  nutrientClaim: boolean;
+  bgImage?: string;
+  averyPreset: AveryPreset;
   active?: boolean;
 }
 
@@ -157,10 +244,28 @@ export interface BusinessProfile {
   address: string;
   phone: string;
   email: string;
+  website: string;
   registrationNumber: string;
+  businessType: BusinessType;
   acceptedMethods: Record<PaymentMethod, boolean>;
   cashtag: string;
   venmoHandle: string;
   applePayEnabled: boolean;
   stripeConnected: boolean;
+}
+
+export interface ComplianceIssue {
+  id: string;
+  requirement: string;
+  severity: "error" | "warning";
+  fieldName: string;
+  current: string;
+  fix?: string;
+  elementId?: string;
+}
+
+export interface ComplianceResult {
+  score: number;
+  issues: ComplianceIssue[];
+  isCompliant: boolean;
 }

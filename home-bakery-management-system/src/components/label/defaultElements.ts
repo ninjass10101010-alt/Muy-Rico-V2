@@ -1,0 +1,292 @@
+import type { LabelElement, LabelTemplate } from "../../types";
+
+/** Build a sensible default canvas layout matching the classic vertical preview. */
+export function defaultElementsFor(_template?: Partial<LabelTemplate>): LabelElement[] {
+  return [
+    {
+      id: "el_logo",
+      type: "logo",
+      field: "logo",
+      x: 0.35,
+      y: 0.02,
+      w: 0.3,
+      h: 0.1,
+      z: 10,
+      rotation: 0,
+      hidden: false,
+    },
+    {
+      id: "el_businessName",
+      type: "text",
+      field: "businessName",
+      x: 0.05,
+      y: 0.12,
+      w: 0.9,
+      h: 0.05,
+      z: 9,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 4.5,
+      alignOverride: "center",
+      bold: true,
+    },
+    {
+      id: "el_businessId",
+      type: "text",
+      field: "businessId",
+      x: 0.05,
+      y: 0.17,
+      w: 0.9,
+      h: 0.04,
+      z: 8,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 3.5,
+      alignOverride: "center",
+      opacity: 0.7,
+    },
+    {
+      id: "el_productName",
+      type: "text",
+      field: "productName",
+      x: 0.05,
+      y: 0.22,
+      w: 0.9,
+      h: 0.1,
+      z: 7,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 11,
+      alignOverride: "center",
+      bold: true,
+    },
+    {
+      id: "el_details",
+      type: "text",
+      field: "details",
+      x: 0.05,
+      y: 0.33,
+      w: 0.9,
+      h: 0.06,
+      z: 6,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 4,
+      alignOverride: "center",
+      opacity: 0.75,
+    },
+    {
+      id: "el_ingredients",
+      type: "text",
+      field: "ingredients",
+      x: 0.05,
+      y: 0.4,
+      w: 0.9,
+      h: 0.18,
+      z: 5,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 3.5,
+      alignOverride: "left",
+      opacity: 0.7,
+    },
+    {
+      id: "el_allergens",
+      type: "text",
+      field: "allergens",
+      x: 0.05,
+      y: 0.58,
+      w: 0.9,
+      h: 0.05,
+      z: 4,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 3.5,
+      alignOverride: "center",
+      italic: true,
+      opacity: 0.75,
+    },
+    {
+      id: "el_price",
+      type: "text",
+      field: "price",
+      x: 0.05,
+      y: 0.64,
+      w: 0.45,
+      h: 0.04,
+      z: 3,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 4.5,
+      alignOverride: "center",
+      opacity: 0.75,
+    },
+    {
+      id: "el_netWeight",
+      type: "text",
+      field: "netWeight",
+      x: 0.5,
+      y: 0.64,
+      w: 0.45,
+      h: 0.04,
+      z: 3,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 4.5,
+      alignOverride: "center",
+      opacity: 0.75,
+    },
+    {
+      id: "el_bestBy",
+      type: "text",
+      field: "bestBy",
+      x: 0.05,
+      y: 0.68,
+      w: 0.9,
+      h: 0.04,
+      z: 2,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 3.5,
+      alignOverride: "center",
+      opacity: 0.65,
+    },
+    {
+      id: "el_divider",
+      type: "divider",
+      field: "divider",
+      x: 0.1,
+      y: 0.73,
+      w: 0.8,
+      h: 0.01,
+      z: 1,
+      rotation: 0,
+      hidden: false,
+      opacity: 0.3,
+    },
+    {
+      id: "el_disclaimer",
+      type: "text",
+      field: "disclaimer",
+      x: 0.05,
+      y: 0.75,
+      w: 0.9,
+      h: 0.12,
+      z: 1,
+      rotation: 0,
+      hidden: false,
+      fontSizeOverride: 3.8,
+      alignOverride: "center",
+      bold: true,
+    },
+    {
+      id: "el_qr",
+      type: "qr",
+      field: "qr",
+      x: 0.72,
+      y: 0.78,
+      w: 0.22,
+      h: 0.18,
+      z: 12,
+      rotation: 0,
+      hidden: false,
+      qrErrorLevel: "M",
+    },
+  ];
+}
+
+export function ensureElements(label: LabelTemplate): LabelElement[] {
+  if (label.elements && label.elements.length > 0) return label.elements;
+  return defaultElementsFor(label);
+}
+
+export function defaultNfpElement(): LabelElement {
+  return {
+    id: "el_nfp",
+    type: "nfp",
+    field: "nfp",
+    x: 0.05,
+    y: 0.72,
+    w: 0.9,
+    h: 0.26,
+    z: 1,
+    rotation: 0,
+    hidden: false,
+    nfpData: {
+      servingSize: "",
+      servings: "",
+      calories: "",
+      totalFat: "",
+      satFat: "",
+      transFat: "",
+      cholesterol: "",
+      sodium: "",
+      totalCarb: "",
+      fiber: "",
+      sugars: "",
+      addedSugars: "",
+      protein: "",
+      vitD: "",
+      calcium: "",
+      iron: "",
+      potassium: "",
+      vitA: "",
+      vitC: "",
+    },
+  };
+}
+
+export function defaultShapeElement(type: "rect" | "circle" | "line"): Partial<LabelElement> {
+  return {
+    type,
+    field: "shape",
+    strokeColor: "#333",
+    strokeWidth: 2,
+    fillColor: "transparent",
+    x: 0.1,
+    y: 0.1,
+    w: type === "line" ? 0.8 : 0.4,
+    h: type === "line" ? 0.01 : 0.4,
+    z: 0,
+    rotation: 0,
+  };
+}
+
+export const ELEMENT_LABELS: Record<string, string> = {
+  logo: "Logo",
+  businessName: "Business name",
+  businessId: "Phone / Address",
+  productName: "Product name",
+  details: "Description",
+  ingredients: "Ingredients",
+  allergens: "Allergens",
+  netWeight: "Net weight",
+  price: "Price",
+  bestBy: "Best by",
+  disclaimer: "MDARD disclaimer",
+  qr: "QR code",
+  divider: "Divider",
+  shape: "Shape",
+  nfp: "Nutrition Facts",
+};
+
+export function clamp01(n: number): number {
+  return Math.min(1, Math.max(0, n));
+}
+
+export function effectiveDimensions(
+  labelWidth: number,
+  labelHeight: number,
+  shape: string,
+  orientation: "portrait" | "landscape"
+): { effW: number; effH: number; isSquareShape: boolean } {
+  const isSquareShape = shape === "circle" || shape === "square";
+  if (isSquareShape) {
+    const side = Math.min(labelWidth, labelHeight);
+    return { effW: side, effH: side, isSquareShape };
+  }
+  if (orientation === "landscape") {
+    return { effW: labelHeight, effH: labelWidth, isSquareShape };
+  }
+  return { effW: labelWidth, effH: labelHeight, isSquareShape };
+}

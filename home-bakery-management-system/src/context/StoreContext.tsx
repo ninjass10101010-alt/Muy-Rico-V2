@@ -247,6 +247,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // ─── Label templates ──────────────────────────────────────────────────────
 
   function apiToLabelTemplate(row: ApiLabelTemplate): LabelTemplate {
+    let elements: LabelTemplate["elements"] = [];
+    if (row.elements) {
+      try {
+        const parsed = typeof row.elements === "string" ? JSON.parse(row.elements) : row.elements;
+        if (Array.isArray(parsed)) elements = parsed;
+      } catch {
+        elements = [];
+      }
+    }
+    let allergenTags: string[] = [];
+    if (row.allergenTags) {
+      try {
+        const parsed = typeof row.allergenTags === "string" ? JSON.parse(row.allergenTags) : row.allergenTags;
+        if (Array.isArray(parsed)) allergenTags = parsed;
+      } catch { /* ignore */ }
+    }
     return {
       id: row.id,
       name: row.name,
@@ -260,6 +276,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ingredients: row.ingredients || "",
       allergens: row.allergens || "",
       netWeight: row.netWeight || "",
+      netWeightUS: row.netWeightUS || "",
+      netWeightMetric: row.netWeightMetric || "",
       price: row.price || "",
       showPrice: Boolean(row.showPrice),
       showBestBy: Boolean(row.showBestBy),
@@ -272,9 +290,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       address: row.address || "",
       phoneNumber: row.phoneNumber || "",
       registrationNumber: row.registrationNumber || "",
-      showDisclaimer: Boolean(row.showDisclaimer),
+      showDisclaimer: row.showDisclaimer === null || row.showDisclaimer === undefined ? true : Boolean(row.showDisclaimer),
       labelWidth: Number(row.labelWidth) || 3,
       labelHeight: Number(row.labelHeight) || 4,
+      orientation: (row.orientation as LabelTemplate["orientation"]) || "portrait",
+      websiteUrl: row.websiteUrl || "",
+      elements,
+      disclaimerVariant: (row.disclaimerVariant as LabelTemplate["disclaimerVariant"]) || "standard",
+      productType: (row.productType as LabelTemplate["productType"]) || "standard",
+      allergenTags,
+      noAllergensConfirmed: Boolean(row.noAllergensConfirmed),
+      nutrientClaim: Boolean(row.nutrientClaim),
+      bgImage: row.bgImage || undefined,
+      averyPreset: (row.averyPreset as LabelTemplate["averyPreset"]) || "single",
       active: Boolean(row.active),
     };
   }
@@ -304,7 +332,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       address: row.address || seedProfile.address,
       phone: row.phone || seedProfile.phone,
       email: row.email || seedProfile.email,
+      website: row.website || seedProfile.website,
       registrationNumber: row.registrationNumber || seedProfile.registrationNumber,
+      businessType: (row.businessType as BusinessProfile["businessType"]) || seedProfile.businessType,
       acceptedMethods: accepted,
       cashtag: row.cashtag || seedProfile.cashtag,
       venmoHandle: row.venmoHandle || seedProfile.venmoHandle,

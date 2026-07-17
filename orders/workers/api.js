@@ -535,7 +535,7 @@ function migrateFlavorGroups(v) {
   return v;
 }
 
-const ALLOWED_IMG = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_IMG = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
 const MAX_IMG_BYTES = 5 * 1024 * 1024;
 
 async function uploadImage(request, env) {
@@ -557,6 +557,8 @@ async function uploadImage(request, env) {
       httpMetadata: { contentType: file.type },
     });
     const url = `https://pub-${env.R2_PUBLIC_ID || '71c703c51efd43de8dde4439bd02a8af'}.r2.dev/${key}`;
+
+
     return json({ url }, 200);
   } catch (e) {
     return json({ error: String(e) }, 500);
@@ -898,6 +900,9 @@ const LABEL_FIELDS = [
   'show_price', 'show_best_by', 'best_by_days', 'logo_emoji', 'logo_image', 'logo_size',
   'font', 'business_id_mode', 'address', 'phone_number', 'registration_number',
   'show_disclaimer', 'label_width', 'label_height', 'display_order',
+  'elements', 'website_url', 'orientation',
+  'disclaimer_variant', 'product_type', 'net_weight_us', 'net_weight_metric',
+  'allergen_tags', 'no_allergens_confirmed', 'nutrient_claim', 'bg_image', 'avery_preset',
 ];
 
 async function generateLabelsForOrder(env, orderId, body) {
@@ -978,6 +983,18 @@ async function generateLabelsForOrder(env, orderId, body) {
       label_width: 3,
       label_height: 4,
       display_order: 0,
+      elements: null,
+      website_url: profile.website || 'https://muy-rico.com',
+      orientation: 'portrait',
+      disclaimer_variant: 'standard',
+      product_type: 'standard',
+      net_weight_us: '',
+      net_weight_metric: '',
+      allergen_tags: null,
+      no_allergens_confirmed: 0,
+      nutrient_claim: 0,
+      bg_image: null,
+      avery_preset: 'single',
       active: 1
     };
 
@@ -1060,6 +1077,10 @@ async function createLabelTemplate(request, env, actor) {
     let val = getBodyField(body, f) ?? null;
     if (f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
     if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? 0 : Number(val);
+    if (f === 'elements' && typeof val === 'object' && val !== null) val = JSON.stringify(val);
+    if (f === 'allergen_tags' && Array.isArray(val)) val = JSON.stringify(val);
+    if (f === 'no_allergens_confirmed' || f === 'nutrient_claim' || f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
+    if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? 0 : Number(val);
     binds.push(val);
   }
   try {
@@ -1084,6 +1105,10 @@ async function updateLabelTemplate(id, request, env, actor) {
     let val = valInBody;
     if (f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
     if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? null : Number(val);
+    if (f === 'elements' && typeof val === 'object' && val !== null) val = JSON.stringify(val);
+    if (f === 'allergen_tags' && Array.isArray(val)) val = JSON.stringify(val);
+    if (f === 'no_allergens_confirmed' || f === 'nutrient_claim' || f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
+    if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? null : Number(val);
     sets.push(`${f} = ?`); binds.push(val);
   }
   if (!sets.length) return json({ error: 'Nothing to update' }, 400);
@@ -1103,8 +1128,9 @@ async function deleteLabelTemplate(id, env, actor) {
 // ─── Business profile (singleton) ────────────────────────────────────────────
 
 const PROFILE_FIELDS = [
-  'name', 'tagline', 'address', 'phone', 'email', 'registration_number',
+  'name', 'tagline', 'address', 'phone', 'email', 'website', 'registration_number',
   'accepted_methods', 'cashtag', 'venmo_handle', 'apple_pay_enabled', 'stripe_connected',
+  'business_type',
 ];
 
 async function getProfile(env) {
