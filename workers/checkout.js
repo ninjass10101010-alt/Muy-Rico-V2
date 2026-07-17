@@ -26,6 +26,12 @@ export default {
       if (path === "/webhook/paypal" && request.method === "POST") {
         return await handlePayPalWebhook(request, env);
       }
+      if (path === "/success" && request.method === "GET") {
+        return successPage(url);
+      }
+      if (path === "/cancel" && request.method === "GET") {
+        return cancelPage();
+      }
     } catch (err) {
       console.error("checkout worker error:", err);
       return json({ error: String(err && err.message || err) }, 500);
@@ -245,4 +251,54 @@ async function paypalAuth(env) {
     console.error("paypal auth error", e);
     return null;
   }
+}
+
+function successPage(url) {
+  const token = url.searchParams.get("token") || "";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment Complete — Muy Rico</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#faf7f2;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;color:#333}
+  .card{background:#fff;padding:48px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center;max-width:400px}
+  h1{font-size:28px;margin:0 0 8px;color:#2d7a46}
+  p{color:#666;margin:8px 0;line-height:1.5}
+  .btn{display:inline-block;margin-top:24px;padding:12px 32px;background:#2d7a46;color:#fff;text-decoration:none;border-radius:8px}
+</style></head>
+<body>
+<div class="card">
+  <h1>Payment Complete</h1>
+  <p>Your order has been placed and your payment was successful.</p>
+  <p style="font-size:14px;color:#999">PayPal Ref: ${token.slice(0,12)}…</p>
+  <a class="btn" href="https://muy-rico.bexgarcia0208.workers.dev">Back to Muy Rico</a>
+</div>
+</body>
+</html>`;
+  return new Response(html, {
+    headers: { "Content-Type": "text/html;charset=utf-8", "Access-Control-Allow-Origin": "*" },
+  });
+}
+
+function cancelPage() {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment Cancelled — Muy Rico</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#faf7f2;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;color:#333}
+  .card{background:#fff;padding:48px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center;max-width:400px}
+  h1{font-size:28px;margin:0 0 8px;color:#c0392b}
+  p{color:#666;margin:8px 0;line-height:1.5}
+  .btn{display:inline-block;margin-top:24px;padding:12px 32px;background:#2d7a46;color:#fff;text-decoration:none;border-radius:8px}
+</style></head>
+<body>
+<div class="card">
+  <h1>Payment Cancelled</h1>
+  <p>Your payment was not completed. You can try again whenever you're ready.</p>
+  <a class="btn" href="https://muy-rico.bexgarcia0208.workers.dev">Back to Muy Rico</a>
+</div>
+</body>
+</html>`;
+  return new Response(html, {
+    headers: { "Content-Type": "text/html;charset=utf-8", "Access-Control-Allow-Origin": "*" },
+  });
 }
