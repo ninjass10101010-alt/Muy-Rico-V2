@@ -8,9 +8,6 @@ binding = "DB"
 database_name = "muy-rico-orders"
 database_id = "ca6cb20b-8884-4cb2-a51e-aff8f7be8502"
 
-[[send_email]]
-name = "EMAIL"
-
 [[r2_buckets]]
 binding = "IMAGES_BUCKET"
 bucket_name = "muy-rico-product-images"
@@ -18,12 +15,13 @@ bucket_name = "muy-rico-product-images"
 [vars]
 ALLOWED_ORIGIN = "https://muy-rico.pages.dev"
 R2_PUBLIC_ID = "71c703c51efd43de8dde4439bd02a8af"
-# Optional — email notifications on new orders
-# EMAIL_RECIPIENT = "you@example.com"
-# EMAIL_FROM = "orders@yourdomain.com"
-# Optional — Telegram notifications on new orders (create a bot via @BotFather)
-# TELEGRAM_BOT_TOKEN = "***"
-# TELEGRAM_CHAT_ID = "***"
+# Email notifications via Resend (set via `wrangler secret put`)
+#   RESEND_API_KEY = "re_xxx"
+#   EMAIL_RECIPIENT = "you@example.com,you2@example.com"
+#   EMAIL_FROM = "orders@muy-rico.com"
+# Telegram notifications (set via `wrangler secret put`)
+#   TELEGRAM_BOT_TOKEN = "***"
+#   TELEGRAM_CHAT_ID = "***"
 
 # Payment webhook reconciliation (set via `wrangler secret put PAYMENT_WEBHOOK_SECRET --name muy-rico-orders-api`)
 # Shared with muy-rico-checkout so it can call POST /api/orders/:id/mark-paid
