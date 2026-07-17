@@ -595,18 +595,18 @@
             <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Cookie">Galleta de Chispas de Chocolate</h3>
             <p class="tile-desc lang-fade" data-es="Galletas con chispas de chocolate horneadas suaves. Elige una individual o ahorra en la docena." data-en="Soft-baked chocolate chip cookies. Choose a single or save on a dozen.">Soft-baked chocolate chip cookies. Choose a single or save on a dozen.</p>
             <div class="pack-selects">
-              <div class="pack-option selected" data-pack-id="single" data-pack-price="4" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual">
-                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single" onclick="selectPack(this)">Single</button>
+              <div class="pack-option selected" data-pack-id="single" data-pack-price="4" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
                 <span class="pack-unit-price lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span>
               </div>
-              <div class="pack-option" data-pack-id="dozen" data-pack-price="40" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)">
-                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)" onclick="selectPack(this)">Dozen (12)</button>
+              <div class="pack-option" data-pack-id="dozen" data-pack-price="40" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)">Dozen (12)</button>
                 <span class="pack-badge lang-fade" data-es="¡Ahorra $8!" data-en="Save $8">Save $8</span>
                 <span class="pack-unit-price lang-fade" data-es="$3.33 c/u" data-en="$3.33 ea">$3.33 ea</span>
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-cookies"><span class="lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span></span>
+              <span class="tile-price" id="price-cookies">$4.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -662,18 +662,18 @@
               This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.
             </p>
             <div class="pack-selects">
-              <div class="pack-option selected" data-pack-id="single" data-pack-price="2" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual">
-                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single" onclick="selectPack(this)">Single</button>
+              <div class="pack-option selected" data-pack-id="single" data-pack-price="2" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
                 <span class="pack-unit-price lang-fade" data-es="$2.00 c/u" data-en="$2.00 ea">$2.00 ea</span>
               </div>
-              <div class="pack-option" data-pack-id="dozen" data-pack-price="20" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)">
-                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)" onclick="selectPack(this)">Dozen (12)</button>
+              <div class="pack-option" data-pack-id="dozen" data-pack-price="20" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)">Dozen (12)</button>
                 <span class="pack-badge lang-fade" data-es="¡Ahorra $4!" data-en="Save $4">Save $4</span>
                 <span class="pack-unit-price lang-fade" data-es="$1.67 c/u" data-en="$1.67 ea">$1.67 ea</span>
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-bolillos"><span class="lang-fade" data-es="$2.00 c/u" data-en="$2.00 ea">$2.00 ea</span></span>
+              <span class="tile-price" id="price-bolillos">$2.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -998,8 +998,8 @@
         : null;
       const packHTML = hasPacks
         ? `<div class="pack-selects">` + packSizes.map(pk => `
-            <div class="pack-option" data-pack-id="${escapeHtml(pk.id)}" data-pack-price="${pk.price}" data-pack-qty="${pk.qty}" data-pack-label="${escapeHtml(pk.label)}" data-pack-label-es="${escapeHtml(pk.label_es || pk.label)}">
-              <button type="button" class="pack-btn lang-fade" data-es="${escapeHtml(pk.label_es || pk.label)}" data-en="${escapeHtml(pk.label)}" onclick="selectPack(this)">${escapeHtml(pk.label)}</button>
+            <div class="pack-option" data-pack-id="${escapeHtml(pk.id)}" data-pack-price="${pk.price}" data-pack-qty="${pk.qty}" data-pack-label="${escapeHtml(pk.label)}" data-pack-label-es="${escapeHtml(pk.label_es || pk.label)}" onclick="selectPack(this)">
+              <button type="button" class="pack-btn lang-fade" data-es="${escapeHtml(pk.label_es || pk.label)}" data-en="${escapeHtml(pk.label)}">${escapeHtml(pk.label)}</button>
               ${pk.badge ? `<span class="pack-badge lang-fade" data-es="${escapeHtml(pk.badge_es || pk.badge)}" data-en="${escapeHtml(pk.badge)}">${escapeHtml(pk.badge)}</span>` : ''}
               <span class="pack-unit-price lang-fade" data-es="${escapeHtml(pk.unit_label_es || pk.unit_label || '')}" data-en="${escapeHtml(pk.unit_label || '')}">${escapeHtml(pk.unit_label || '')}</span>
             </div>`).join('') + `</div>`
@@ -1024,7 +1024,7 @@
           ${packHTML}
           ${flavorHTML}
           <div class="tile-bottom">
-            <span class="tile-price" id="price-${p.id}">$${priceNum.toFixed(2)}${unitLabel ? ` <span class="lang-fade" data-es="${escapeHtml(unitLabel)}" data-en="${escapeHtml(unitLabel)}">${escapeHtml(unitLabel)}</span>` : ` <span class="lang-fade" data-es="c/u" data-en="ea">ea</span>`}</span>
+            <span class="tile-price" id="price-${p.id}">${hasPacks ? '$' + priceNum.toFixed(2) : '$' + priceNum.toFixed(2) + (unitLabel ? ` <span class="lang-fade" data-es="${escapeHtml(unitLabel)}" data-en="${escapeHtml(unitLabel)}">${escapeHtml(unitLabel)}</span>` : ` <span class="lang-fade" data-es="c/u" data-en="ea">ea</span>`)}</span>
             <div class="tile-actions">
               <div class="qty-stepper">
                 <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -1048,8 +1048,8 @@
       applyLangToDOM(currentLang);
       // Auto-select the first (default) pack on each pack-enabled tile
       grid.querySelectorAll('.pack-selects').forEach(ps => {
-        const firstBtn = ps.querySelector('.pack-option .pack-btn');
-        if (firstBtn) selectPack(firstBtn);
+        const firstOpt = ps.querySelector('.pack-option');
+        if (firstOpt) selectPack(firstOpt);
       });
       if (window.initProductReveals) initProductReveals();
     }
@@ -1216,9 +1216,9 @@
       gsap.fromTo(display, { scale: 1.45 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' });
     }
 
-    function selectPack(btn) {
-      const tile = btn.closest('.product-tile');
-      const opt = btn.closest('.pack-option');
+    function selectPack(el) {
+      const tile = el.closest('.product-tile');
+      const opt = el.closest('.pack-option');
       tile.querySelectorAll('.pack-option').forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
       const price = parseFloat(opt.dataset.packPrice);
