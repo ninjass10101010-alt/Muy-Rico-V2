@@ -1,4 +1,4 @@
-import { Square, Circle, Minus } from "lucide-react";
+import { Square, Minus } from "lucide-react";
 import type { LabelElement } from "../../types";
 
 interface Props {

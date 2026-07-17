@@ -174,8 +174,15 @@ export default function LabelCanvas({
           >
             {/* Safe margin indicator (export-ignored) */}
             <div
-              className="deco-layer pointer-events-none absolute inset-[3%] rounded border border-dashed border-black/10"
-              style={{ borderRadius: isCurved ? "50%" : undefined }}
+              className="deco-layer pointer-events-none absolute inset-[3%] border border-dashed border-black/10"
+              style={{
+                borderRadius:
+                  label.shape === "circle" || label.shape === "oval"
+                    ? "50%"
+                    : label.shape === "square"
+                      ? 8
+                      : 12,
+              }}
             />
 
             {sorted.map((el) => (

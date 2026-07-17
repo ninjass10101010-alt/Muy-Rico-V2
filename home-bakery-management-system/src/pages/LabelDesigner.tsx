@@ -177,8 +177,20 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     });
   }
 
-  function setLabel(next: LabelTemplate) {
-    commit(next);
+  function setLabel(next: LabelTemplate | ((prev: LabelTemplate) => LabelTemplate)) {
+    if (typeof next === "function") {
+      setLabelState((prev) => {
+        const result = next(prev);
+        setPast((p) => {
+          const updated = [...p, prev];
+          return updated.length > MAX_UNDO ? updated.slice(-MAX_UNDO) : updated;
+        });
+        setFuture([]);
+        return result;
+      });
+    } else {
+      commit(next);
+    }
   }
 
   function undo() {
@@ -462,30 +474,87 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     setSelectedId(newEl.id);
   }
 
-  function onComplianceFix(fieldName: string, value?: string) {
-    if (fieldName === "showDisclaimer") {
-      update("showDisclaimer", true);
-    } else if (fieldName === "allergens") {
-      // Trigger auto-derive or show picker
-    } else if (fieldName === "netWeightUS" && value) {
-      update("netWeightUS", value);
-    } else if (fieldName === "ingredients") {
-      // User sees the IngredientSorter textarea
-    } else if (fieldName === "productName") {
-      update("productName", value || label.productName);
-    } else if (fieldName === "businessName") {
-      update("businessName", value || profile.name);
-    } else if (fieldName === "address") {
-      update("address", value || profile.address);
-    } else if (fieldName === "phoneNumber") {
-      update("phoneNumber", value || profile.phone);
-    } else if (fieldName === "registrationNumber") {
-      update("registrationNumber", value || profile.registrationNumber);
+  function focusFixTarget(target: string) {
+    const el = document.querySelector(`[data-fix-target="${target}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (typeof (el as HTMLInputElement).focus === "function") {
+      window.setTimeout(() => (el as HTMLInputElement).focus(), 250);
     }
+  }
+
+  function onComplianceFix(issueId: string, fieldName: string, elementId?: string) {
+    if (issueId === "disclaimer-hidden" || fieldName === "showDisclaimer") {
+      update("showDisclaimer", true);
+      return;
+    }
+    if (issueId === "disclaimer-font" || issueId === "disclaimer-contrast") {
+      if (elementId) setSelectedId(elementId);
+      else {
+        const disc = elements.find((e) => e.field === "disclaimer");
+        if (disc) setSelectedId(disc.id);
+      }
+      return;
+    }
+    if (issueId === "nfp-missing") {
+      focusFixTarget("nfp");
+      return;
+    }
+    if (issueId === "biz-name" || fieldName === "businessName") {
+      focusFixTarget("businessName");
+      return;
+    }
+    if (issueId === "product-name" || fieldName === "productName") {
+      focusFixTarget("productName");
+      return;
+    }
+    if (issueId === "ingredients" || fieldName === "ingredients") {
+      focusFixTarget("ingredients");
+      return;
+    }
+    if (issueId === "allergens" || fieldName === "allergens") {
+      focusFixTarget("allergens");
+      return;
+    }
+    if (issueId === "net-weight" || fieldName === "netWeightUS") {
+      focusFixTarget("netWeightUS");
+      return;
+    }
+    if (issueId === "biz-address" || issueId === "biz-pobox" || fieldName === "address") {
+      focusFixTarget("address");
+      return;
+    }
+    if (issueId === "biz-phone" || fieldName === "phoneNumber") {
+      focusFixTarget("phoneNumber");
+      return;
+    }
+    if (issueId === "biz-reg" || fieldName === "registrationNumber") {
+      focusFixTarget("registrationNumber");
+      return;
+    }
+    if (elementId) setSelectedId(elementId);
   }
 
   function onSelectElement(elementId: string) {
     setSelectedId(elementId);
+  }
+
+  function changeShape(nextShape: LabelShape) {
+    const prev = effectiveDimensions(
+      label.labelWidth,
+      label.labelHeight,
+      label.shape,
+      label.orientation || "portrait"
+    );
+    const next = effectiveDimensions(
+      label.labelWidth,
+      label.labelHeight,
+      nextShape,
+      label.orientation || "portrait"
+    );
+    const els = ensureElements(label);
+    const fitted = fitElementsToAspect(els, prev.effW / prev.effH, next.effW / next.effH);
+    setLabel({ ...label, shape: nextShape, elements: fitted });
   }
 
   function patchElement(id: string, patch: Partial<LabelElement>) {
@@ -552,7 +621,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
                 <button
                   key={s.value}
                   type="button"
-                  onClick={() => update("shape", s.value)}
+                  onClick={() => changeShape(s.value)}
                   className={`rounded-lg border px-2 py-2 text-xs font-medium ${
                     label.shape === s.value
                       ? "border-palm bg-palm text-white"
@@ -792,6 +861,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             <ShapePalette onAdd={addShape} />
             <button
               type="button"
+              data-fix-target="nfp"
               onClick={addNfp}
               className="mt-2 w-full rounded-lg border border-dashed border-sand-300 py-2 text-xs font-medium text-cocoa-muted hover:bg-sand-50"
             >
@@ -918,12 +988,14 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
           <Section title="Label text">
             <div className="space-y-2">
               <input
+                data-fix-target="businessName"
                 value={label.businessName || profile.name}
                 onChange={(e) => update("businessName", e.target.value)}
                 placeholder="Business name"
                 className="input"
               />
               <input
+                data-fix-target="productName"
                 value={label.productName}
                 onChange={(e) => update("productName", e.target.value)}
                 placeholder="Product name"
@@ -936,31 +1008,37 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
                 rows={2}
                 className="input"
               />
-              <IngredientSorter
-                value={label.ingredients}
-                onChange={(v) => update("ingredients", v)}
-              />
-              <AllergenPicker
-                value={label.allergenTags}
-                noAllergensConfirmed={label.noAllergensConfirmed}
-                onChange={(tags) => update("allergenTags", tags)}
-                onNoAllergens={(v) => update("noAllergensConfirmed", v)}
-                ingredientsText={label.ingredients}
-              />
+              <div data-fix-target="ingredients">
+                <IngredientSorter
+                  value={label.ingredients}
+                  onChange={(v) => update("ingredients", v)}
+                />
+              </div>
+              <div data-fix-target="allergens">
+                <AllergenPicker
+                  value={label.allergenTags}
+                  noAllergensConfirmed={label.noAllergensConfirmed}
+                  onChange={(tags) => update("allergenTags", tags)}
+                  onNoAllergens={(v) => update("noAllergensConfirmed", v)}
+                  ingredientsText={label.ingredients}
+                />
+              </div>
               <input
                 value={label.netWeight}
                 onChange={(e) => update("netWeight", e.target.value)}
                 placeholder="Net weight (backward compat)"
                 className="input"
               />
-              <NetWeightInput
-                netWeightUS={label.netWeightUS}
-                netWeightMetric={label.netWeightMetric}
-                onChange={(us, metric) => {
-                  update("netWeightUS", us);
-                  update("netWeightMetric", metric);
-                }}
-              />
+              <div data-fix-target="netWeightUS">
+                <NetWeightInput
+                  netWeightUS={label.netWeightUS}
+                  netWeightMetric={label.netWeightMetric}
+                  onChange={(us, metric) => {
+                    update("netWeightUS", us);
+                    update("netWeightMetric", metric);
+                  }}
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   value={label.price}
@@ -1029,12 +1107,14 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
               {isRegistered ? (
                 <>
                   <input
+                    data-fix-target="phoneNumber"
                     value={label.phoneNumber || profile.phone}
                     onChange={(e) => update("phoneNumber", e.target.value)}
                     placeholder="Phone"
                     className="input"
                   />
                   <input
+                    data-fix-target="registrationNumber"
                     value={label.registrationNumber || profile.registrationNumber}
                     onChange={(e) => update("registrationNumber", e.target.value)}
                     placeholder="Registration # (from MSU Product Center)"
@@ -1043,6 +1123,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
                 </>
               ) : (
                 <textarea
+                  data-fix-target="address"
                   value={label.address || profile.address}
                   onChange={(e) => update("address", e.target.value)}
                   placeholder={`Address (default: ${profile.address})`}
@@ -1195,8 +1276,8 @@ function normalizeLabel(t: LabelTemplate, profileWebsite: string): LabelTemplate
     websiteUrl: t.websiteUrl || profileWebsite || "https://muy-rico.com",
     elements: t.elements && t.elements.length > 0 ? t.elements : defaultElementsFor(t),
     showDisclaimer: t.showDisclaimer !== false,
-    disclaimerVariant: t.disclaimerVariant || "standard",
-    productType: t.productType || "standard",
+    disclaimerVariant: "standard",
+    productType: t.productType === "wedding" ? "wedding" : "standard",
     allergenTags: t.allergenTags || [],
     noAllergensConfirmed: Boolean(t.noAllergensConfirmed),
     nutrientClaim: Boolean(t.nutrientClaim),
@@ -1204,6 +1285,30 @@ function normalizeLabel(t: LabelTemplate, profileWebsite: string): LabelTemplate
     netWeightUS: t.netWeightUS || "",
     netWeightMetric: t.netWeightMetric || "",
   };
+}
+
+/** Scale/clamp elements so they fit after a shape/aspect-ratio change. Only scales if overflow. */
+function fitElementsToAspect(
+  elements: LabelElement[],
+  _oldAspect: number,
+  _newAspect: number
+): LabelElement[] {
+  let maxRight = 0;
+  let maxBottom = 0;
+  for (const el of elements) {
+    maxRight = Math.max(maxRight, el.x + el.w);
+    maxBottom = Math.max(maxBottom, el.y + el.h);
+  }
+  if (maxRight <= 1 && maxBottom <= 1) return elements;
+
+  const scale = Math.min(1 / Math.max(maxRight, 0.001), 1 / Math.max(maxBottom, 0.001), 1);
+  return elements.map((el) => {
+    const w = Math.min(el.w * scale, 1);
+    const h = Math.min(el.h * scale, 1);
+    const x = Math.min(Math.max(el.x * scale, 0), 1 - w);
+    const y = Math.min(Math.max(el.y * scale, 0), 1 - h);
+    return { ...el, x, y, w, h };
+  });
 }
 
 function OnboardingModal({
@@ -1231,7 +1336,7 @@ function OnboardingModal({
       title: "Business Type",
       content: (
         <div className="flex flex-col gap-2">
-          {(["cottage", "licensed", "maple-honey"] as const).map((bt) => (
+          {(["cottage", "licensed"] as const).map((bt) => (
             <button
               key={bt}
               type="button"
@@ -1241,7 +1346,7 @@ function OnboardingModal({
                   ? "border-palm bg-palm text-white" : "border-sand-200 text-cocoa-muted"
               }`}
             >
-              {bt === "cottage" ? "Cottage Food Producer" : bt === "licensed" ? "Licensed Food Processor" : "Maple Syrup & Honey Producer"}
+              {bt === "cottage" ? "Cottage Food Producer" : "Licensed Food Processor"}
             </button>
           ))}
         </div>

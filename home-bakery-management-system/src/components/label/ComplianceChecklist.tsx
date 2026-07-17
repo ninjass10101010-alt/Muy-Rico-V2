@@ -5,7 +5,7 @@ import { validateLabel } from "../../utils/compliance";
 interface Props {
   label: LabelTemplate;
   profile: BusinessProfile;
-  onFix: (fieldName: string, value?: string) => void;
+  onFix: (issueId: string, fieldName: string, elementId?: string) => void;
   onSelectElement: (id: string) => void;
 }
 
@@ -15,11 +15,14 @@ export default function ComplianceChecklist({ label, profile, onFix, onSelectEle
   const checklist = [
     { id: "biz-name", label: "Business name" },
     { id: "biz-address", label: "Business address" },
+    { id: "biz-pobox", label: "No P.O. Box" },
     { id: "product-name", label: "Product name" },
     { id: "ingredients", label: "Ingredients list" },
     { id: "allergens", label: "Allergen disclosure" },
     { id: "net-weight", label: "Net weight" },
     { id: "disclaimer-hidden", label: "Disclaimer visibility" },
+    { id: "disclaimer-font", label: "Disclaimer font size" },
+    { id: "disclaimer-contrast", label: "Disclaimer contrast" },
     { id: "nfp-missing", label: "Nutrition Facts" },
   ];
 
@@ -27,12 +30,33 @@ export default function ComplianceChecklist({ label, profile, onFix, onSelectEle
     return issues.find((i) => i.id === id);
   }
 
+  // Only show rows that are either always-tracked, or currently failing
+  const alwaysShow = new Set([
+    "biz-name",
+    "biz-address",
+    "product-name",
+    "ingredients",
+    "allergens",
+    "net-weight",
+    "disclaimer-hidden",
+    "nfp-missing",
+  ]);
+
+  const rows = checklist.filter((item) => alwaysShow.has(item.id) || getIssue(item.id));
+
   return (
     <div className="space-y-1.5">
-      {checklist.map((item) => {
+      {rows.map((item) => {
         const issue = getIssue(item.id);
-        const passed = !issue;
+        // biz-address and biz-pobox both map to address check — if neither issue, address passes
+        const passed =
+          item.id === "biz-address"
+            ? !getIssue("biz-address") && !getIssue("biz-pobox")
+            : item.id === "biz-pobox"
+              ? !getIssue("biz-pobox")
+              : !issue;
         const isWarning = issue?.severity === "warning";
+        const showFix = issue && issue.severity === "error";
 
         return (
           <div
@@ -62,14 +86,12 @@ export default function ComplianceChecklist({ label, profile, onFix, onSelectEle
               </span>
             </div>
 
-            {issue && issue.fix && (
+            {showFix && (
               <button
                 type="button"
                 onClick={() => {
-                  if (issue.elementId) {
-                    onSelectElement(issue.elementId);
-                  }
-                  onFix(issue.fieldName, issue.fix);
+                  if (issue.elementId) onSelectElement(issue.elementId);
+                  onFix(issue.id, issue.fieldName, issue.elementId);
                 }}
                 className="shrink-0 rounded-md border border-current px-2 py-0.5 text-[10px] font-medium hover:opacity-80"
               >

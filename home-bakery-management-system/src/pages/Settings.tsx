@@ -69,18 +69,17 @@ export default function Settings() {
                 <Field label="Email">
                   <input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className="input" />
                 </Field>
-                <Field label="Business type">
-                  <select
-                    value={draft.businessType}
-                    onChange={(e) => setDraft({ ...draft, businessType: e.target.value as "cottage" | "licensed" | "maple-honey"})}
-                    className="input"
-                  >
-                    <option value="cottage">Cottage Food Producer</option>
-                    <option value="licensed">Licensed Food Processor</option>
-                    <option value="maple-honey">Maple Syrup & Honey Producer</option>
-                  </select>
-                </Field>
               </div>
+              <Field label="Business type">
+                <select
+                  value={draft.businessType === "cottage" || draft.businessType === "licensed" ? draft.businessType : "cottage"}
+                  onChange={(e) => setDraft({ ...draft, businessType: e.target.value as "cottage" | "licensed" })}
+                  className="input"
+                >
+                  <option value="cottage">Cottage Food Producer</option>
+                  <option value="licensed">Licensed Food Processor</option>
+                </select>
+              </Field>
             <Field label="Website (QR default)">
               <input
                 value={draft.website || ""}

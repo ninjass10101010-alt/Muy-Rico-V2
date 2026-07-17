@@ -6,6 +6,11 @@ interface Props {
   onChange: (v: ProductType) => void;
 }
 
+const TYPES: { value: ProductType; label: string }[] = [
+  { value: "standard", label: "Standard Cottage Food" },
+  { value: "wedding", label: "Wedding/Specialty Cake" },
+];
+
 export default function ProductTypeSelector({ value, onChange }: Props) {
   return (
     <div className="space-y-3">

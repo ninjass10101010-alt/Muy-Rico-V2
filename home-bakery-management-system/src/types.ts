@@ -141,9 +141,9 @@ export type LabelElementField =
   | "shape"
   | "nfp";
 
-export type DisclaimerVariant = "standard" | "wedding";
+export type DisclaimerVariant = "standard";
 export type ProductType = "standard" | "wedding";
-export type BusinessType = "cottage" | "licensed" | "maple-honey";
+export type BusinessType = "cottage" | "licensed";
 export type AveryPreset = "single" | "5164" | "5163" | "8163";
 
 export interface NfpData {
