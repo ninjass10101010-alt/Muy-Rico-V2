@@ -187,7 +187,6 @@
       100% { transform: scale(1); opacity: 1; }
     }
     .product-tile.in-cart .cart-badge-tile { display: inline-flex; align-items: center; gap: 0.3rem; animation: badgePop 0.35s ease forwards; }
-    .product-tile.in-cart .cart-badge-tile { display: inline-flex; align-items: center; gap: 0.3rem; }
 
     /* Qty stepper improvements */
     .qty-stepper {
@@ -607,7 +606,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-cookies">$4 <span class="lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span></span>
+              <span class="tile-price" id="price-cookies"><span class="lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span></span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -619,7 +618,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="conchas.svg" alt="Conchas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -631,7 +630,7 @@
               This Mexican bread is an Icon. Light fluffy with vanilla and cinnamon mixed into the dough. The beautiful shell stamped topping comes in vanilla, chocolate, and fresa. Honestly, you need it to go with your coffee.
             </p>
             <div class="flavor-selects">
-              <select class="concha-flavor" aria-label="Concha flavor">
+              <select class="flavor-select" aria-label="Concha flavor" data-group="Concha">
                 <option value="" data-es="Sabor" data-en="Flavor">Flavor</option>
                 <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
                 <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
@@ -674,7 +673,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-bolillos">$2 <span class="lang-fade" data-es="$2.00 c/u" data-en="$2.00 ea">$2.00 ea</span></span>
+              <span class="tile-price" id="price-bolillos"><span class="lang-fade" data-es="$2.00 c/u" data-en="$2.00 ea">$2.00 ea</span></span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -686,7 +685,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-tortillas" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
+          <article class="product-tile reveal" id="tile-tortillas" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
             <div class="tile-header">
               <img class="tile-icon" src="tortilla.svg" alt="Flour Tortillas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -710,7 +709,7 @@
             </div>
           </article>
 
-           <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
+           <article class="product-tile reveal" id="tile-cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
             <div class="tile-header">
               <img class="tile-icon" src="cakepop.svg" alt="Cakepops" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -734,7 +733,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="cake.svg" alt="Custom Cake" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -746,12 +745,12 @@
               8-inch, 2-layer cake made fresh to order. Choose your cake flavor and frosting to create your perfect combination.
             </p>
             <div class="flavor-selects">
-              <select class="cake-flavor" aria-label="Cake flavor">
+              <select class="flavor-select" aria-label="Cake flavor" data-group="Cake">
                 <option value="" data-es="Sabor del bizcocho" data-en="Cake flavor">Cake flavor</option>
                 <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
                 <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
               </select>
-              <select class="frosting-flavor" aria-label="Frosting flavor">
+              <select class="flavor-select" aria-label="Frosting flavor" data-group="Frosting">
                 <option value="" data-es="Sabor del bet&uacute;n" data-en="Frosting flavor">Frosting flavor</option>
                 <option value="Vanilla Buttercream" data-es="Bet&uacute;n de Vainilla" data-en="Vanilla Buttercream">Vanilla Buttercream</option>
                 <option value="Chocolate Buttercream" data-es="Bet&uacute;n de Chocolate" data-en="Chocolate Buttercream">Chocolate Buttercream</option>
@@ -771,7 +770,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''}" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="cupcake.svg" alt="Cupcakes" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -783,12 +782,12 @@
               Six standard-size cupcakes made fresh to order. Choose your cake flavor and frosting. One flavor per batch.
             </p>
             <div class="flavor-selects">
-              <select class="cake-flavor" aria-label="Cake flavor">
+              <select class="flavor-select" aria-label="Cake flavor" data-group="Cake">
                 <option value="" data-es="Sabor del bizcocho" data-en="Cake flavor">Cake flavor</option>
                 <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
                 <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
               </select>
-              <select class="frosting-flavor" aria-label="Frosting flavor">
+              <select class="flavor-select" aria-label="Frosting flavor" data-group="Frosting">
                 <option value="" data-es="Sabor del bet&uacute;n" data-en="Frosting flavor">Frosting flavor</option>
                 <option value="Vanilla Buttercream" data-es="Bet&uacute;n de Vainilla" data-en="Vanilla Buttercream">Vanilla Buttercream</option>
                 <option value="Chocolate Buttercream" data-es="Bet&uacute;n de Chocolate" data-en="Chocolate Buttercream">Chocolate Buttercream</option>
@@ -1099,6 +1098,7 @@
       // Only animate .reveal tiles, NOT the order panel
       // Extracted so it can re-run after live products are injected.
       window.initProductReveals = function () {
+        ScrollTrigger.getAll().forEach(st => st.kill());
         gsap.utils.toArray('.product-tile.reveal').forEach((el, i) => {
           gsap.fromTo(el,
             { y: 40, autoAlpha: 0 },
@@ -1203,6 +1203,7 @@
     // ── Cart ──────────────────────────────────────────────────────
     const cart = [];
     let pendingOrderId = null;
+    let submittedTotalCents = 0;
 
     function updateQty(btn, delta) {
       const stepper = btn.closest('.qty-stepper');
@@ -1221,15 +1222,10 @@
       tile.querySelectorAll('.pack-option').forEach(o => o.classList.remove('selected'));
       opt.classList.add('selected');
       const price = parseFloat(opt.dataset.packPrice);
-      const unitLabel = currentLang === 'es'
-        ? (opt.querySelector('.pack-unit-price')?.getAttribute('data-es') || '')
-        : (opt.querySelector('.pack-unit-price')?.getAttribute('data-en') || '');
       const id = tile.id.replace('tile-', '');
       const priceEl = document.getElementById('price-' + id);
       if (priceEl) {
-        priceEl.innerHTML = '$' + price.toFixed(2) + (unitLabel
-          ? ` <span class="lang-fade" data-es="${escapeHtml(unitLabel)}" data-en="${escapeHtml(unitLabel)}">${escapeHtml(unitLabel)}</span>`
-          : ' <span class="lang-fade" data-es="c/u" data-en="ea">ea</span>');
+        priceEl.textContent = '$' + price.toFixed(2);
       }
       tile.setAttribute('data-pack-price', price);
       tile.setAttribute('data-pack-qty', opt.dataset.packQty);
@@ -1452,7 +1448,8 @@
         language: currentLang
       };
 
-      const totalCentsForApi = Math.round(getCartTotal() * 100);
+      submittedTotalCents = Math.round(getCartTotal() * 100);
+      const totalCentsForApi = submittedTotalCents;
       const apiPayload = {
         customer_name: formData.name,
         phone: formData.phone || null,
@@ -1484,9 +1481,9 @@
 
         document.getElementById('order-form-el').style.display = 'none';
 
-        const totalNum = getCartTotal();
+        const totalNum = submittedTotalCents / 100;
         const totalStr = totalNum.toFixed(2);
-        const totalCents = Math.round(totalNum * 100);
+        const totalCents = submittedTotalCents;
         const itemList = cart.map(c => `${c.qty}x ${c.displayName || c.name}`).join(', ');
 
         const totalEl = document.getElementById('payment-total');
@@ -1610,6 +1607,10 @@
       renderCart(); // always render the empty state on load
 
       if (window.location.search.includes('paid=true')) {
+        cart.length = 0;
+        refreshTileStates();
+        renderCart();
+        updateSteps(false);
         var banner = document.getElementById('success-banner');
         banner.style.display = 'block';
         gsap.fromTo(banner, { autoAlpha: 0, y: -20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
