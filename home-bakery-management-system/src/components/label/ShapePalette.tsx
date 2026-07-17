@@ -7,7 +7,6 @@ interface Props {
 
 const SHAPES: { type: LabelElement["type"]; label: string; icon: React.ReactNode }[] = [
   { type: "rect", label: "Rectangle", icon: <Square size={14} /> },
-  { type: "circle", label: "Circle", icon: <Circle size={14} /> },
   { type: "line", label: "Line", icon: <Minus size={14} /> },
 ];
 

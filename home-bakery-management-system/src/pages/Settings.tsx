@@ -62,14 +62,25 @@ export default function Settings() {
             <Field label="Address">
               <input value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} className="input" />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Phone">
-                <input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} className="input" />
-              </Field>
-              <Field label="Email">
-                <input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className="input" />
-              </Field>
-            </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Phone">
+                  <input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} className="input" />
+                </Field>
+                <Field label="Email">
+                  <input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className="input" />
+                </Field>
+                <Field label="Business type">
+                  <select
+                    value={draft.businessType}
+                    onChange={(e) => setDraft({ ...draft, businessType: e.target.value as "cottage" | "licensed" | "maple-honey"})}
+                    className="input"
+                  >
+                    <option value="cottage">Cottage Food Producer</option>
+                    <option value="licensed">Licensed Food Processor</option>
+                    <option value="maple-honey">Maple Syrup & Honey Producer</option>
+                  </select>
+                </Field>
+              </div>
             <Field label="Website (QR default)">
               <input
                 value={draft.website || ""}
