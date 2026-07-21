@@ -82,12 +82,13 @@ export default {
     const isPublicPost = path === '/api/orders' && method === 'POST';
     const isPublicProductGet =
       (path === '/api/products' || path.match(/^\/api\/products\/[^/]+$/)) && method === 'GET';
+    const isPublicGalleryGet = path === '/api/gallery' && method === 'GET';
     // Internal mark-paid endpoint: public (no Cloudflare Access) but authenticated
     // by the shared X-Webhook-Secret header inside markOrderPaid().
     const isPublicMarkPaid =
       path.match(/^\/api\/orders\/\d+\/mark-paid$/) && method === 'POST';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicMarkPaid) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicMarkPaid) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -141,6 +142,17 @@ export default {
         if (method === 'GET')    return await getProduct(id, env);
         if (method === 'PATCH')  return await updateProduct(id, request, env, actorName);
         if (method === 'DELETE') return await deleteProduct(id, env, actorName);
+      }
+
+      if (path === '/api/gallery' && method === 'GET') return await listGallery(env);
+      if (path === '/api/gallery/all' && method === 'GET') return await listGalleryAdmin(env);
+      if (path === '/api/gallery' && method === 'POST') return await createGalleryPhoto(request, env, actorName);
+
+      const gm = path.match(/^\/api\/gallery\/([A-Za-z0-9_-]+)$/);
+      if (gm) {
+        const id = gm[1];
+        if (method === 'PATCH')  return await updateGalleryPhoto(id, request, env, actorName);
+        if (method === 'DELETE') return await deleteGalleryPhoto(id, env, actorName);
       }
 
       const im = path.match(/^\/api\/inventory\/([A-Za-z0-9_-]+)$/);
@@ -690,6 +702,119 @@ async function updateProduct(id, request, env, actor) {
 
 async function deleteProduct(id, env, actor) {
   const r = await env.DB.prepare(`UPDATE products SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Gallery ───────────────────────────────────────────────────────────────
+
+const GALLERY_FIELDS = [
+  'product_id', 'title', 'title_es', 'image_url', 'active', 'display_order',
+];
+
+function mapGalleryRow(r) {
+  return {
+    id: r.id,
+    product_id: r.product_id,
+    title: r.title,
+    title_es: r.title_es,
+    image_url: r.image_url,
+    active: Boolean(r.active),
+    display_order: Number(r.display_order) || 0,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    product_name: r.product_name || null,
+    product_name_es: r.product_name_es || null,
+    product_emoji: r.product_emoji || null,
+    product_display_order: Number(r.product_display_order) || 0,
+  };
+}
+
+async function listGallery(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT g.*,
+           p.name AS product_name,
+           p.name_es AS product_name_es,
+           p.emoji AS product_emoji,
+           p.display_order AS product_display_order
+    FROM gallery g
+    LEFT JOIN products p ON p.id = g.product_id
+    WHERE g.active = 1
+    ORDER BY COALESCE(p.display_order, 9999) ASC, g.display_order ASC, g.created_at ASC
+  `).all();
+  return json({ photos: (results || []).map(mapGalleryRow) }, 200);
+}
+
+async function listGalleryAdmin(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT g.*,
+           p.name AS product_name,
+           p.name_es AS product_name_es,
+           p.emoji AS product_emoji,
+           p.display_order AS product_display_order
+    FROM gallery g
+    LEFT JOIN products p ON p.id = g.product_id
+    ORDER BY COALESCE(p.display_order, 9999) ASC, g.display_order ASC, g.created_at ASC
+  `).all();
+  return json({ photos: (results || []).map(mapGalleryRow) }, 200);
+}
+
+async function createGalleryPhoto(request, env, actor) {
+  const body = await request.json();
+  if (!body.product_id || !body.title || !body.image_url) {
+    return json({ error: 'Missing required fields: product_id, title, image_url' }, 400);
+  }
+  const product = await env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(body.product_id).first();
+  if (!product) return json({ error: 'product_id not found' }, 400);
+
+  const id = body.id || `gal_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  try {
+    await env.DB.prepare(`
+      INSERT INTO gallery (id, product_id, title, title_es, image_url, active, display_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      id,
+      body.product_id,
+      body.title,
+      body.title_es || null,
+      body.image_url,
+      body.active === false ? 0 : 1,
+      Number(body.display_order) || 0,
+    ).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id }, 201);
+}
+
+async function updateGalleryPhoto(id, request, env, actor) {
+  const body = await request.json();
+  if (body.product_id) {
+    const product = await env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(body.product_id).first();
+    if (!product) return json({ error: 'product_id not found' }, 400);
+  }
+  const sets = [];
+  const binds = [];
+  for (const f of GALLERY_FIELDS) {
+    if (body[f] === undefined) continue;
+    let val = body[f];
+    if (f === 'active') val = val ? 1 : 0;
+    if (f === 'display_order') val = Number(val) || 0;
+    sets.push(`${f} = ?`);
+    binds.push(val);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  const r = await env.DB.prepare(`UPDATE gallery SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+async function deleteGalleryPhoto(id, env, actor) {
+  const r = await env.DB.prepare(
+    `UPDATE gallery SET active = 0, updated_at = datetime('now') WHERE id = ?`
+  ).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
 }
