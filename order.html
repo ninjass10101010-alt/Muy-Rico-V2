@@ -990,7 +990,9 @@
       const tile = document.getElementById('tile-' + product);
       if (!tile) return;
 
-      tile.setAttribute('data-design', design);
+      // Store plain text (attribute-safe via setAttribute); never trust for innerHTML sinks
+      const safeDesign = String(design).slice(0, 200).replace(/[<>]/g, '');
+      tile.setAttribute('data-design', safeDesign);
 
       let chip = tile.querySelector('.tile-design-chip');
       if (!chip) {
@@ -1002,8 +1004,8 @@
       }
       chip.innerHTML = `
         <span class="lang-fade"
-          data-es="Diseño solicitado: ${escapeHtml(design)}"
-          data-en="Requested design: ${escapeHtml(design)}">Requested design: ${escapeHtml(design)}</span>
+          data-es="Diseño solicitado: ${escapeHtml(safeDesign)}"
+          data-en="Requested design: ${escapeHtml(safeDesign)}">Requested design: ${escapeHtml(safeDesign)}</span>
         <button type="button" aria-label="Dismiss">&times;</button>`;
       chip.querySelector('button').onclick = () => {
         clearDesignFromTile(tile);
@@ -1311,7 +1313,7 @@
       const iconHtml = icon.includes('.svg')
         ? `<span class="toast-icon"><img src="${icon}" alt="" width="24" height="24" style="object-fit:contain;" /></span>`
         : `<span class="toast-icon">${icon}</span>`;
-      toast.innerHTML = `${iconHtml}<div><div class="toast-text">${text}</div>${sub ? `<div class="toast-sub">${sub}</div>` : ''}</div>`;
+      toast.innerHTML = `${iconHtml}<div><div class="toast-text">${escapeHtml(text)}</div>${sub ? `<div class="toast-sub">${escapeHtml(sub)}</div>` : ''}</div>`;
       container.appendChild(toast);
       
       gsap.fromTo(toast, 
@@ -1408,9 +1410,10 @@
       if (selectedFlavors.length) {
         flavorNote = ' (' + selectedFlavors.join(', ') + ')';
       }
-      const designReq = tile.getAttribute('data-design');
+      const designReq = (tile.getAttribute('data-design') || '').replace(/[<>]/g, '');
       if (designReq) {
         const designLabel = currentLang === 'es' ? 'Diseño' : 'Design';
+        // Plain-text note for order/API; HTML sinks escape displayName separately
         flavorNote = (flavorNote || '') + ' — ' + designLabel + ': ' + designReq;
       }
       displayName = displayName + packLabel + flavorNote;
@@ -1539,15 +1542,15 @@
         total += line;
         let iconHtml;
         if (item.image_url) {
-          iconHtml = `<img src="${item.image_url}" alt="" width="56" height="56" style="object-fit:cover;border-radius:10px;" />`;
+          iconHtml = `<img src="${escapeHtml(item.image_url)}" alt="" width="56" height="56" style="object-fit:cover;border-radius:10px;" />`;
         } else {
-          iconHtml = `<span style="font-size:40px;line-height:1;">${item.toastEmoji || '🍞'}</span>`;
+          iconHtml = `<span style="font-size:40px;line-height:1;">${escapeHtml(item.toastEmoji || '🍞')}</span>`;
         }
         return `<li>
           <div class="cart-item-left">
             <span class="cart-item-icon">${iconHtml}</span>
             <div>
-              <div class="cart-item-name">${item.displayName || item.name}</div>
+              <div class="cart-item-name">${escapeHtml(item.displayName || item.name)}</div>
               <div class="cart-item-qty">× ${item.qty}</div>
             </div>
           </div>
