@@ -1566,6 +1566,168 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 }
 .owner-login-link:hover svg { opacity: 1; }
 
+/* ── Category filter pills (order page) ───────────────────────── */
+.category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1.5rem;
+  padding: 0 0.25rem;
+}
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(139, 90, 78, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.category-pill:hover {
+  background: rgba(251, 203, 201, 0.35);
+  color: var(--color-text-cocoa);
+}
+.category-pill.active {
+  background: rgba(251, 203, 201, 0.55);
+  color: var(--color-text-cocoa);
+  border-color: rgba(247, 168, 164, 0.55);
+}
+.category-pill .filter-count {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* Design request chip + highlight on order tiles */
+.tile-design-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.65rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 12px;
+  background: rgba(212, 237, 218, 0.55);
+  border: 1px solid rgba(109, 166, 123, 0.35);
+  font-size: 0.78rem;
+  color: var(--color-text-cocoa);
+  font-weight: 600;
+}
+.tile-design-chip button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  padding: 0 0.15rem;
+}
+.product-tile.tile-highlight {
+  outline: 2px solid var(--color-accent-coral);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(247, 168, 164, 0.28);
+  animation: tile-pulse 1.2s ease-in-out 0s 3;
+}
+@keyframes tile-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(247, 168, 164, 0.2); }
+  50% { box-shadow: 0 0 0 10px rgba(247, 168, 164, 0.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-tile.tile-highlight { animation: none; }
+}
+.tile-album-link {
+  display: inline-block;
+  margin: 0.15rem 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-bright-hibiscus);
+  text-decoration: none;
+}
+.tile-album-link:hover { text-decoration: underline; }
+
+/* ── Public gallery page ──────────────────────────────────────── */
+.gallery-hero-desc { max-width: 36rem; margin-inline: auto; }
+.gallery-albums { display: flex; flex-direction: column; gap: 2.75rem; padding-bottom: 3rem; }
+.gallery-album-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+.gallery-album-header h2 {
+  font-family: var(--font-display, "Cormorant Garamond", serif);
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  color: var(--color-text-cocoa);
+  margin: 0;
+}
+.gallery-album-emoji { font-size: 1.6rem; line-height: 1; }
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+.gallery-card {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(139, 90, 78, 0.1);
+  border-radius: 1.15rem;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(73, 48, 36, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+.gallery-card-img {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  object-fit: cover;
+  display: block;
+  background: rgba(251, 243, 233, 0.8);
+}
+.gallery-card-body {
+  padding: 0.9rem 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1;
+}
+.gallery-card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-cocoa);
+}
+.gallery-request-btn {
+  margin-top: auto;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent-coral), var(--color-bright-hibiscus));
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.gallery-request-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.gallery-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+}
+
 /* ==========================================================================
    RESPONSIVE
    ========================================================================== */
