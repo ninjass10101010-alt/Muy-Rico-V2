@@ -966,6 +966,65 @@
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
+    function getDesignParams() {
+      try {
+        const sp = new URLSearchParams(location.search);
+        const product = sp.get('product') || '';
+        const design = sp.get('design') || '';
+        return { product, design };
+      } catch {
+        return { product: '', design: '' };
+      }
+    }
+
+    function clearDesignFromTile(tile) {
+      if (!tile) return;
+      tile.removeAttribute('data-design');
+      const chip = tile.querySelector('.tile-design-chip');
+      if (chip) chip.remove();
+    }
+
+    function applyDesignDeepLink() {
+      const { product, design } = getDesignParams();
+      if (!product || !design) return;
+      const tile = document.getElementById('tile-' + product);
+      if (!tile) return;
+
+      tile.setAttribute('data-design', design);
+
+      let chip = tile.querySelector('.tile-design-chip');
+      if (!chip) {
+        chip = document.createElement('div');
+        chip.className = 'tile-design-chip';
+        const titleEl = tile.querySelector('.tile-title');
+        if (titleEl) titleEl.insertAdjacentElement('afterend', chip);
+        else tile.prepend(chip);
+      }
+      chip.innerHTML = `
+        <span class="lang-fade"
+          data-es="Diseño solicitado: ${escapeHtml(design)}"
+          data-en="Requested design: ${escapeHtml(design)}">Requested design: ${escapeHtml(design)}</span>
+        <button type="button" aria-label="Dismiss">&times;</button>`;
+      chip.querySelector('button').onclick = () => {
+        clearDesignFromTile(tile);
+        try {
+          const url = new URL(location.href);
+          url.searchParams.delete('design');
+          url.searchParams.delete('product');
+          history.replaceState({}, '', url.pathname + url.search + url.hash);
+        } catch (_) {}
+      };
+      applyLangToDOM(currentLang);
+
+      tile.classList.add('tile-highlight');
+      try { tile.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'center' }); } catch (_) {}
+      if (!prefersReduced) {
+        setTimeout(() => tile.classList.remove('tile-highlight'), 4000);
+      } else {
+        setTimeout(() => tile.classList.remove('tile-highlight'), 2000);
+      }
+    }
+
     // ── Live product menu (Part 8) ──────────────────────────────────
     // Replaces the hard-coded tiles with live products from /api/products.
     // On failure the static fallback tiles (already in the DOM) stay visible.
@@ -1150,6 +1209,7 @@
         allProducts = [];
         renderCategoryPills(collectFallbackProducts());
         if (window.initProductReveals) initProductReveals();
+        if (typeof applyDesignDeepLink === 'function') applyDesignDeepLink();
       }
     }
 
@@ -1347,6 +1407,11 @@
       });
       if (selectedFlavors.length) {
         flavorNote = ' (' + selectedFlavors.join(', ') + ')';
+      }
+      const designReq = tile.getAttribute('data-design');
+      if (designReq) {
+        const designLabel = currentLang === 'es' ? 'Diseño' : 'Design';
+        flavorNote = (flavorNote || '') + ' — ' + designLabel + ': ' + designReq;
       }
       displayName = displayName + packLabel + flavorNote;
 
