@@ -23,6 +23,7 @@ interface ApiOrder {
   id: number;
   created_at: string;
   customer_name: string;
+  customer_id: string | null;
   phone: string | null;
   pickup_date: string;
   pickup_time: string | null;

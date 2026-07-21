@@ -13,6 +13,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const [phone, setPhone] = useState("");
   const [source, setSource] = useState<OrderSource>("in-person");
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [flavorSelections, setFlavorSelections] = useState<Record<string, string>>({});
   const [productPick, setProductPick] = useState(products[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("paid");
@@ -28,6 +29,9 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const showColoringField = items.some(i => COLORABLE_PRODUCTS.includes(i.productId));
 
   const activeProducts = products.filter((p) => p.active);
+  const pickedProduct = products.find((p) => p.id === productPick);
+  const pickedFlavorGroups = pickedProduct?.flavor_groups ?? [];
+  const flavorsComplete = pickedFlavorGroups.every((g) => !!flavorSelections[g.name]);
   const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[]).filter(
     (m) => profile.acceptedMethods[m],
   );
@@ -38,25 +42,36 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   function addItem() {
     const p = products.find((pr) => pr.id === productPick);
     if (!p) return;
+    const groups = p.flavor_groups ?? [];
+    if (groups.some((g) => !flavorSelections[g.name])) return; // all groups required
+    const flavorNote = groups.length
+      ? ` (${groups.map((g) => `${g.name}: ${flavorSelections[g.name]}`).join(", ")})`
+      : "";
+    const displayName = p.name + flavorNote;
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === p.id);
+      const existing = prev.find((i) => i.productId === p.id && (i.flavorNote || "") === flavorNote);
       if (existing) {
-        return prev.map((i) => (i.productId === p.id ? { ...i, qty: i.qty + 1 } : i));
+        return prev.map((i) =>
+          i.productId === p.id && (i.flavorNote || "") === flavorNote ? { ...i, qty: i.qty + 1 } : i,
+        );
       }
-      return [...prev, { productId: p.id, name: p.name, emoji: p.emoji, qty: 1, price: p.price }];
+      return [...prev, { productId: p.id, name: displayName, emoji: p.emoji, qty: 1, price: p.price, flavorNote }];
     });
+    setFlavorSelections({});
   }
 
-  function updateQty(productId: string, delta: number) {
+  const itemKey = (i: OrderItem) => `${i.productId}|${i.flavorNote || ""}`;
+
+  function updateQty(key: string, delta: number) {
     setItems((prev) =>
       prev
-        .map((i) => (i.productId === productId ? { ...i, qty: Math.max(1, i.qty + delta) } : i))
+        .map((i) => (itemKey(i) === key ? { ...i, qty: Math.max(1, i.qty + delta) } : i))
         .filter(Boolean),
     );
   }
 
-  function removeItem(productId: string) {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+  function removeItem(key: string) {
+    setItems((prev) => prev.filter((i) => itemKey(i) !== key));
   }
 
   function resetForm() {
@@ -72,6 +87,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
     setDiscount(0);
     setNotes("");
     setFoodColoring("");
+    setFlavorSelections({});
   }
 
   async function handleSubmit() {
@@ -290,7 +306,10 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
           <div className="flex gap-2">
             <select
               value={productPick}
-              onChange={(e) => setProductPick(e.target.value)}
+              onChange={(e) => {
+                setProductPick(e.target.value);
+                setFlavorSelections({});
+              }}
               className="flex-1 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
             >
               {activeProducts.map((p) => (
@@ -301,11 +320,30 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
             </select>
             <button
               onClick={addItem}
-              className="rounded-xl bg-coral px-3 py-2 text-sm font-medium text-white hover:bg-coral/80"
+              disabled={!flavorsComplete}
+              className="rounded-xl bg-coral px-3 py-2 text-sm font-medium text-white hover:bg-coral/80 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus size={16} />
             </button>
           </div>
+
+          {pickedFlavorGroups.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {pickedFlavorGroups.map((g) => (
+                <select
+                  key={g.name}
+                  value={flavorSelections[g.name] || ""}
+                  onChange={(e) => setFlavorSelections((s) => ({ ...s, [g.name]: e.target.value }))}
+                  className="rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                >
+                  <option value="">{g.name}…</option>
+                  {g.options.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              ))}
+            </div>
+          )}
 
           <div className="min-h-[160px] space-y-2 rounded-xl border border-dashed border-sand-200 p-3">
             {items.length === 0 && (
@@ -313,7 +351,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
             )}
             {items.map((item) => (
               <div
-                key={item.productId}
+                key={itemKey(item)}
                 className="flex items-center justify-between gap-2 rounded-lg bg-sand-50 px-3 py-2"
               >
                 <div className="min-w-0">
@@ -324,20 +362,20 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => updateQty(item.productId, -1)}
+                    onClick={() => updateQty(itemKey(item), -1)}
                     className="rounded-md bg-white p-1 text-cocoa-muted shadow hover:bg-sand-100"
                   >
                     <Minus size={12} />
                   </button>
                   <span className="w-5 text-center text-sm">{item.qty}</span>
                   <button
-                    onClick={() => updateQty(item.productId, 1)}
+                    onClick={() => updateQty(itemKey(item), 1)}
                     className="rounded-md bg-white p-1 text-cocoa-muted shadow hover:bg-sand-100"
                   >
                     <Plus size={12} />
                   </button>
                   <button
-                    onClick={() => removeItem(item.productId)}
+                    onClick={() => removeItem(itemKey(item))}
                     className="ml-1 rounded-md p-1 text-hibiscus hover:bg-hibiscus-light/10"
                   >
                     <Trash2 size={14} />

@@ -82,6 +82,7 @@ export interface OrderItem {
   emoji: string;
   qty: number;
   price: number;
+  flavorNote?: string;
 }
 
 export interface Order {
