@@ -463,9 +463,7 @@
     <div class="mobile-nav-links">
       <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
       <a href="order.html" class="active" data-es="Ordenar" data-en="Order">Order</a>
-      <a href="#menu" data-es="Conchas & Pan Dulce" data-en="Conchas & Sweet Bread">Conchas & Sweet Bread</a>
-      <a href="#menu" data-es="Tortillas de Harina" data-en="Flour Tortillas">Flour Tortillas</a>
-      <a href="#menu" data-es="Galletas & Bolillos" data-en="Cookies & Bolillos">Cookies & Bolillos</a>
+      <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
     </div>
     <div class="mobile-nav-bottom">
       <div class="mobile-lang-switch" role="tablist" aria-label="Select language">
@@ -495,11 +493,9 @@
           <a href="index.html" class="section-link" data-es="Nuestra Casa" data-en="Our Home">Nuestra Casa</a>
           <a href="order.html" class="section-link active" data-es="Ordenar" data-en="Order">Ordenar</a>
         </div>
-        <div class="nav-group-label" style="margin-top:0.8rem;" data-es="Categorías" data-en="Categories">Categorías</div>
-        <div class="filter-list">
-          <a href="#menu" class="filter-link" data-es="Conchas & Pan Dulce" data-en="Conchas & Sweet Bread">Conchas & Pan Dulce</a>
-          <a href="#menu" class="filter-link" data-es="Tortillas de Harina" data-en="Flour Tortillas">Tortillas de Harina</a>
-          <a href="#menu" class="filter-link" data-es="Galletas & Bolillos" data-en="Cookies & Bolillos">Galletas & Bolillos</a>
+        <div class="nav-group-label" style="margin-top:0.8rem;" data-es="Explorar" data-en="Explore">Explorar</div>
+        <div class="section-list">
+          <a href="gallery.html" class="section-link" data-es="Galería" data-en="Gallery">Galería</a>
         </div>
       </nav>
       <div style="margin-top:auto;">
@@ -582,12 +578,13 @@
           <span class="section-label lang-fade" data-es="Nuestro Menú" data-en="Our Menu">Nuestro Menú</span>
           <div class="section-rule"></div>
         </div>
+        <div class="category-pills" id="category-pills" hidden></div>
         <div class="products-grid" id="products-grid">
           <!-- Hard-coded tiles below are a NO-JS / fetch-failure fallback.
                The script at the bottom replaces this inner content with live
                products from /api/products when JS + API are available. -->
 
-          <article class="product-tile reveal has-packs" id="tile-cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
+          <article class="product-tile reveal has-packs" id="tile-cookies" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
             <div class="tile-header">
               <img class="tile-icon" src="cookies.svg" alt="Chocolate Chip Cookie" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -618,7 +615,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-conchas" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-conchas" data-category="Bread" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="conchas.svg" alt="Conchas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -650,7 +647,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal has-packs" id="tile-bolillos" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖" data-has-packs="1" data-pack-price="2" data-pack-qty="1" data-pack-label="Single">
+          <article class="product-tile reveal has-packs" id="tile-bolillos" data-category="Bread" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖" data-has-packs="1" data-pack-price="2" data-pack-qty="1" data-pack-label="Single">
             <div class="tile-header">
               <img class="tile-icon" src="bolillos.svg" alt="Bolillos" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -685,7 +682,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-tortillas" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
+          <article class="product-tile reveal" id="tile-tortillas" data-category="Bread" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
             <div class="tile-header">
               <img class="tile-icon" src="tortilla.svg" alt="Flour Tortillas" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -709,7 +706,7 @@
             </div>
           </article>
 
-           <article class="product-tile reveal" id="tile-cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
+           <article class="product-tile reveal" id="tile-cakepops" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
             <div class="tile-header">
               <img class="tile-icon" src="cakepop.svg" alt="Cakepops" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -733,7 +730,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cake" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-cake" data-category="Cakes" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="cake.svg" alt="Custom Cake" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -770,7 +767,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
+          <article class="product-tile reveal" id="tile-cupcakes" data-category="Cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
             <div class="tile-header">
               <img class="tile-icon" src="cupcake.svg" alt="Cupcakes" width="42" height="42" style="object-fit:contain;" />
               <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
@@ -961,6 +958,10 @@
     const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const ORDER_API = isDev ? 'http://localhost:8787' : '';
 
+    let allProducts = [];
+    let activeCategory = 'all';
+    let galleryProductIds = new Set();
+
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
@@ -1004,6 +1005,9 @@
               <span class="pack-unit-price lang-fade" data-es="${escapeHtml(pk.unit_label_es || pk.unit_label || '')}" data-en="${escapeHtml(pk.unit_label || '')}">${escapeHtml(pk.unit_label || '')}</span>
             </div>`).join('') + `</div>`
         : '';
+      const albumLink = galleryProductIds.has(p.id)
+        ? `<a class="tile-album-link lang-fade" href="gallery.html#album-${escapeHtml(p.id)}" data-es="📸 Ver álbum" data-en="📸 View album">📸 View album</a>`
+        : '';
       return `
         <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''} ${hasPacks ? 'has-packs' : ''}"
           id="tile-${p.id}"
@@ -1012,6 +1016,8 @@
           data-price="${Number(p.price).toFixed(2)}"
           data-icon="${p.emoji || '🍞'}"
           data-image-url="${p.image_url || ''}"
+          data-category="${escapeHtml(p.category || '')}"
+          data-product-id="${escapeHtml(p.id)}"
           data-toast-emoji="${p.emoji || '🍞'}"
           data-has-flavors="${flavorGroups.length ? '1' : ''}"
           data-has-packs="${hasPacks ? '1' : ''}"
@@ -1021,6 +1027,7 @@
           ${hero}
           <h3 class="tile-title lang-fade" data-es="${escapeHtml(p.name_es || p.name)}" data-en="${escapeHtml(p.name)}">${name}</h3>
           <p class="tile-desc lang-fade" data-es="${escapeHtml(p.description_es || p.description || '')}" data-en="${escapeHtml(p.description || '')}">${desc}</p>
+          ${albumLink}
           ${packHTML}
           ${flavorHTML}
           <div class="tile-bottom">
@@ -1037,21 +1044,89 @@
         </article>`;
     }
 
+    function renderCategoryPills(products) {
+      const host = document.getElementById('category-pills');
+      if (!host) return;
+      const counts = new Map();
+      (products || []).forEach(p => {
+        const cat = (p.category || '').trim();
+        if (!cat) return;
+        counts.set(cat, (counts.get(cat) || 0) + 1);
+      });
+      if (!counts.size) {
+        host.hidden = true;
+        host.innerHTML = '';
+        return;
+      }
+      host.hidden = false;
+      const cats = [...counts.keys()];
+      const allCount = products.length;
+      const pills = [
+        `<button type="button" class="category-pill ${activeCategory === 'all' ? 'active' : ''}" data-category="all">
+           <span class="lang-fade" data-es="Todos" data-en="All">All</span>
+           <span class="filter-count">${allCount}</span>
+         </button>`,
+        ...cats.map(cat => `
+          <button type="button" class="category-pill ${activeCategory === cat ? 'active' : ''}" data-category="${escapeHtml(cat)}">
+            <span>${escapeHtml(cat)}</span>
+            <span class="filter-count">${counts.get(cat)}</span>
+          </button>`)
+      ];
+      host.innerHTML = pills.join('');
+      host.querySelectorAll('.category-pill').forEach(btn => {
+        btn.addEventListener('click', () => filterByCategory(btn.getAttribute('data-category') || 'all'));
+      });
+      applyLangToDOM(currentLang);
+    }
+
+    function filterByCategory(cat) {
+      activeCategory = cat || 'all';
+      const source = allProducts.length
+        ? allProducts
+        : null;
+      if (source) {
+        const filtered = activeCategory === 'all'
+          ? source
+          : source.filter(p => (p.category || '').toLowerCase() === activeCategory.toLowerCase());
+        renderProducts(filtered);
+      } else {
+        // Fallback tiles path: show/hide by data-category
+        document.querySelectorAll('#products-grid .product-tile').forEach(tile => {
+          const tcat = (tile.getAttribute('data-category') || '').toLowerCase();
+          const show = activeCategory === 'all' || tcat === activeCategory.toLowerCase();
+          tile.style.display = show ? '' : 'none';
+        });
+        if (window.initProductReveals) initProductReveals();
+        if (typeof refreshTileStates === 'function') refreshTileStates();
+      }
+      renderCategoryPills(source || collectFallbackProducts());
+    }
+
+    function collectFallbackProducts() {
+      return [...document.querySelectorAll('#products-grid .product-tile')].map(tile => ({
+        id: (tile.id || '').replace(/^tile-/, ''),
+        category: tile.getAttribute('data-category') || '',
+      }));
+    }
+
     function renderProducts(products) {
       const grid = document.getElementById('products-grid');
       if (!grid) return;
       if (!products || !products.length) {
         grid.innerHTML = '<p class="lang-fade" data-es="No hay productos disponibles." data-en="No products available.">No products available.</p>';
+        renderCategoryPills(allProducts);
         return;
       }
       grid.innerHTML = products.map(renderProductTile).join('');
       applyLangToDOM(currentLang);
-      // Auto-select the first (default) pack on each pack-enabled tile
       grid.querySelectorAll('.pack-selects').forEach(ps => {
         const firstOpt = ps.querySelector('.pack-option');
         if (firstOpt) selectPack(firstOpt);
       });
       if (window.initProductReveals) initProductReveals();
+      if (typeof refreshTileStates === 'function') refreshTileStates();
+      renderCategoryPills(allProducts);
+      if (typeof applyDesignDeepLink === 'function') applyDesignDeepLink();
     }
 
     async function loadProducts() {
@@ -1059,10 +1134,21 @@
         const res = await fetch((ORDER_API || '') + '/api/products');
         if (!res.ok) throw new Error('products fetch failed: ' + res.status);
         const data = await res.json();
-        renderProducts(data.products || []);
+        allProducts = data.products || [];
+        activeCategory = 'all';
+        // gallery product ids for album links (non-blocking)
+        try {
+          const gRes = await fetch((ORDER_API || '') + '/api/gallery');
+          if (gRes.ok) {
+            const gData = await gRes.json();
+            galleryProductIds = new Set((gData.photos || []).map(ph => ph.product_id));
+          }
+        } catch (_) { /* ignore */ }
+        renderProducts(allProducts);
       } catch (err) {
         console.warn('Could not load live products, showing fallback menu:', err);
-        // Keep the static hard-coded tiles already in the DOM
+        allProducts = [];
+        renderCategoryPills(collectFallbackProducts());
         if (window.initProductReveals) initProductReveals();
       }
     }
