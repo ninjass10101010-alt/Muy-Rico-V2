@@ -202,6 +202,63 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   return res.json();
 }
 
+// ─── Gallery ───────────────────────────────────────────────────────────────
+
+export interface ApiGalleryPhoto {
+  id: string;
+  product_id: string;
+  title: string;
+  title_es?: string | null;
+  image_url: string;
+  active: boolean;
+  display_order: number;
+  product_name?: string | null;
+  product_name_es?: string | null;
+  product_emoji?: string | null;
+  product_display_order?: number;
+}
+
+export interface GalleryPhotoCreate {
+  product_id: string;
+  title: string;
+  title_es?: string | null;
+  image_url: string;
+  display_order?: number;
+  active?: boolean;
+}
+
+export type GalleryPhotoUpdate = Partial<GalleryPhotoCreate>;
+
+export async function fetchGalleryAdmin(): Promise<ApiGalleryPhoto[]> {
+  const data = await apiFetch<{ photos: ApiGalleryPhoto[] }>("/api/gallery/all");
+  return data.photos;
+}
+
+export async function createGalleryPhoto(
+  p: GalleryPhotoCreate
+): Promise<{ ok: boolean; id: string }> {
+  return apiFetch("/api/gallery", {
+    method: "POST",
+    body: JSON.stringify(p),
+  });
+}
+
+export async function updateGalleryPhoto(
+  id: string,
+  patch: GalleryPhotoUpdate
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/gallery/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteGalleryPhoto(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/gallery/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 // ─── Inventory ─────────────────────────────────────────────────────────────
 
 export interface ApiInventoryItem {

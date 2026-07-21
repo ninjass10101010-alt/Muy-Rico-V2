@@ -51,6 +51,20 @@ export interface Product {
   auto_generate_label?: boolean;
 }
 
+export interface GalleryPhoto {
+  id: string;
+  product_id: string;
+  title: string;
+  title_es?: string | null;
+  image_url: string;
+  active: boolean;
+  display_order: number;
+  product_name?: string | null;
+  product_name_es?: string | null;
+  product_emoji?: string | null;
+  product_display_order?: number;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
