@@ -914,7 +914,7 @@ async function generateLabelsForOrder(env, orderId, body) {
   const profileRow = await env.DB.prepare("SELECT * FROM business_profile WHERE id = 'singleton'").first();
   const profile = profileRow || {};
   const foodColoring = (body.food_coloring || '').trim();
-  const orderId_str = `Order #${orderId}`;
+  const orderPrefix = `MR-${orderId}`;
 
   // Load all products once for name-based fallback matching
   const { results: allProducts } = await env.DB.prepare('SELECT * FROM products WHERE active = 1').all();
@@ -933,14 +933,18 @@ async function generateLabelsForOrder(env, orderId, body) {
     }
     if (!product || !product.auto_generate_label) continue;
 
-    // Skip if label already exists for this order + product
+    // Label identity = the line item's own name (includes flavor/pack, e.g.
+    // "Cupcakes (6) (Cupcake flavor: Chocolate)") so each flavor gets its own label.
+    const itemName = (item.name || product.name).trim();
+
+    // Skip if label already exists for this order + item
     const existing = await env.DB.prepare(
       `SELECT id FROM label_templates WHERE name = ? LIMIT 1`
-    ).bind(`${orderId_str} - ${product.name}`).first();
+    ).bind(`${orderPrefix} - ${itemName}`).first();
     if (existing) continue;
 
     const labelId = `label_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const labelName = `${orderId_str} - ${product.name}`;
+    const labelName = `${orderPrefix} - ${itemName}`;
 
     // Append food coloring disclosure to ingredients and allergens if provided
     let ingredients = product.ingredients || '';
@@ -962,7 +966,7 @@ async function generateLabelsForOrder(env, orderId, body) {
       accent_color: '#C17A3F',
       text_color: '#4A3222',
       business_name: profile.name || 'Muy Rico',
-      product_name: product.name,
+      product_name: itemName,
       details: product.description || '',
       ingredients,
       allergens,
@@ -1028,7 +1032,7 @@ async function backfillAllOrderLabels(env) {
   for (const order of orders) {
     const before = await env.DB.prepare(
       `SELECT COUNT(*) as cnt FROM label_templates WHERE name LIKE ?`
-    ).bind(`Order #${order.id} - %`).first();
+    ).bind(`MR-${order.id} - %`).first();
     const alreadyHasLabels = before && before.cnt > 0;
     if (!alreadyHasLabels) {
       await generateLabelsForOrder(env, order.id, order);
