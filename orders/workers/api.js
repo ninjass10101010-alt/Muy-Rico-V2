@@ -789,7 +789,8 @@ async function createGalleryPhoto(request, env, actor) {
 
 async function updateGalleryPhoto(id, request, env, actor) {
   const body = await request.json();
-  if (body.product_id) {
+  if (body.product_id !== undefined) {
+    if (!body.product_id) return json({ error: 'product_id is required' }, 400);
     const product = await env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(body.product_id).first();
     if (!product) return json({ error: 'product_id not found' }, 400);
   }

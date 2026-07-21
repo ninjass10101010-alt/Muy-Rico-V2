@@ -126,14 +126,22 @@ export default function Gallery() {
   }
 
   async function toggleActive(ph: ApiGalleryPhoto) {
-    await updateGalleryPhoto(ph.id, { active: !ph.active });
-    await refresh();
+    try {
+      await updateGalleryPhoto(ph.id, { active: !ph.active });
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update photo");
+    }
   }
 
   async function remove(ph: ApiGalleryPhoto) {
     if (!confirm(`Delete “${ph.title}”?`)) return;
-    await deleteGalleryPhoto(ph.id);
-    await refresh();
+    try {
+      await deleteGalleryPhoto(ph.id);
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete photo");
+    }
   }
 
   async function move(ph: ApiGalleryPhoto, dir: -1 | 1) {
@@ -143,11 +151,15 @@ export default function Gallery() {
     const idx = siblings.findIndex((s) => s.id === ph.id);
     const swap = siblings[idx + dir];
     if (!swap) return;
-    await Promise.all([
-      updateGalleryPhoto(ph.id, { display_order: swap.display_order }),
-      updateGalleryPhoto(swap.id, { display_order: ph.display_order }),
-    ]);
-    await refresh();
+    try {
+      await Promise.all([
+        updateGalleryPhoto(ph.id, { display_order: swap.display_order }),
+        updateGalleryPhoto(swap.id, { display_order: ph.display_order }),
+      ]);
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Failed to reorder photo");
+    }
   }
 
   function productLabel(productId: string, sample?: ApiGalleryPhoto) {
