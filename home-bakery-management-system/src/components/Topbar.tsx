@@ -5,6 +5,7 @@ const TITLES: Record<Page, { title: string; subtitle: string }> = {
   dashboard: { title: "Dashboard", subtitle: "Your bakery at a glance" },
   orders: { title: "Orders", subtitle: "Track website & in-person orders" },
   products: { title: "Menu & Products", subtitle: "Manage what you sell" },
+  gallery: { title: "Gallery", subtitle: "Portfolio photos & customer showcases" },
   inventory: { title: "Inventory", subtitle: "Ingredients & supplies on hand" },
   customers: { title: "Customers", subtitle: "Your regulars & their history" },
   payments: { title: "Payments", subtitle: "Venmo, Cash App, Apple Pay & cash" },

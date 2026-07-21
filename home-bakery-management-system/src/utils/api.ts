@@ -57,10 +57,15 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   });
-  const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error || `API error ${res.status}`);
+    let errorMsg = `API error ${res.status}`;
+    try {
+      const errData = await res.json();
+      errorMsg = errData.error || errorMsg;
+    } catch {}
+    throw new Error(errorMsg);
   }
+  const data = await res.json();
   return data as T;
 }
 
@@ -194,7 +199,7 @@ export async function deleteProduct(id: string): Promise<{ ok: boolean }> {
 export async function uploadImage(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch('/api/upload', { method: 'POST', body: form });
+  const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: form });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Upload failed');
