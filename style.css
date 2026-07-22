@@ -1014,19 +1014,13 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 }
 .footer-leaf-l, .footer-leaf-r, .footer-hib-row, .footer-coqui-divider { display: none; }
 .footer-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border: 1px solid var(--hairline-strong);
-  border-radius: 50%;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 1.05rem;
-  color: var(--forest);
+  width: 120px;
+  height: auto;
   margin-bottom: 1.1rem;
+  opacity: 0.85;
+  transition: opacity 0.25s ease;
 }
+.footer-mark:hover { opacity: 1; }
 .footer-nav {
   display: flex;
   justify-content: center;
