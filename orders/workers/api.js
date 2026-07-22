@@ -1103,7 +1103,7 @@ async function updateGalleryPhoto(id, request, env, actor) {
 
 async function deleteGalleryPhoto(id, env, actor) {
   const r = await env.DB.prepare(
-    `UPDATE gallery SET active = 0, updated_at = datetime('now') WHERE id = ?`
+    `DELETE FROM gallery WHERE id = ?`
   ).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
 import {
@@ -35,6 +35,7 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -77,7 +78,19 @@ export default function Gallery() {
   }, [photos, activeProducts]);
 
   function openNew() {
+    setEditingId(null);
     setDraft(emptyDraft(activeProducts[0]?.id || ""));
+    setModalOpen(true);
+  }
+
+  function openEdit(ph: ApiGalleryPhoto) {
+    setEditingId(ph.id);
+    setDraft({
+      product_id: ph.product_id,
+      title: ph.title,
+      title_es: ph.title_es || "",
+      image_url: ph.image_url,
+    });
     setModalOpen(true);
   }
 
@@ -103,20 +116,30 @@ export default function Gallery() {
     setSaving(true);
     setError(null);
     try {
-      const siblings = photos.filter((p) => p.product_id === draft.product_id);
-      const nextOrder =
-        siblings.length === 0
-          ? 0
-          : Math.max(...siblings.map((s) => s.display_order || 0)) + 1;
-      await createGalleryPhoto({
-        product_id: draft.product_id,
-        title: draft.title.trim(),
-        title_es: draft.title_es.trim() || null,
-        image_url: draft.image_url,
-        display_order: nextOrder,
-        active: true,
-      });
+      if (editingId) {
+        await updateGalleryPhoto(editingId, {
+          product_id: draft.product_id,
+          title: draft.title.trim(),
+          title_es: draft.title_es.trim() || null,
+          image_url: draft.image_url,
+        });
+      } else {
+        const siblings = photos.filter((p) => p.product_id === draft.product_id);
+        const nextOrder =
+          siblings.length === 0
+            ? 0
+            : Math.max(...siblings.map((s) => s.display_order || 0)) + 1;
+        await createGalleryPhoto({
+          product_id: draft.product_id,
+          title: draft.title.trim(),
+          title_es: draft.title_es.trim() || null,
+          image_url: draft.image_url,
+          display_order: nextOrder,
+          active: true,
+        });
+      }
       setModalOpen(false);
+      setEditingId(null);
       await refresh();
     } catch (e: any) {
       setError(e?.message || "Save failed");
@@ -135,7 +158,7 @@ export default function Gallery() {
   }
 
   async function remove(ph: ApiGalleryPhoto) {
-    if (!confirm(`Delete “${ph.title}”?`)) return;
+    if (!confirm(`Delete "${ph.title}"? This cannot be undone.`)) return;
     try {
       await deleteGalleryPhoto(ph.id);
       await refresh();
@@ -232,6 +255,14 @@ export default function Gallery() {
                     <div className="flex flex-wrap items-center gap-1">
                       <button
                         type="button"
+                        title="Edit"
+                        onClick={() => openEdit(ph)}
+                        className="rounded-lg p-1.5 text-cocoa/60 hover:bg-sand-100"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
                         title="Move up"
                         disabled={i === 0}
                         onClick={() => move(ph, -1)}
@@ -273,7 +304,7 @@ export default function Gallery() {
         ))
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add gallery photo">
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditingId(null); }} title={editingId ? "Edit gallery photo" : "Add gallery photo"}>
         <div className="space-y-4">
           <label className="block text-sm">
             <span className="mb-1 block text-cocoa/70">Product album</span>
@@ -326,7 +357,7 @@ export default function Gallery() {
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={() => setModalOpen(false)}
+              onClick={() => { setModalOpen(false); setEditingId(null); }}
               className="rounded-full px-4 py-2 text-sm text-cocoa/70 hover:bg-sand-100"
             >
               Cancel
@@ -337,7 +368,7 @@ export default function Gallery() {
               onClick={save}
               className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save photo"}
+              {saving ? "Saving…" : editingId ? "Update photo" : "Save photo"}
             </button>
           </div>
         </div>
