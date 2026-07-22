@@ -1,0 +1,7 @@
+{
+  "name": "muy-rico",
+  "private": true,
+  "scripts": {
+    "build": "cd home-bakery-management-system && npm install && npm run build"
+  }
+}

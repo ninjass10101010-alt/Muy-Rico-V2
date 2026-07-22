@@ -7,3 +7,5 @@ node_modules/
 orders/
 workers/
 docs/
+package.json
+package-lock.json
