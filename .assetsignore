@@ -6,3 +6,4 @@ home-bakery-management-system/
 node_modules/
 orders/
 workers/
+docs/
