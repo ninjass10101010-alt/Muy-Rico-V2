@@ -145,6 +145,7 @@ export interface ApiProduct {
   recipe?: string | RecipeLine[];
   display_order?: number;
   auto_generate_label?: number | boolean;
+  featured?: number | boolean;
   created_at?: string;
   updated_at?: string | null;
 }
@@ -167,6 +168,7 @@ export interface ProductCreate {
   flavors?: string[] | string;
   recipe?: Array<{ inventoryItemId: string; qtyPerUnit: number }>;
   display_order?: number;
+  featured?: boolean;
 }
 
 export type ProductUpdate = Partial<ProductCreate>;
@@ -584,4 +586,64 @@ export async function generateOrderLabels(orderId: number): Promise<{ ok: boolea
 
 export async function backfillAllOrderLabels(): Promise<{ ok: boolean; ordersProcessed: number; labelsGenerated: number }> {
   return apiFetch("/api/orders/backfill-labels", { method: "POST" });
+}
+
+// ─── Site content + testimonials (homepage editing) ───────────────────────────
+
+export interface SiteContentEntry {
+  value_en?: string | null;
+  value_es?: string | null;
+  image_url?: string | null;
+}
+
+export type SiteContentMap = Record<string, SiteContentEntry>;
+
+export interface ApiTestimonial {
+  id: string;
+  quote_en: string;
+  quote_es?: string | null;
+  author?: string | null;
+  occasion?: string | null;
+  published: boolean;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string | null;
+}
+
+export interface TestimonialCreate {
+  quote_en: string;
+  quote_es?: string;
+  author?: string;
+  occasion?: string;
+  published?: boolean;
+  display_order?: number;
+}
+
+export type TestimonialUpdate = Partial<TestimonialCreate>;
+
+export async function fetchSite(): Promise<{ content: SiteContentMap; testimonials: ApiTestimonial[] }> {
+  return apiFetch("/api/site");
+}
+
+export async function saveSiteContent(
+  content: SiteContentMap
+): Promise<{ ok: boolean; updated: number }> {
+  return apiFetch("/api/site", { method: "PUT", body: JSON.stringify({ content }) });
+}
+
+export async function fetchTestimonials(): Promise<ApiTestimonial[]> {
+  const data = await apiFetch<{ testimonials: ApiTestimonial[] }>("/api/testimonials");
+  return data.testimonials;
+}
+
+export async function createTestimonial(t: TestimonialCreate): Promise<{ ok: boolean; id: string }> {
+  return apiFetch("/api/testimonials", { method: "POST", body: JSON.stringify(t) });
+}
+
+export async function updateTestimonial(id: string, patch: TestimonialUpdate): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/testimonials/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export async function deleteTestimonial(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/testimonials/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

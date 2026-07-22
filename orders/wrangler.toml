@@ -12,6 +12,9 @@ database_id = "ca6cb20b-8884-4cb2-a51e-aff8f7be8502"
 binding = "IMAGES_BUCKET"
 bucket_name = "muy-rico-product-images"
 
+[triggers]
+crons = ["0 * * * *"]
+
 [vars]
 ALLOWED_ORIGIN = "https://muy-rico.pages.dev"
 R2_PUBLIC_ID = "71c703c51efd43de8dde4439bd02a8af"

@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
 import Gallery from "./pages/Gallery";
+import Homepage from "./pages/Homepage";
 import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
 import Payments from "./pages/Payments";
@@ -19,6 +20,7 @@ export type Page =
   | "orders"
   | "products"
   | "gallery"
+  | "homepage"
   | "inventory"
   | "customers"
   | "payments"
@@ -58,6 +60,7 @@ function AdminApp() {
           {page === "orders" && <Orders search={search} setPage={setPage} setLabelFilter={setLabelFilter} />}
           {page === "products" && <Products search={search} goTo={setPage} />}
           {page === "gallery" && <Gallery />}
+          {page === "homepage" && <Homepage />}
           {page === "inventory" && <Inventory search={search} />}
           {page === "customers" && <Customers search={search} />}
           {page === "payments" && <Payments search={search} />}

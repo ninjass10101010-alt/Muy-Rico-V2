@@ -2,7 +2,7 @@ export type PaymentMethod = "stripe" | "cashapp" | "venmo" | "applepay" | "cash"
 
 export type OrderSource = "website" | "in-person";
 
-export type OrderStatus = "pending" | "in-progress" | "ready" | "completed" | "cancelled";
+export type OrderStatus = "pending" | "in-progress" | "ready" | "completed" | "cancelled" | "awaiting_payment";
 
 export type PaymentStatus = "paid" | "unpaid" | "partial";
 
@@ -49,6 +49,7 @@ export interface Product {
   pack_sizes?: PackSize[];
   display_order?: number;
   auto_generate_label?: boolean;
+  featured?: boolean;
 }
 
 export interface GalleryPhoto {

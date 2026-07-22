@@ -77,7 +77,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         <FilterSelect
           value={statusFilter}
           onChange={setStatusFilter}
-          options={["all", ...STATUS_FLOW]}
+          options={["all", ...STATUS_FLOW, "awaiting_payment"]}
           label="Status"
         />
         <FilterSelect

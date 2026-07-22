@@ -32,6 +32,15 @@ export default {
       if (path === "/cancel" && request.method === "GET") {
         return cancelPage();
       }
+      if (path === "/stripe-config" && request.method === "GET") {
+        return json({ publishableKey: env.STRIPE_PUBLISHABLE_KEY || "" });
+      }
+      if (path === "/create-payment-intent" && request.method === "POST") {
+        return await handleCreatePaymentIntent(request, env);
+      }
+      if (path === "/paypal/capture" && request.method === "POST") {
+        return await handlePayPalCapture(request, env);
+      }
     } catch (err) {
       console.error("checkout worker error:", err);
       return json({ error: String(err && err.message || err) }, 500);
@@ -46,6 +55,17 @@ function json(data, status = 200) {
     status,
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
+}
+
+// Worker-to-worker: prefer the ORDERS_API service binding (direct, no edge hop,
+// no 1042 block). Fall back to the public URL only if the binding is missing.
+function ordersApiFetch(env, path, init = {}) {
+  const headers = { ...(init.headers || {}), "X-Webhook-Secret": env.PAYMENT_WEBHOOK_SECRET || "" };
+  if (env.ORDERS_API) {
+    return env.ORDERS_API.fetch("https://orders-internal" + path, { ...init, headers });
+  }
+  const base = env.ORDERS_API_BASE || "https://muy-rico-orders-api.bexgarcia0208.workers.dev";
+  return fetch(base + path, { ...init, headers });
 }
 
 async function handleCreateCheckout(request, env) {
@@ -116,11 +136,13 @@ async function handleStripeWebhook(request, env) {
   try { event = JSON.parse(rawBody); } catch { return new Response("Bad JSON", { status: 400 }); }
 
   // Only reconcile completed checkout sessions
-  if (event.type === "checkout.session.completed") {
+  if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
     const obj = event.data && event.data.object ? event.data.object : {};
-    const orderId = obj.client_reference_id || (obj.metadata && obj.metadata.order_id);
+    const orderId = event.type === "checkout.session.completed"
+      ? (obj.client_reference_id || (obj.metadata && obj.metadata.order_id))
+      : (obj.metadata && obj.metadata.order_id);
     if (!orderId) {
-      console.warn("stripe checkout.session.completed without order id — ignored");
+      console.warn(`stripe ${event.type} without order id — ignored`);
       return json({ received: true });
     }
     const ok = await markOrderPaidViaApi(orderId, "stripe", env);
@@ -143,14 +165,10 @@ async function hmacSha256(secret, payload) {
 }
 
 async function markOrderPaidViaApi(orderId, method, env) {
-  const base = env.ORDERS_API_BASE || "https://muy-rico-orders-api.bexgarcia0208.workers.dev";
   try {
-    const res = await fetch(base + "/api/orders/" + encodeURIComponent(orderId) + "/mark-paid", {
+    const res = await ordersApiFetch(env, "/api/orders/" + encodeURIComponent(orderId) + "/mark-paid", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Webhook-Secret": env.PAYMENT_WEBHOOK_SECRET || "",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ method }),
     });
     if (res.status === 404) {
@@ -251,6 +269,107 @@ async function paypalAuth(env) {
     console.error("paypal auth error", e);
     return null;
   }
+}
+
+async function handleCreatePaymentIntent(request, env) {
+  const body = await request.json();
+  const orderId = body.orderId;
+  if (!orderId) return json({ error: "orderId required" }, 400);
+
+  const key = env.STRIPE_SECRET_KEY;
+  if (!key) return json({ error: "STRIPE_SECRET_KEY not set" }, 500);
+
+  const payableRes = await ordersApiFetch(env, "/api/orders/" + encodeURIComponent(orderId) + "/payable");
+
+  if (!payableRes.ok) {
+    console.error("payable lookup failed", payableRes.status);
+    return json({ error: "Order not found or unavailable" }, payableRes.status);
+  }
+
+  const order = await payableRes.json();
+
+  if (order.payment_status === 'paid') return json({ error: "Order already paid" }, 409);
+  if (order.status !== 'awaiting_payment') return json({ error: "Order not in payable state" }, 409);
+
+  const params = new URLSearchParams();
+  params.append("amount", String(order.total_cents));
+  params.append("currency", "usd");
+  params.append("automatic_payment_methods[enabled]", "true");
+  params.append("metadata[order_id]", String(orderId));
+  params.append("metadata[source]", "website");
+  if (order.email) params.append("receipt_email", order.email);
+
+  const res = await fetch("https://api.stripe.com/v1/payment_intents", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + key,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+  const pi = await res.json();
+  if (pi.error) return json({ error: pi.error.message }, 400);
+  return json({ clientSecret: pi.client_secret });
+}
+
+async function handlePayPalCapture(request, env) {
+  const body = await request.json();
+  const { paypalOrderId, orderId } = body;
+  if (!paypalOrderId || !orderId) return json({ error: "paypalOrderId and orderId required" }, 400);
+
+  const payableRes = await ordersApiFetch(env, "/api/orders/" + encodeURIComponent(orderId) + "/payable");
+
+  if (!payableRes.ok) {
+    console.error("payable lookup failed", payableRes.status);
+    return json({ error: "Order not found or unavailable" }, payableRes.status);
+  }
+
+  const order = await payableRes.json();
+  if (order.payment_status === 'paid') return json({ error: "Order already paid" }, 409);
+  if (order.status !== 'awaiting_payment') return json({ error: "Order not in payable state" }, 409);
+
+  const auth = await paypalAuth(env);
+  if (!auth) return json({ error: "paypal auth failed" }, 500);
+
+  // Verify the PayPal order amount matches D1 BEFORE capturing any funds
+  const orderRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId), {
+    headers: { Authorization: "Bearer " + auth },
+  });
+  const paypalOrder = await orderRes.json();
+  if (!orderRes.ok) {
+    console.error("paypal order lookup failed", JSON.stringify(paypalOrder));
+    return json({ error: "Could not verify PayPal order" }, 400);
+  }
+  const ppCents = Math.round(parseFloat(paypalOrder.purchase_units?.[0]?.amount?.value || "0") * 100);
+  if (ppCents !== order.total_cents) {
+    console.error(`paypal amount mismatch — refusing capture: D1=${order.total_cents}, paypal=${ppCents}, order=${orderId}`);
+    return json({ error: "Amount mismatch" }, 400);
+  }
+  // Also confirm the PayPal order is linked to this Muy Rico order
+  const ppCustomId = paypalOrder.purchase_units?.[0]?.custom_id || "";
+  if (ppCustomId && ppCustomId !== String(orderId)) {
+    console.error(`paypal custom_id mismatch: ${ppCustomId} != ${orderId}`);
+    return json({ error: "Order mismatch" }, 400);
+  }
+
+  const captureRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId) + "/capture", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + auth,
+      "Content-Type": "application/json",
+    },
+  });
+  const captureData = await captureRes.json();
+
+  if (!captureRes.ok || captureData.status !== "COMPLETED") {
+    console.error("paypal capture failed", JSON.stringify(captureData));
+    return json({ error: captureData.message || "Capture failed" }, 400);
+  }
+
+  const ok = await markOrderPaidViaApi(orderId, "paypal", env);
+  if (!ok) return json({ error: "mark-paid failed" }, 500);
+
+  return json({ ok: true });
 }
 
 function successPage(url) {

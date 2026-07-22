@@ -48,7 +48,7 @@ function getBodyField(body, snakeKey) {
 }
 
 const ALLOWED_PAYMENT = ['venmo', 'cashapp', 'applepay', 'cash', 'stripe', 'paypal'];
-const ALLOWED_STATUS  = ['pending', 'in-progress', 'ready', 'completed', 'done', 'cancelled'];
+const ALLOWED_STATUS  = ['pending', 'in-progress', 'ready', 'completed', 'done', 'cancelled', 'awaiting_payment'];
 const ALLOWED_PAYSTAT = ['unpaid', 'paid', 'partial'];
 const ALLOWED_SOURCE  = ['website', 'in-person'];
 
@@ -83,12 +83,20 @@ export default {
     const isPublicProductGet =
       (path === '/api/products' || path.match(/^\/api\/products\/[^/]+$/)) && method === 'GET';
     const isPublicGalleryGet = path === '/api/gallery' && method === 'GET';
+    // Public read-only homepage content (photos, visit info, published testimonials)
+    const isPublicSiteGet = path === '/api/site' && method === 'GET';
     // Internal mark-paid endpoint: public (no Cloudflare Access) but authenticated
     // by the shared X-Webhook-Secret header inside markOrderPaid().
     const isPublicMarkPaid =
       path.match(/^\/api\/orders\/\d+\/mark-paid$/) && method === 'POST';
+    // Internal payable endpoint: same shared-secret pattern as mark-paid (used by checkout worker)
+    const isPublicPayable =
+      path.match(/^\/api\/orders\/\d+\/payable$/) && method === 'GET';
+    // Public read-only payment status (browser polling after payment)
+    const isPublicPaymentStatus =
+      path.match(/^\/api\/orders\/\d+\/payment-status$/) && method === 'GET';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicMarkPaid) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -121,7 +129,17 @@ export default {
 
       const mpm = path.match(/^\/api\/orders\/(\d+)\/mark-paid$/);
       if (mpm && method === 'POST') {
-        return await markOrderPaid(Number(mpm[1]), request, env);
+        return await markOrderPaid(Number(mpm[1]), request, env, ctx);
+      }
+
+      const paym = path.match(/^\/api\/orders\/(\d+)\/payable$/);
+      if (paym && method === 'GET') {
+        return await getOrderPayable(Number(paym[1]), request, env);
+      }
+
+      const psm = path.match(/^\/api\/orders\/(\d+)\/payment-status$/);
+      if (psm && method === 'GET') {
+        return await getOrderPaymentStatus(Number(psm[1]), env);
       }
 
       // On-demand label generation for a single order
@@ -153,6 +171,18 @@ export default {
         const id = gm[1];
         if (method === 'PATCH')  return await updateGalleryPhoto(id, request, env, actorName);
         if (method === 'DELETE') return await deleteGalleryPhoto(id, env, actorName);
+      }
+
+      if (path === '/api/site' && method === 'GET') return await getSiteContent(env);
+      if (path === '/api/site' && method === 'PUT') return await putSiteContent(request, env, actorName);
+      if (path === '/api/testimonials' && method === 'GET') return await listTestimonials(env);
+      if (path === '/api/testimonials' && method === 'POST') return await createTestimonial(request, env, actorName);
+
+      const tm = path.match(/^\/api\/testimonials\/([A-Za-z0-9_-]+)$/);
+      if (tm) {
+        const id = tm[1];
+        if (method === 'PATCH')  return await updateTestimonial(id, request, env, actorName);
+        if (method === 'DELETE') return await deleteTestimonial(id, env, actorName);
       }
 
       const im = path.match(/^\/api\/inventory\/([A-Za-z0-9_-]+)$/);
@@ -194,6 +224,16 @@ export default {
       console.error(err);
       return json({ error: 'Server error', detail: String(err) }, 500);
     }
+  },
+
+  async scheduled(event, env, ctx) {
+    // Delete expired awaiting_payment orders older than 24 hours + their events
+    await env.DB.prepare(
+      "DELETE FROM order_events WHERE order_id IN (SELECT id FROM orders WHERE status = 'awaiting_payment' AND created_at < datetime('now', '-24 hours'))"
+    ).run();
+    await env.DB.prepare(
+      "DELETE FROM orders WHERE status = 'awaiting_payment' AND created_at < datetime('now', '-24 hours')"
+    ).run();
   },
 };
 
@@ -252,13 +292,14 @@ async function createOrder(request, env, ctx, actor) {
 
   const result = await env.DB.prepare(`
     INSERT INTO orders
-      (customer_name, customer_id, phone, pickup_date, pickup_time,
-       items_json, total_cents, payment_method, payment_status, status, notes, created_by, source, food_coloring)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (customer_name, customer_id, phone, email, pickup_date, pickup_time,
+       items_json, total_cents, payment_method, payment_status, status, notes, created_by, source, language, food_coloring)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.customer_name.trim(),
     customerId,
     body.phone || null,
+    body.email?.trim() || null,
     body.pickup_date,
     body.pickup_time || null,
     items,
@@ -269,6 +310,7 @@ async function createOrder(request, env, ctx, actor) {
     body.notes || null,
     actor,
     body.source || 'in-person',
+    body.language || 'es',
     body.food_coloring?.trim() || null,
   ).run();
 
@@ -277,11 +319,11 @@ async function createOrder(request, env, ctx, actor) {
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
   `).bind(id, actor).run();
 
-  // Fire notifications in the background (don't block response)
-  ctx.waitUntil(notifyOrderCreated(env, body, id, actor));
-
-  // Auto-generate labels in the background
-  ctx.waitUntil(generateLabelsForOrder(env, id, body));
+  // Only fire notifications and labels for real orders (not awaiting_payment)
+  if (body.status !== 'awaiting_payment') {
+    ctx.waitUntil(notifyOrderCreated(env, body, id, actor));
+    ctx.waitUntil(generateLabelsForOrder(env, id, body));
+  }
 
   return json({ ok: true, id }, 201);
 }
@@ -389,6 +431,12 @@ async function listOrders(request, env, actor) {
   if (to)      { where.push('pickup_date <= ?');   binds.push(to); }
   if (search)  { where.push('(customer_name LIKE ? OR notes LIKE ?)'); binds.push(`%${search}%`, `%${search}%`); }
 
+  // Default: hide awaiting_payment orders unless explicitly requested
+  if (!status) {
+    where.push('status != ?');
+    binds.push('awaiting_payment');
+  }
+
   const sql = `
     SELECT * FROM orders
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -433,7 +481,7 @@ async function updateOrder(id, request, env, actor) {
   return json({ ok: true }, 200);
 }
 
-async function markOrderPaid(id, request, env) {
+async function markOrderPaid(id, request, env, ctx) {
   // Authenticate via shared secret (no Cloudflare Access on this public route)
   const provided = request.headers.get('X-Webhook-Secret') || '';
   if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
@@ -476,10 +524,247 @@ async function markOrderPaid(id, request, env) {
       INSERT INTO payments (id, order_id, customer_name, amount, method, date, created_at, active)
       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
     `).bind(payId, id, customerName, amount, method).run();
+
+    // Transition from awaiting_payment to pending on first payment
+    const wasAwaiting = order.status === 'awaiting_payment';
+    if (wasAwaiting) {
+      await env.DB.prepare(`UPDATE orders SET status = 'pending' WHERE id = ?`).bind(id).run();
+      await env.DB.prepare(`
+        INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:status_changed')
+      `).bind(id, 'system').run();
+    }
+
+    // Re-read order with email + language for notifications
+    const updatedOrder = await env.DB.prepare(
+      'SELECT id, customer_name, email, language, items_json, total_cents, pickup_date, pickup_time, payment_method, payment_status, created_at FROM orders WHERE id = ?'
+    ).bind(id).first();
+
+    // Fire owner notification + customer confirmation email in background
+    if (ctx) {
+      ctx.waitUntil(notifyOrderPaid(env, updatedOrder, id, method));
+      ctx.waitUntil(sendCustomerConfirmation(env, updatedOrder));
+      // Labels were deferred for awaiting_payment orders — generate them now
+      if (wasAwaiting) {
+        ctx.waitUntil(generateLabelsForOrder(env, id, order));
+      }
+    }
   }
 
   if (alreadyPaid) return json({ ok: true, skipped: 'already-paid' }, 200);
   return json({ ok: true }, 200);
+}
+
+async function getOrderPayable(id, request, env) {
+  const provided = request.headers.get('X-Webhook-Secret') || '';
+  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+    return json({ error: 'Forbidden' }, 401);
+  }
+  const order = await env.DB.prepare(
+    'SELECT id, total_cents, status, payment_status, email, customer_name FROM orders WHERE id = ?'
+  ).bind(id).first();
+  if (!order) return json({ error: 'Not found' }, 404);
+  return json(order, 200);
+}
+
+async function getOrderPaymentStatus(id, env) {
+  const order = await env.DB.prepare(
+    'SELECT payment_status, status FROM orders WHERE id = ?'
+  ).bind(id).first();
+  if (!order) return json({ error: 'Not found' }, 404);
+  return json({ payment_status: order.payment_status, status: order.status }, 200);
+}
+
+async function notifyOrderPaid(env, order, id, method) {
+  const customer = order.customer_name.trim();
+  const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '—';
+  let itemsStr = '';
+  try { itemsStr = JSON.parse(order.items_json).map(i => `${i.qty}× ${i.name}`).join(', '); } catch { itemsStr = order.items_json; }
+  const date = order.pickup_date || '—';
+  const time = order.pickup_time || '—';
+  const paymentLabel = method.charAt(0).toUpperCase() + method.slice(1);
+  const msg = [
+    `✅ Order #${id} — PAID`,
+    `👤 ${customer}`,
+    `📦 ${itemsStr}`,
+    `💰 ${total}`,
+    `📅 ${date} ${time}`,
+    `💳 ${paymentLabel}`,
+    `🆔 #${id}`,
+    `📧 ${order.email || '—'}`,
+  ].join('\n');
+
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+  if (env.EMAIL_RECIPIENT && env.RESEND_API_KEY) {
+    notifyEmail(env, msg, id, { customer, itemsStr, total, date, time, paymentLabel, actor: 'system' });
+  }
+}
+
+async function sendCustomerConfirmation(env, order) {
+  const email = order.email;
+  if (!email || !env.RESEND_API_KEY) {
+    console.warn('sendCustomerConfirmation: missing email or RESEND_API_KEY for order', order.id);
+    return;
+  }
+
+  const isEn = order.language === 'en';
+  const customer = order.customer_name.trim();
+  const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '$0.00';
+  const orderDate = (order.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const methodLabel = order.payment_method === 'stripe'
+    ? (isEn ? 'Card' : 'Tarjeta')
+    : order.payment_method === 'paypal' ? 'PayPal'
+    : (order.payment_method || '—');
+
+  // Itemized receipt rows: name, qty × unit, line total (right-aligned like a paper receipt)
+  let itemRows = '';
+  try {
+    const items = JSON.parse(order.items_json);
+    itemRows = items.map(i => {
+      const line = (i.qty * i.price).toFixed(2);
+      return `<tr>
+        <td style="padding: 10px 0; border-bottom: 1px dashed #e3dcd2; color: #4a423d; font-size: 14px;">${i.name}</td>
+        <td style="padding: 10px 0; border-bottom: 1px dashed #e3dcd2; color: #8a8078; font-size: 13px; text-align: center; white-space: nowrap;">${i.qty} × $${Number(i.price).toFixed(2)}</td>
+        <td style="padding: 10px 0; border-bottom: 1px dashed #e3dcd2; color: #4a423d; font-size: 14px; text-align: right; font-weight: 600;">$${line}</td>
+      </tr>`;
+    }).join('');
+  } catch {
+    itemRows = `<tr><td style="padding: 10px 0; color: #4a423d; font-size: 14px;">${order.items_json}</td><td></td><td></td></tr>`;
+  }
+
+  const L = isEn ? {
+    subject: `Receipt — Muy Rico Order #${order.id}`,
+    receipt: 'RECEIPT',
+    thanks: 'Thank you for your order!',
+    paidNote: 'Your payment was received and your order is being prepared.',
+    date: 'Date',
+    payment: 'Payment',
+    pickup: 'Pickup',
+    item: 'Item',
+    qty: 'Qty',
+    amount: 'Amount',
+    total: 'TOTAL PAID',
+    contact: 'Questions about your order? Reply to this email or call/text us at (616) 218-3582.',
+    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  } : {
+    subject: `Recibo — Pedido Muy Rico #${order.id}`,
+    receipt: 'RECIBO',
+    thanks: '¡Gracias por tu pedido!',
+    paidNote: 'Tu pago fue recibido y tu pedido se está preparando.',
+    date: 'Fecha',
+    payment: 'Pago',
+    pickup: 'Recogida',
+    item: 'Producto',
+    qty: 'Cant.',
+    amount: 'Importe',
+    total: 'TOTAL PAGADO',
+    contact: '¿Preguntas sobre tu pedido? Responde a este correo o llámanos al (616) 218-3582.',
+    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  };
+
+  const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; padding: 24px 12px; color: #333;">
+<div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.07);">
+
+  <div style="background: #1e4636; padding: 28px 32px 24px; text-align: center;">
+    <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" width="180" style="width: 180px; max-width: 60%; height: auto; display: block; margin: 0 auto 10px;" />
+    <div style="color: #d4edda; font-size: 12px; letter-spacing: 3px; font-weight: 600;">${L.receipt}</div>
+  </div>
+
+  <div style="padding: 28px 32px 8px;">
+    <h2 style="margin: 0 0 6px; color: #2d7a46; font-size: 20px;">${L.thanks}</h2>
+    <p style="margin: 0 0 20px; color: #6b615a; font-size: 14px; line-height: 1.5;">${customer} — ${L.paidNote}</p>
+
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+      <tr>
+        <td style="color: #8a8078; font-size: 13px; padding: 3px 0;">${L.date}</td>
+        <td style="color: #4a423d; font-size: 13px; text-align: right; padding: 3px 0;">${orderDate}</td>
+      </tr>
+      <tr>
+        <td style="color: #8a8078; font-size: 13px; padding: 3px 0;">${L.payment}</td>
+        <td style="color: #4a423d; font-size: 13px; text-align: right; padding: 3px 0;">${methodLabel}</td>
+      </tr>
+      <tr>
+        <td style="color: #8a8078; font-size: 13px; padding: 3px 0;">${L.pickup}</td>
+        <td style="color: #4a423d; font-size: 13px; text-align: right; padding: 3px 0;">${order.pickup_date || '—'}${order.pickup_time ? ' ' + order.pickup_time : ''}</td>
+      </tr>
+      <tr>
+        <td style="color: #8a8078; font-size: 13px; padding: 3px 0;">Order</td>
+        <td style="color: #4a423d; font-size: 13px; text-align: right; padding: 3px 0; font-weight: 600;">#${order.id}</td>
+      </tr>
+    </table>
+
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align: left; color: #8a8078; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding-bottom: 8px; border-bottom: 2px solid #1e4636;">${L.item}</th>
+          <th style="text-align: center; color: #8a8078; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding-bottom: 8px; border-bottom: 2px solid #1e4636;">${L.qty}</th>
+          <th style="text-align: right; color: #8a8078; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding-bottom: 8px; border-bottom: 2px solid #1e4636;">${L.amount}</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" style="padding: 14px 0 4px; color: #1e4636; font-size: 15px; font-weight: 700;">${L.total}</td>
+          <td style="padding: 14px 0 4px; color: #1e4636; font-size: 18px; font-weight: 700; text-align: right;">${total}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div style="padding: 20px 32px 28px;">
+    <p style="color: #8a8078; font-size: 13px; line-height: 1.6; margin: 0 0 6px;">${L.contact}</p>
+    <p style="color: #b8ada2; font-size: 12px; margin: 14px 0 0; text-align: center;">${L.footer}</p>
+  </div>
+
+</div>
+</div>`;
+
+  // Plain-text fallback (improves spam score + accessibility)
+  let textItems = '';
+  try {
+    const items = JSON.parse(order.items_json);
+    textItems = items.map(i => `${i.qty} x ${i.name} — $${(i.qty * i.price).toFixed(2)}`).join('\n');
+  } catch { textItems = order.items_json; }
+  const text = [
+    `Muy Rico Bakery — ${L.receipt}`,
+    ``,
+    `${L.thanks}`,
+    `${customer} — ${L.paidNote}`,
+    ``,
+    `${L.date}: ${orderDate}`,
+    `${L.payment}: ${methodLabel}`,
+    `${L.pickup}: ${order.pickup_date || '—'}${order.pickup_time ? ' ' + order.pickup_time : ''}`,
+    `Order: #${order.id}`,
+    ``,
+    textItems,
+    ``,
+    `${L.total}: ${total}`,
+    ``,
+    L.contact,
+    L.footer,
+  ].join('\n');
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + env.RESEND_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || "orders@muy-rico.com",
+        to: [email],
+        subject: L.subject,
+        text,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Resend customer email failed:", res.status, err);
+    }
+  } catch (e) { console.error('Customer email notify failed:', e); }
 }
 
 async function cancelOrder(id, env, actor) {
@@ -510,7 +795,7 @@ async function getStats(env, actor) {
       SUM(CASE WHEN status = 'cancelled'   THEN 1 ELSE 0 END) AS cancelled,
       SUM(CASE WHEN payment_status = 'unpaid' AND status NOT IN ('cancelled') THEN 1 ELSE 0 END) AS unpaid,
       SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) AS paid
-    FROM orders
+    FROM orders WHERE status != 'awaiting_payment'
   `).all();
   return json(results[0] || {}, 200);
 }
@@ -605,6 +890,7 @@ async function listProducts(env) {
       recipe: safeJsonParse(r.recipe, []),
       active: Boolean(r.active),
       auto_generate_label: Boolean(r.auto_generate_label),
+      featured: Boolean(r.featured),
     };
   });
   return json({ products }, 200);
@@ -622,6 +908,7 @@ async function getProduct(id, env) {
     recipe: safeJsonParse(row.recipe, []),
     active: Boolean(row.active),
     auto_generate_label: Boolean(row.auto_generate_label),
+    featured: Boolean(row.featured),
   };
   return json({ product }, 200);
 }
@@ -631,6 +918,7 @@ const PRODUCT_FIELDS = [
   'price', 'cost', 'sku', 'emoji', 'image_url',
   'active', 'ingredients', 'allergens',
   'flavors', 'pack_sizes', 'recipe', 'display_order', 'auto_generate_label',
+  'featured',
 ];
 
 async function createProduct(request, env, actor) {
@@ -645,8 +933,8 @@ async function createProduct(request, env, actor) {
     await env.DB.prepare(`
       INSERT INTO products
         (id, name, name_es, description, description_es, category, price, cost,
-         sku, emoji, image_url, active, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         sku, emoji, image_url, active, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label, featured)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.name,
@@ -667,6 +955,7 @@ async function createProduct(request, env, actor) {
       parseRecipe(body.recipe),
       Number(body.display_order) || 0,
       body.auto_generate_label === false ? 0 : 1,
+      body.featured ? 1 : 0,
     ).run();
   } catch (err) {
     return json({ error: String(err) }, 400);
@@ -684,7 +973,7 @@ async function updateProduct(id, request, env, actor) {
   for (const f of PRODUCT_FIELDS) {
     if (body[f] === undefined) continue;
     let val = body[f];
-    if (f === 'active') val = val ? 1 : 0;
+    if (f === 'active' || f === 'featured' || f === 'auto_generate_label') val = val ? 1 : 0;
     if (f === 'flavors') val = parseFlavors(body.flavor_groups || body.flavors || []);
     if (f === 'pack_sizes') val = parseFlavors(body.pack_sizes || []);
     if (f === 'recipe')  val = parseRecipe(val);
@@ -816,6 +1105,123 @@ async function deleteGalleryPhoto(id, env, actor) {
   const r = await env.DB.prepare(
     `UPDATE gallery SET active = 0, updated_at = datetime('now') WHERE id = ?`
   ).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Site content + testimonials (homepage editing) ───────────────────────
+
+function mapSiteRow(r) {
+  return { value_en: r.value_en, value_es: r.value_es, image_url: r.image_url };
+}
+
+async function getSiteContent(env) {
+  const { results: rows } = await env.DB.prepare('SELECT * FROM site_content').all();
+  const { results: ts } = await env.DB.prepare(`
+    SELECT * FROM testimonials WHERE published = 1
+    ORDER BY display_order ASC, created_at DESC LIMIT 12
+  `).all();
+  const content = {};
+  for (const r of rows || []) content[r.key] = mapSiteRow(r);
+  return json({ content, testimonials: (ts || []).map(mapTestimonialRow) }, 200);
+}
+
+async function putSiteContent(request, env, actor) {
+  const body = await request.json();
+  const source = body && typeof body === 'object' ? (body.content || body) : {};
+  const stmts = [];
+  for (const [key, val] of Object.entries(source)) {
+    if (!/^[a-z0-9_]{1,64}$/.test(key)) continue;
+    const v = val && typeof val === 'object' ? val : {};
+    stmts.push(env.DB.prepare(`
+      INSERT INTO site_content (key, value_en, value_es, image_url, updated_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET
+        value_en = excluded.value_en,
+        value_es = excluded.value_es,
+        image_url = excluded.image_url,
+        updated_at = datetime('now')
+    `).bind(
+      key,
+      v.value_en != null ? String(v.value_en) : null,
+      v.value_es != null ? String(v.value_es) : null,
+      v.image_url != null ? String(v.image_url) : null,
+    ));
+  }
+  if (stmts.length) await env.DB.batch(stmts);
+  return json({ ok: true, updated: stmts.length }, 200);
+}
+
+// ─── Testimonials ──────────────────────────────────────────────────────────
+
+const TESTIMONIAL_FIELDS = ['quote_en', 'quote_es', 'author', 'occasion', 'published', 'display_order'];
+
+function mapTestimonialRow(r) {
+  return {
+    id: r.id,
+    quote_en: r.quote_en,
+    quote_es: r.quote_es,
+    author: r.author,
+    occasion: r.occasion,
+    published: Boolean(r.published),
+    display_order: Number(r.display_order) || 0,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+async function listTestimonials(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM testimonials ORDER BY display_order ASC, created_at DESC
+  `).all();
+  return json({ testimonials: (results || []).map(mapTestimonialRow) }, 200);
+}
+
+async function createTestimonial(request, env, actor) {
+  const body = await request.json();
+  if (!body.quote_en) return json({ error: 'Missing required field: quote_en' }, 400);
+  const id = body.id || `tst_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  try {
+    await env.DB.prepare(`
+      INSERT INTO testimonials (id, quote_en, quote_es, author, occasion, published, display_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      id,
+      body.quote_en,
+      body.quote_es || null,
+      body.author || null,
+      body.occasion || null,
+      body.published ? 1 : 0,
+      Number(body.display_order) || 0,
+    ).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id }, 201);
+}
+
+async function updateTestimonial(id, request, env, actor) {
+  const body = await request.json();
+  const sets = [];
+  const binds = [];
+  for (const f of TESTIMONIAL_FIELDS) {
+    if (body[f] === undefined) continue;
+    let val = body[f];
+    if (f === 'published') val = val ? 1 : 0;
+    if (f === 'display_order') val = Number(val) || 0;
+    sets.push(`${f} = ?`);
+    binds.push(val);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  const r = await env.DB.prepare(`UPDATE testimonials SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+async function deleteTestimonial(id, env, actor) {
+  const r = await env.DB.prepare(`DELETE FROM testimonials WHERE id = ?`).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
 }

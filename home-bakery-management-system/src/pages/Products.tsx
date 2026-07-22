@@ -540,6 +540,14 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
               />
               Active (shown for ordering)
             </label>
+            <label className="flex items-center gap-2 text-sm text-cocoa-muted">
+              <input
+                type="checkbox"
+                checked={!!draft.featured}
+                onChange={(e) => setDraft({ ...draft, featured: e.target.checked })}
+              />
+              ⭐ Featured on homepage (up to 4 shown in “Del Horno”)
+            </label>
           </div>
 
           <div>

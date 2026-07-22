@@ -142,6 +142,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       flavor_groups: flavor_groups.length ? flavor_groups : undefined,
       display_order: typeof p.display_order === "number" ? p.display_order : 0,
       auto_generate_label: !!p.auto_generate_label,
+      featured: !!(p as any).featured,
     };
   }
 

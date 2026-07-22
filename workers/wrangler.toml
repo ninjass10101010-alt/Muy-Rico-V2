@@ -2,6 +2,12 @@ name = "muy-rico-checkout"
 main = "checkout.js"
 compatibility_date = "2024-01-01"
 
+# Direct worker-to-worker binding (avoids error 1042 — subrequests to
+# workers.dev hostnames in the same account are blocked at the edge)
+[[services]]
+binding = "ORDERS_API"
+service = "muy-rico-orders-api"
+
 [vars]
 # Public PayPal client id (safe to expose in the browser). Set via `wrangler secret put` for secrets.
 PAYPAL_CLIENT_ID = "BAAksZjUQv405OGh130edPt8VARpnP-9wmc4lJFm1w572Mvx5pm2pCu7Nsjy3HC2948Fny-rFBIfnAr4qI"
@@ -9,5 +15,7 @@ PAYPAL_CLIENT_ID = "BAAksZjUQv405OGh130edPt8VARpnP-9wmc4lJFm1w572Mvx5pm2pCu7Nsjy
 ORDERS_API_BASE = "https://muy-rico-orders-api.bexgarcia0208.workers.dev"
 # PayPal REST API base (live)
 PAYPAL_API_BASE = "https://api-m.paypal.com"
+# Stripe publishable key (public, safe in vars — used by Stripe.js on order.html)
+STRIPE_PUBLISHABLE_KEY = "pk_live_51TilufH69NGQMCTbVZ6lp3v2RDfYj7bIFjQdJzrPXbbNrbmUMdJA1FhRESYftQ6OPLkcIs8YXEiqZQHuGm3J7Kp600iOIWOgMs"
 # The following are SECRETS — set via `wrangler secret put`:
 #   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PAYPAL_CLIENT_SECRET, PAYPAL_WEBHOOK_ID, PAYMENT_WEBHOOK_SECRET

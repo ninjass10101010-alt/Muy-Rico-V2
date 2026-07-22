@@ -11,26 +11,25 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Ordenar — Muy Rico | Holland, MI" />
   <meta property="og:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
-  <meta property="og:image" content="IMG_0264.webp" />
+  <meta property="og:image" content="hero-conchas.webp" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Ordenar — Muy Rico | Holland, MI" />
   <meta property="twitter:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
-  <meta property="twitter:image" content="IMG_0264.webp" />
+  <meta property="twitter:image" content="hero-conchas.webp" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍞</text></svg>" />
-
-  <!-- Preload LCP Hero Background Image -->
-  <link rel="preload" href="IMG_0264.webp" as="image" fetchpriority="high" />
+  <!-- Favicon: MR monogram -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
 
   <style>
     /* ── Order-page-specific styles ── */
@@ -56,8 +55,8 @@
       width: 38px;
       height: 38px;
       border-radius: 50%;
-      background: rgba(247,168,164,0.18);
-      border: 2px solid rgba(247,168,164,0.4);
+      background: var(--cream);
+      border: 1.5px solid var(--hairline-strong);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -67,16 +66,15 @@
       z-index: 1;
     }
     .step.active .step-circle {
-      background: linear-gradient(135deg, #f7a8a4, #e63946);
-      border-color: #e63946;
-      box-shadow: 0 4px 18px rgba(230,57,70,0.35);
+      background: var(--forest);
+      border-color: var(--forest);
     }
     .step.done .step-circle {
-      background: linear-gradient(135deg, #40916c, #1e4636);
-      border-color: #40916c;
+      background: var(--forest-soft);
+      border-color: var(--forest-soft);
     }
     .step-label {
-      font-size: 0.6rem;
+      font-size: 0.72rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       font-weight: 600;
@@ -84,16 +82,16 @@
       text-align: center;
       white-space: nowrap;
     }
-    .step.active .step-label { color: var(--color-bright-hibiscus); }
-    .step.done .step-label { color: var(--color-mid-green); }
+    .step.active .step-label { color: var(--forest); }
+    .step.done .step-label { color: var(--forest-soft); }
     .step-connector {
       flex: 1;
-      height: 2px;
-      background: rgba(247,168,164,0.25);
+      height: 1px;
+      background: var(--hairline);
       margin-bottom: 1.4rem;
       transition: background 0.4s ease;
     }
-    .step-connector.done { background: linear-gradient(to right, #40916c, rgba(64,145,108,0.3)); }
+    .step-connector.done { background: var(--forest-soft); }
 
     /* Toast notification */
     .toast-container {
@@ -113,8 +111,8 @@
       background: var(--color-white);
       border-radius: 16px;
       padding: 0.85rem 1.2rem;
-      box-shadow: 0 8px 32px rgba(44,37,35,0.14), 0 2px 8px rgba(247,168,164,0.2);
-      border-left: 3px solid var(--color-mid-green);
+      box-shadow: 0 8px 24px rgba(30,70,54,0.12);
+      border-left: 3px solid var(--forest);
       min-width: 240px;
       max-width: 320px;
       pointer-events: auto;
@@ -131,8 +129,8 @@
       bottom: 2rem;
       right: 2rem;
       z-index: 500;
-      background: linear-gradient(135deg, #f7a8a4, #e63946);
-      color: white;
+      background: var(--forest);
+      color: var(--cream);
       border: none;
       border-radius: 50px;
       padding: 0.85rem 1.4rem;
@@ -143,14 +141,14 @@
       display: flex;
       align-items: center;
       gap: 0.6rem;
-      box-shadow: 0 8px 28px rgba(230,57,70,0.4);
+      box-shadow: 0 10px 30px rgba(30,70,54,0.35);
       opacity: 0;
       visibility: hidden;
     }
-    .floating-cart:hover { transform: translateY(-4px) scale(1.04); box-shadow: 0 14px 36px rgba(230,57,70,0.5); }
+    .floating-cart:hover { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(30,70,54,0.4); background: var(--forest-deep); }
     .floating-cart-badge {
-      background: white;
-      color: var(--color-bright-hibiscus);
+      background: var(--cream);
+      color: var(--forest);
       border-radius: 50px;
       padding: 0.1rem 0.5rem;
       font-size: 0.78rem;
@@ -164,23 +162,21 @@
       cursor: pointer;
     }
     .product-tile.in-cart {
-      border-color: rgba(64,145,108,0.35) !important;
-      box-shadow: var(--shadow-card), 0 0 0 2px rgba(64,145,108,0.18) !important;
+      box-shadow: 0 0 0 2px var(--forest) !important;
     }
     .product-tile.in-cart .tile-title {
-      color: var(--color-palm-green);
+      color: var(--forest);
     }
     .cart-badge-tile {
       display: none;
-      background: linear-gradient(135deg, #40916c, #1e4636);
-      color: white;
+      background: var(--forest);
+      color: var(--cream);
       font-size: 0.6rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       padding: 0.25rem 0.65rem;
       border-radius: 50px;
       text-transform: uppercase;
-      box-shadow: 0 2px 8px rgba(30,70,54,0.25);
     }
     @keyframes badgePop {
       0% { transform: scale(0.5); opacity: 0; }
@@ -193,14 +189,14 @@
       display: flex;
       align-items: center;
       gap: 0;
-      background: rgba(250,245,239,0.8);
-      border: 1px solid rgba(44,37,35,0.1);
+      background: var(--cream);
+      border: 1px solid var(--hairline);
       border-radius: 50px;
       overflow: hidden;
     }
     .qty-btn {
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border: none;
       background: transparent;
       cursor: pointer;
@@ -213,7 +209,7 @@
       align-items: center;
       justify-content: center;
     }
-    .qty-btn:hover { background: rgba(247,168,164,0.25); }
+    .qty-btn:hover { background: var(--cream-deep); }
     .qty-value {
       font-weight: 700;
       min-width: 28px;
@@ -225,23 +221,22 @@
 
     /* Add button */
     .add-btn {
-      background: linear-gradient(135deg, #f7a8a4, #e63946);
-      color: white;
+      background: var(--forest);
+      color: var(--cream);
       border: none;
       border-radius: 50px;
-      padding: 0.5rem 1.1rem;
+      padding: 0.6rem 1.2rem;
       font-weight: 700;
-      font-size: 0.78rem;
+      font-size: 0.82rem;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 3px 12px rgba(217,61,89,0.25);
+      transition: all 0.25s ease;
       font-family: var(--font-sans);
       white-space: nowrap;
+      min-height: 44px;
     }
-    .add-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(217,61,89,0.38); }
+    .add-btn:hover { background: var(--forest-deep); transform: translateY(-1px); }
     .add-btn.added {
-      background: linear-gradient(135deg, #40916c, #1e4636);
-      box-shadow: 0 4px 14px rgba(30,70,54,0.35);
+      background: var(--forest-soft);
       transform: scale(0.97);
     }
 
@@ -308,6 +303,7 @@
 
     /* Cart empty state */
     .cart-empty-state {
+      display: block !important;
       text-align: center;
       padding: 2rem 1rem;
       color: var(--color-text-muted);
@@ -352,7 +348,7 @@
       content: '';
       flex: 1;
       height: 1px;
-      background: linear-gradient(to right, rgba(247,168,164,0.4), transparent);
+      background: var(--hairline);
     }
 
     /* Pulse animation for cart panel when item added */
@@ -388,43 +384,90 @@
 
     .success-banner {
       text-align: center; padding: 1rem 2rem;
-      background: linear-gradient(135deg, #40916c, #1e4636); color: white;
+      background: var(--forest); color: var(--cream);
       font-weight: 600; font-size: 0.9rem; display: none;
     }
     #paypal-button-container { min-width: 200px; max-width: 320px; }
     .paypal-hint { display: block; text-align: center; font-size: 0.78rem; color: var(--color-text-muted); padding: 0.5rem; }
     #payment-status { margin-top: 0.4rem; }
 
+    /* Pay-first checkout payment section */
+    .payment-section { margin: 1.5rem 0; }
+    .payment-review { margin: 1rem 0; }
+    .payment-review .payment-total { font-size: 1.8rem; margin: 0.2rem 0; }
+    .payment-review .payment-note { margin-top: 0.2rem; }
+
+    .payment-options { margin: 1.2rem 0; }
+    .payment-tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 2px solid rgba(44,37,35,0.08); }
+    .payment-tab {
+      flex: 1; padding: 0.6rem 1rem; border: none; background: none;
+      font-family: var(--font-sans); font-size: 0.85rem; font-weight: 600;
+      color: var(--color-text-muted); cursor: pointer; display: flex;
+      align-items: center; justify-content: center; gap: 0.4rem;
+      border-bottom: 3px solid transparent; transition: all 0.2s ease;
+    }
+    .payment-tab.active {
+      color: var(--color-palm-green);
+      border-bottom-color: var(--color-palm-green);
+    }
+    .payment-tab:hover:not(.active) { color: var(--color-text-cocoa); }
+
+    .payment-panel { display: none; padding: 0.5rem 0; }
+    .payment-panel.active { display: block; }
+
+    .payment-panel .hint {
+      font-size: 0.82rem; color: var(--color-text-muted); margin-bottom: 1rem; line-height: 1.5;
+    }
+
+    #stripe-payment-element { margin-bottom: 1.2rem; min-height: 44px; }
+
+    .payment-error {
+      color: #c0392b; font-size: 0.82rem; margin-top: 0.5rem; font-weight: 500;
+    }
+
+    .btn-loading {
+      opacity: 0.7; pointer-events: none; cursor: not-allowed;
+    }
+
+    .payment-back { margin-top: 1.2rem; font-size: 0.85rem; }
+    .payment-back a {
+      color: var(--color-text-muted); text-decoration: none; font-weight: 500;
+    }
+    .payment-back a:hover { color: var(--color-accent-coral); }
+
     .flavor-selects { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.8rem; }
     .flavor-selects select {
       flex: 1; min-width: 120px; padding: 0.45rem 0.6rem;
-      border-radius: 10px; border: 1px solid rgba(44,37,35,0.12);
-      background: var(--color-bg-sand); font-family: var(--font-sans);
+      border-radius: 14px; border: 1px solid var(--hairline);
+      background: var(--cream); font-family: var(--font-sans);
       font-size: 0.78rem; color: var(--color-text-cocoa); outline: none; cursor: pointer;
+      min-height: 36px;
     }
-    .flavor-selects select:focus { border-color: var(--color-accent-coral); box-shadow: 0 0 0 2px rgba(247,168,164,0.15); }
+    .flavor-selects select:focus { border-color: var(--forest); box-shadow: 0 0 0 3px rgba(30,70,54,0.10); }
 
     /* Pack sizes (bulk pricing) */
     .pack-selects { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.4rem; }
     .pack-option {
       display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start;
-      padding: 0.4rem 0.7rem; border: 1.5px solid rgba(44,37,35,0.14);
-      border-radius: 12px; cursor: pointer; background: #fff; transition: all 0.18s ease;
+      padding: 0.45rem 0.75rem; border: 1.5px solid var(--hairline);
+      border-radius: 16px; cursor: pointer; background: var(--cream); transition: all 0.18s ease;
       position: relative;
     }
-    .pack-option:hover { border-color: var(--color-accent-coral); }
+    .pack-option:hover { border-color: var(--hairline-strong); }
     .pack-option.selected {
-      border-color: var(--color-accent-coral);
-      background: rgba(247,168,164,0.12);
-      box-shadow: 0 0 0 2px rgba(247,168,164,0.3);
+      border-color: var(--forest);
+      background: var(--cream-deep);
+      box-shadow: none;
     }
     .pack-btn {
-      background: none; border: none; font-weight: 600; font-size: 0.85rem;
-      cursor: pointer; padding: 0; color: var(--color-text-cocoa); text-align: left;
+      background: none; border: none; font-weight: 600; font-size: 0.88rem;
+      cursor: pointer; padding: 0.35rem 0; color: var(--color-text-cocoa); text-align: left;
+      min-height: 44px;
+      display: flex; align-items: center;
     }
     .pack-badge {
-      display: inline-block; background: var(--color-accent-coral); color: #fff;
-      font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 6px;
+      display: inline-block; background: var(--clay); color: #fff;
+      font-size: 0.72rem; font-weight: 700; padding: 0.12rem 0.5rem; border-radius: 6px;
       margin-top: 0.1rem; letter-spacing: 0.02em;
     }
     .pack-unit-price { font-size: 0.72rem; color: var(--color-text-muted); }
@@ -464,6 +507,7 @@
       <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
       <a href="order.html" class="active" data-es="Ordenar" data-en="Order">Order</a>
       <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+      <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
     </div>
     <div class="mobile-nav-bottom">
       <div class="mobile-lang-switch" role="tablist" aria-label="Select language">
@@ -478,46 +522,26 @@
   </div>
 
   <div class="site-shell">
-    <aside class="sidebar">
-
-      <div class="sidebar-brand">
-        <a href="index.html" class="brand-link" aria-label="Muy Rico">
-          <img class="brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="170" height="60" loading="eager"/>
-          <span class="brand-line2" data-es="hecho con amor" data-en="made with love">hecho con amor</span>
-        </a>
-        <span class="brand-tagline" data-es="Holland, Michigan" data-en="Holland, Michigan">Holland, Michigan</span>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-group-label" data-es="Navegar" data-en="Navigate">Navegar</div>
-        <div class="section-list">
-          <a href="index.html" class="section-link" data-es="Nuestra Casa" data-en="Our Home">Nuestra Casa</a>
-          <a href="order.html" class="section-link active" data-es="Ordenar" data-en="Order">Ordenar</a>
-        </div>
-        <div class="nav-group-label" style="margin-top:0.8rem;" data-es="Explorar" data-en="Explore">Explorar</div>
-        <div class="section-list">
-          <a href="gallery.html" class="section-link" data-es="Galería" data-en="Gallery">Galería</a>
-        </div>
+    <!-- Masthead (desktop) -->
+    <header class="masthead">
+      <a href="index.html" class="masthead-brand" aria-label="Muy Rico Home">
+        <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="132" height="48" loading="eager"/>
+        <span data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
+      </a>
+      <nav class="masthead-nav" aria-label="Primary">
+        <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+        <a href="order.html" class="active" data-es="Menú" data-en="Menu">Menu</a>
+        <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+        <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
       </nav>
-      <div style="margin-top:auto;">
+      <div class="masthead-actions">
         <div class="lang-switch" role="tablist" aria-label="Select language">
           <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
           <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
         </div>
+        <a href="#menu" class="btn btn-forest masthead-order"><span class="lang-fade" data-es="Ver Menú" data-en="Browse Menu">Browse Menu</span></a>
       </div>
-      <div class="cookie-card">
-        <p class="cookie-text" data-es="Pedidos con 24-48h de anticipación para pan y tortillas."
-           data-en="Order 24-48 hours ahead for bread and tortillas.">
-          Pedidos con 24-48h de anticipación para pan y tortillas.
-        </p>
-        <div class="cookie-actions">
-          <a href="mailto:bexgarcia0208@gmail.com" class="btn btn-ghost-sm" data-es="Contáctanos" data-en="Contact Us">Contáctanos</a>
-        </div>
-        <a href="/admin/" class="owner-login-link" id="owner-dashboard-link-order" aria-label="Owner dashboard login">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
-        </a>
-      </div>
-    </aside>
+    </header>
 
     <main class="main-content">
 
@@ -526,7 +550,7 @@
         <span class="lang-fade" data-es="&#161;Pago exitoso! Te contactaremos pronto para coordinar tu pedido." data-en="Payment successful! We&apos;ll contact you soon to coordinate your order.">Payment successful! We&apos;ll contact you soon to coordinate your order.</span>
       </div>
 
-      <section class="hero-section" style="min-height:58vh;padding-top:4rem;">
+      <section class="hero-section">
         <div class="hero-eyebrow">
           <div class="eyebrow-line"></div>
           <span class="eyebrow-text lang-fade" data-es="Recién Hecho a la Orden" data-en="Made Fresh to Order">Recién Hecho a la Orden</span>
@@ -548,27 +572,28 @@
         </div>
       </section>
 
-      <div class="wave-divider">
-        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 0 720 40 T1440 40 V80 H0Z" fill="rgba(212,237,218,0.18)"/></svg>
-      </div>
-
       <!-- STEP PROGRESS -->
-      <div style="padding: 2.5rem 4rem 0; background: linear-gradient(180deg, rgba(212,237,218,0.18) 0%, transparent 100%);">
+      <div style="padding: 0 var(--gutter);">
         <div class="order-steps" id="order-steps">
-          <div class="step active" id="step-1">
-            <div class="step-circle">🛍️</div>
-            <div class="step-label lang-fade" data-es="Elige" data-en="Choose">Elige</div>
-          </div>
-          <div class="step-connector" id="connector-1"></div>
-          <div class="step" id="step-2">
-            <div class="step-circle">📋</div>
-            <div class="step-label lang-fade" data-es="Tu Info" data-en="Your Info">Tu Info</div>
-          </div>
-          <div class="step-connector" id="connector-2"></div>
-          <div class="step" id="step-3">
-            <div class="step-circle">✉️</div>
-            <div class="step-label lang-fade" data-es="Enviar" data-en="Submit">Enviar</div>
-          </div>
+           <div class="step active" id="step-1">
+             <div class="step-circle">🛍️</div>
+             <div class="step-label lang-fade" data-es="Elige" data-en="Choose">Elige</div>
+           </div>
+           <div class="step-connector" id="connector-1"></div>
+           <div class="step" id="step-2">
+             <div class="step-circle">📋</div>
+             <div class="step-label lang-fade" data-es="Tu Info" data-en="Your Info">Tu Info</div>
+           </div>
+           <div class="step-connector" id="connector-2"></div>
+           <div class="step" id="step-3">
+             <div class="step-circle">💳</div>
+             <div class="step-label lang-fade" data-es="Pago" data-en="Payment">Pago</div>
+           </div>
+           <div class="step-connector" id="connector-3"></div>
+           <div class="step" id="step-4">
+             <div class="step-circle">✅</div>
+             <div class="step-label lang-fade" data-es="Listo" data-en="Done">Listo</div>
+           </div>
         </div>
       </div>
 
@@ -584,11 +609,8 @@
                The script at the bottom replaces this inner content with live
                products from /api/products when JS + API are available. -->
 
-          <article class="product-tile reveal has-packs" id="tile-cookies" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
-            <div class="tile-header">
-              <img class="tile-icon" src="cookies.svg" alt="Chocolate Chip Cookie" width="42" height="42" style="object-fit:contain;" />
-              <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-            </div>
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_cookie" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Cookie">Galleta de Chispas de Chocolate</h3>
             <p class="tile-desc lang-fade" data-es="Galletas con chispas de chocolate horneadas suaves. Elige una individual o ahorra en la docena." data-en="Soft-baked chocolate chip cookies. Choose a single or save on a dozen.">Soft-baked chocolate chip cookies. Choose a single or save on a dozen.</p>
             <div class="pack-selects">
@@ -603,7 +625,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-cookies">$4.00</span>
+              <span class="tile-price" id="price-prod_cookie">$4.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -615,11 +637,8 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-conchas" data-category="Bread" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-flavors="1">
-            <div class="tile-header">
-              <img class="tile-icon" src="conchas.svg" alt="Conchas" width="42" height="42" style="object-fit:contain;" />
-              <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-            </div>
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_conchas" data-category="Bread" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="🍞" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Conchas" data-en="Conchas">Conchas</h3>
             <p class="tile-desc lang-fade"
                data-es="Este pan mexicano es un ícono. Suave y esponjoso con vainilla y canela en la masa. La hermosa cobertura en forma de concha viene en vainilla, chocolate y fresa. Honestamente, lo necesitas para acompañar tu café."
@@ -634,8 +653,24 @@
                 <option value="Fresa" data-es="Fresa" data-en="Fresa">Fresa</option>
               </select>
             </div>
+            <div class="pack-selects">
+              <div class="pack-option selected" data-pack-id="single" data-pack-price="4" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+                <span class="pack-unit-price lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="half-dozen" data-pack-price="22" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Media Docena (6)" data-en="Half Dozen (6)">Half Dozen (6)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $2!" data-en="Save $2">Save $2</span>
+                <span class="pack-unit-price lang-fade" data-es="$3.67 c/u" data-en="$3.67 ea">$3.67 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="dozen" data-pack-price="40" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)">Dozen (12)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $8!" data-en="Save $8">Save $8</span>
+                <span class="pack-unit-price lang-fade" data-es="$3.33 c/u" data-en="$3.33 ea">$3.33 ea</span>
+              </div>
+            </div>
             <div class="tile-bottom">
-              <span class="tile-price">$4 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <span class="tile-price" id="price-prod_conchas">$4.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -647,11 +682,8 @@
             </div>
           </article>
 
-          <article class="product-tile reveal has-packs" id="tile-bolillos" data-category="Bread" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖" data-has-packs="1" data-pack-price="2" data-pack-qty="1" data-pack-label="Single">
-            <div class="tile-header">
-              <img class="tile-icon" src="bolillos.svg" alt="Bolillos" width="42" height="42" style="object-fit:contain;" />
-              <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-            </div>
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_bolillos" data-category="Bread" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="🥖" data-has-packs="1" data-pack-price="2" data-pack-qty="1" data-pack-label="Single">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-bolillos.webp" alt="Bolillos" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Bolillos" data-en="Bolillos">Bolillos</h3>
             <p class="tile-desc lang-fade"
                data-es="Este pan de inspiración mexicano-francesa tiene una corteza crujiente y un centro suave. Estos bolillos son perfectos para todas tus necesidades de sándwich/torta. Pero seamos sinceros, calienta ese bolillo, úntale mantequilla y deja que la felicidad te invada."
@@ -670,7 +702,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-bolillos">$2.00</span>
+              <span class="tile-price" id="price-prod_bolillos">$2.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -682,11 +714,8 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-tortillas" data-category="Bread" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
-            <div class="tile-header">
-              <img class="tile-icon" src="tortilla.svg" alt="Flour Tortillas" width="42" height="42" style="object-fit:contain;" />
-              <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-            </div>
+          <article class="product-tile reveal has-hero" id="tile-prod_tortillas" data-category="Bread" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="🫓">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-tortillas.webp" alt="Flour tortillas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Tortillas de Harina" data-en="Flour Tortillas">Tortillas de Harina</h3>
             <p class="tile-desc lang-fade"
                data-es="Tortillas hechas a mano, suaves, ligeras y mantecosas. Imagina conmigo... tacos, quesadillas, con mantequilla y sal... realmente no hay momento en que una tortilla no sea necesaria. Así que, en conclusión... necesitas algunas."
@@ -706,11 +735,29 @@
             </div>
           </article>
 
-           <article class="product-tile reveal" id="tile-cakepops" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
-            <div class="tile-header">
-              <img class="tile-icon" src="cakepop.svg" alt="Cakepops" width="42" height="42" style="object-fit:contain;" />
-              <span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
+          <article class="product-tile reveal has-hero" id="tile-prod_empanadas" data-category="Bread" data-name="Empanadas" data-name-en="Empanadas" data-price="3.00" data-icon="empanada.svg" data-toast-emoji="🥟">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
+            <h3 class="tile-title lang-fade" data-es="Empanadas" data-en="Empanadas">Empanadas</h3>
+            <p class="tile-desc lang-fade"
+               data-es="Empanadas doradas y rellenas a mano. Crujientes por fuera, sabrosas por dentro. Hechas a la orden con tu relleno favorito."
+               data-en="Golden, hand-filled empanadas. Crispy on the outside, savory on the inside. Made to order with your choice of filling.">
+              Golden, hand-filled empanadas. Crispy on the outside, savory on the inside. Made to order with your choice of filling.
+            </p>
+            <div class="tile-bottom">
+              <span class="tile-price">$3 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <div class="tile-actions">
+                <div class="qty-stepper">
+                  <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
+                  <span class="qty-value">0</span>
+                  <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
+                </div>
+                <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Agregar</button>
+              </div>
             </div>
+          </article>
+
+           <article class="product-tile reveal has-hero" id="tile-prod_cakepop" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-cakepops.webp" alt="Cakepops" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Cakepops" data-en="Cakepops">Cakepops</h3>
             <p class="tile-desc lang-fade"
                data-es="Such a sweet perfect little ball of customizable bliss. Choose your cake flavor, choose your chocolate dip, choose your topping. These are the kind of life choices we live to make! (Please keep in mind that custom cakepops may vary in pricing.)"
@@ -730,11 +777,8 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cake" data-category="Cakes" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
-            <div class="tile-header">
-              <img class="tile-icon" src="cake.svg" alt="Custom Cake" width="42" height="42" style="object-fit:contain;" />
-              <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-            </div>
+          <article class="product-tile reveal has-hero" id="tile-prod_custom_cake" data-category="Cakes" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="🎂" data-has-flavors="1">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Custom Cake" data-en="Custom Cake">Custom Cake</h3>
             <p class="tile-desc lang-fade"
                data-es="8-inch, 2-layer cake made fresh to order. Choose your cake flavor and frosting to create your perfect combination."
@@ -767,11 +811,8 @@
             </div>
           </article>
 
-          <article class="product-tile reveal" id="tile-cupcakes" data-category="Cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
-            <div class="tile-header">
-              <img class="tile-icon" src="cupcake.svg" alt="Cupcakes" width="42" height="42" style="object-fit:contain;" />
-              <span class="cart-badge-tile" style="display:none;">&check; <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>
-            </div>
+          <article class="product-tile reveal has-hero" id="tile-prod_cupcakes" data-category="Cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="🧁" data-has-flavors="1">
+            <div class="tile-hero"><img class="tile-hero-img" src="menu-cupcakes.webp" alt="Cupcakes" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Cupcakes (6)" data-en="Cupcakes (6)">Cupcakes (6)</h3>
             <p class="tile-desc lang-fade"
                data-es="Six standard-size cupcakes made fresh to order. Choose your cake flavor and frosting. One flavor per batch."
@@ -813,10 +854,6 @@
           </span>
         </p>
       </section>
-
-      <div class="wave-divider">
-        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 80 720 40 T1440 40 V0 H0Z" fill="rgba(251,203,201,0.2)"/></svg>
-      </div>
 
       <!-- ORDER FORM SECTION -->
       <section class="boutiques-section" style="padding:4rem 4rem 5rem;" id="order-form">
@@ -863,7 +900,7 @@
               <div class="field">
                 <label for="phone" class="lang-fade" data-es="Teléfono" data-en="Phone">Teléfono</label>
                 <input type="tel" id="phone" required pattern="[0-9\s\-\(\)\+]+"
-                       data-es-placeholder="(616) 555-1234" data-en-placeholder="(616) 555-1234" placeholder="(616) 555-1234" />
+                       data-es-placeholder="(616) 218-3582" data-en-placeholder="(616) 218-3582" placeholder="(616) 218-3582" />
               </div>
               <div class="field">
                 <label for="contact-method" class="lang-fade" data-es="Mejor forma de contacto" data-en="Best way to reach you">Mejor forma de contacto</label>
@@ -887,7 +924,7 @@
               </div>
             </div>
             <div class="submit-area">
-              <button type="submit" class="btn btn-coral btn-lg lang-fade" data-es="✉️ Enviar Pedido" data-en="✉️ Submit Order">✉️ Enviar Pedido</button>
+              <button type="submit" class="btn btn-coral btn-lg lang-fade" data-es="💳 Continuar al Pago" data-en="💳 Continue to Payment">💳 Continuar al Pago</button>
               <p class="notice lang-fade"
                  data-es="Si lo imaginas, ¡nosotros lo creamos! Los precios pueden variar según el nivel de personalización del pedido. Para pedidos personalizados o preguntas generales, envíanos un correo haciendo clic en Contáctanos en la sección de contacto. Nos comunicaremos contigo para coordinar la recogida en Holland, MI."
                  data-en="If you imagine it, we want to create it! Pricing may vary depending on how customized your order is. For custom orders or general questions, please send us an email by clicking Contact Us in the contact section. We'll reach out to coordinate pickup in Holland, MI.">
@@ -896,52 +933,102 @@
             </div>
           </form>
 
-          <div class="confirmation" id="confirmation">
-            <h4 class="lang-fade" data-es="¡Pedido enviado!" data-en="Order sent!">¡Pedido enviado!</h4>
-            <p class="lang-fade"
-               data-es="Te contactaremos pronto para coordinar. Completa tu pago abajo:"
-               data-en="We&apos;ll contact you soon to coordinate. Complete your payment below:">
-              Te contactaremos pronto para coordinar. Completa tu pago abajo:
-            </p>
-            <div class="payment-buttons">
-              <button type="button" id="stripe-pay-btn" class="btn btn-coral btn-lg payment-btn">
-                <span>&#128179;</span>
-                <span class="lang-fade" data-es="Tarjeta / Apple Pay / Cash App" data-en="Card / Apple Pay / Cash App">Tarjeta / Apple Pay / Cash App</span>
-              </button>
-              <div id="paypal-button-container"><span class="paypal-hint lang-fade" data-es="&#128179; Paga con PayPal o Venmo" data-en="&#128179; Pay with PayPal or Venmo">&#128179; Pay with PayPal or Venmo</span></div>
+          <div class="payment-section" id="payment-section" style="display:none;">
+            <h4 class="lang-fade" data-es="Completa tu Pago" data-en="Complete Your Payment">Completa tu Pago</h4>
+
+            <div class="payment-review">
+              <p class="payment-total" id="payment-total"></p>
+              <p class="payment-note lang-fade" data-es="Los precios son finales. Tu pedido sera preparado una vez confirmado el pago."
+                 data-en="Prices are final. Your order will be prepared once payment is confirmed.">
+                Los precios son finales. Tu pedido sera preparado una vez confirmado el pago.
+              </p>
             </div>
-            <p class="payment-total" id="payment-total"></p>
-            <p id="payment-status" class="payment-note"></p>
-            <p class="payment-note lang-fade"
-               data-es="Haz clic en tu m&eacute;todo preferido."
-               data-en="Click your preferred method.">
-              Haz clic en tu m&eacute;todo preferido.
+
+            <div class="payment-options">
+              <div class="payment-tabs">
+                <button type="button" class="payment-tab active" data-method="card" onclick="switchPaymentTab('card')">
+                  <span>&#128179;</span>
+                  <span class="lang-fade" data-es="Tarjeta" data-en="Card">Tarjeta</span>
+                </button>
+                <button type="button" class="payment-tab" data-method="paypal" onclick="switchPaymentTab('paypal')">
+                  <span>&#127991;&#65039;</span>
+                  <span>PayPal / Venmo</span>
+                </button>
+              </div>
+
+              <div class="payment-panel active" id="panel-card">
+                <div id="stripe-payment-element"></div>
+                <button type="button" id="stripe-pay-btn" class="btn btn-coral btn-lg payment-btn" disabled>
+                  <span>&#128274;</span>
+                  <span class="lang-fade" data-es="Pagar Ahora" data-en="Pay Now">Pagar Ahora</span>
+                </button>
+                <p id="stripe-error" class="payment-error" style="display:none;"></p>
+              </div>
+
+              <div class="payment-panel" id="panel-paypal">
+                <p class="hint lang-fade" data-es="Se abrira una ventana de PayPal para completar tu pago."
+                   data-en="A PayPal window will open to complete your payment.">
+                  Se abrira una ventana de PayPal para completar tu pago.
+                </p>
+                <div id="paypal-button-container"></div>
+                <p id="paypal-error" class="payment-error" style="display:none;"></p>
+              </div>
+            </div>
+
+            <p class="payment-back">
+              <a href="#" onclick="goBackToInfo(event)" class="lang-fade" data-es="&#8592; Editar informacion" data-en="&#8592; Edit info">&#8592; Editar informacion</a>
             </p>
+          </div>
+
+          <div class="confirmation" id="confirmation" style="display:none;">
+            <h4 class="lang-fade" data-es="&#9989; Pedido Confirmado!" data-en="&#9989; Order Confirmed!">&#9989; Pedido Confirmado!</h4>
+            <div id="confirmation-details"></div>
+            <p class="payment-note lang-fade"
+               data-es="Se ha enviado un correo de confirmacion a la direccion proporcionada."
+               data-en="A confirmation email has been sent to the address you provided.">
+               Se ha enviado un correo de confirmacion a la direccion proporcionada.
+            </p>
+            <a href="index.html" class="btn btn-coral btn-lg lang-fade" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;"
+               data-es="&#127968; Volver al Inicio" data-en="&#127968; Back to Home">&#127968; Volver al Inicio</a>
           </div>
         </div>
       </section>
 
-      <div class="wave-divider">
-        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 80 720 40 T1440 40 V0 H0Z" fill="rgba(30,70,54,0.08)"/></svg>
-      </div>
-
       <footer class="site-footer">
-        <svg class="footer-leaf-l" viewBox="0 0 110 140" fill="none" aria-hidden="true"><path d="M55 140 C15 115 0 70 0 35 Q0 0 35 0 T70 35 Q95 0 95 35 T70 90 Q95 125 55 140Z" fill="var(--color-mid-green)" opacity="0.2"/></svg>
-        <svg class="footer-leaf-r" viewBox="0 0 110 140" fill="none" aria-hidden="true"><path d="M55 140 C15 115 0 70 0 35 Q0 0 35 0 T70 35 Q95 0 95 35 T70 90 Q95 125 55 140Z" fill="var(--color-mid-green)" opacity="0.15"/></svg>
-        <div class="footer-hib-row">
-          <svg width="36" height="36" viewBox="0 0 60 60" fill="none"><circle cx="30" cy="30" r="8" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="30" cy="12" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="30" cy="48" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="12" cy="30" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="48" cy="30" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/></svg>
+        <span class="footer-mark" aria-hidden="true">MR</span>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+          <a href="order.html" data-es="Menú" data-en="Menu">Menu</a>
+          <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+          <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+        </nav>
+        <div class="footer-connect">
+          <div class="footer-accept">
+            <span class="footer-accept-label lang-fade" data-es="Aceptamos" data-en="We Accept">We Accept</span>
+            <div class="pay-chips">
+              <span class="pay-chip">VISA</span>
+              <span class="pay-chip">Mastercard</span>
+              <span class="pay-chip">Apple Pay</span>
+              <span class="pay-chip">Cash App</span>
+              <span class="pay-chip">PayPal</span>
+              <span class="pay-chip">Venmo</span>
+            </div>
+          </div>
+          <div class="footer-social">
+            <span class="footer-accept-label lang-fade" data-es="Síguenos" data-en="Follow Us">Follow Us</span>
+            <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            </a>
+          </div>
         </div>
-        <div class="footer-coqui-divider">
-          <span>🌸</span><span class="divider-dot">●</span><span>🍞</span><span class="divider-dot">●</span><span>🌿</span><span class="divider-dot">●</span><span>🍰</span><span class="divider-dot">●</span><span>🌸</span>
-        </div>
-        <div class="footer-social">
-          <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Made with love.</p>
+        <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Family · Tradition · Flavor</span>
+        <div>
+          <a href="/admin/" class="owner-login-link footer-owner-link" aria-label="Owner dashboard login">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
           </a>
-
         </div>
-        <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Hecho con amor.</p>
-        <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Familia · Tradición · Sabor</span>
       </footer>
     </main>
   </div>
@@ -952,7 +1039,6 @@
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let currentLang = 'es';
 
-    const FORMSPREE_URL = 'https://formspree.io/f/xdavbrgq';
     const CHECKOUT_WORKER = 'https://muy-rico-checkout.bexgarcia0208.workers.dev';
     // Orders API — auto-detect local dev vs production
     const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
@@ -1034,10 +1120,10 @@
       const name = (currentLang === 'es' && p.name_es) ? p.name_es : p.name;
       const desc = (currentLang === 'es' && p.description_es) ? p.description_es : (p.description || '');
       const cartBadge = `<span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>`;
-      // Image products: large full-width square hero. Emoji products: compact header.
+      // Image products: large full-width square hero. No-image products: minimal header.
       const hero = p.image_url
         ? `<div class="tile-hero">${cartBadge}<img class="tile-hero-img" src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" loading="lazy" /></div>`
-        : `<div class="tile-header">${cartBadge}<span class="tile-icon" style="font-size:48px;line-height:1;">${p.emoji || '🍞'}</span></div>`;
+        : `${cartBadge}`;
       // Flavor groups (bilingual group name)
       const flavorGroups = (p.flavor_groups && p.flavor_groups.length) ? p.flavor_groups : [];
       const flavorHTML = flavorGroups.length
@@ -1067,7 +1153,7 @@
             </div>`).join('') + `</div>`
         : '';
       const albumLink = galleryProductIds.has(p.id)
-        ? `<a class="tile-album-link lang-fade" href="gallery.html#album-${escapeHtml(p.id)}" data-es="📸 Ver álbum" data-en="📸 View album">📸 View album</a>`
+        ? `<a class="tile-album-link lang-fade" href="gallery.html#album-${escapeHtml(p.id)}" data-es="Ver álbum" data-en="View album">View album</a>`
         : '';
       return `
         <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''} ${hasPacks ? 'has-packs' : ''}"
@@ -1333,22 +1419,262 @@
     }
 
     // ── Step tracker ──────────────────────────────────────────────
-    function updateSteps(cartHasItems) {
-      const s1 = document.getElementById('step-1');
-      const s2 = document.getElementById('step-2');
-      const c1 = document.getElementById('connector-1');
-      if (cartHasItems) {
-        s1.classList.remove('active'); s1.classList.add('done');
-        s2.classList.add('active');
-        c1.classList.add('done');
-      } else {
-        s1.classList.add('active'); s1.classList.remove('done');
-        s2.classList.remove('active');
-        c1.classList.remove('done');
+    function updateSteps(step) {
+      const steps = ['step-1', 'step-2', 'step-3', 'step-4'];
+      const connectors = ['connector-1', 'connector-2', 'connector-3'];
+
+      steps.forEach((sId, i) => {
+        const el = document.getElementById(sId);
+        if (!el) return;
+        el.classList.remove('active', 'done');
+        if (i + 1 < step) el.classList.add('done');
+        if (i + 1 === step) el.classList.add('active');
+      });
+
+      connectors.forEach((cId, i) => {
+        const el = document.getElementById(cId);
+        if (!el) return;
+        el.classList.toggle('done', i + 1 < step);
+      });
+    }
+
+    // ── Payment ────────────────────────────────────────────────────
+    let stripe = null;
+    let stripeElements = null;
+    let paymentElementInstance = null;
+    let paymentActive = true;
+    let paypalRendered = false;
+
+    function renderPayPalButtons() {
+      if (paypalRendered || !window.paypal) return;
+      if (!pendingOrderId) return;
+      paypalRendered = true;
+      try {
+        paypal.Buttons({
+          style: { layout: 'horizontal', color: 'gold', shape: 'pill', label: 'paypal', tagline: false },
+          createOrder: function (_data, actions) {
+            // Read module-level values at click time (fresh after edit-info resubmit)
+            const totalStr = (submittedTotalCents / 100).toFixed(2);
+            return actions.order.create({
+              purchase_units: [{
+                amount: { value: totalStr },
+                custom_id: String(pendingOrderId || ''),
+                invoice_id: 'MR-' + (pendingOrderId || '0')
+              }]
+            });
+          },
+          onApprove: function (data) {
+            const btnContainer = document.getElementById('paypal-button-container');
+            btnContainer.innerHTML = '<p class="payment-note">' +
+              (currentLang === 'en' ? 'Processing your payment...' : 'Procesando tu pago...') + '</p>';
+
+            fetch(CHECKOUT_WORKER + '/paypal/capture', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paypalOrderId: data.orderID, orderId: String(pendingOrderId) })
+            })
+            .then(r => r.json())
+            .then(result => {
+              if (!result.ok) throw new Error(result.error || 'Capture failed');
+              pollPaymentStatus();
+            })
+            .catch(e => {
+              const errorEl = document.getElementById('paypal-error');
+              errorEl.textContent = e.message || (currentLang === 'en' ? 'Payment failed.' : 'Pago fallido.');
+              errorEl.style.display = 'block';
+              btnContainer.innerHTML = '';
+              paypalRendered = false;
+              renderPayPalButtons();
+            });
+          },
+          onError: function () {
+            const errorEl = document.getElementById('paypal-error');
+            errorEl.textContent =
+              currentLang === 'en' ? 'Payment failed. Please try again.' : 'Pago fallido. Intenta de nuevo.';
+            errorEl.style.display = 'block';
+          }
+        }).render('#paypal-button-container');
+      } catch (e) {
+        document.getElementById('paypal-button-container').textContent =
+          currentLang === 'en' ? 'Venmo/PayPal could not load.' : 'Venmo/PayPal no se pudo cargar.';
       }
     }
 
-    // ── Cart ──────────────────────────────────────────────────────
+    function loadPayPal() {
+      if (window.paypal) { renderPayPalButtons(); return; }
+      let clientId = 'BAAksZjUQv405OGh130edPt8VARpnP-9wmc4lJFm1w572Mvx5pm2pCu7Nsjy3HC2948Fny-rFBIfnAr4qI';
+      fetch(CHECKOUT_WORKER + '/paypal-client-id')
+        .then(r => r.json())
+        .then(j => {
+          if (j.clientId) clientId = j.clientId;
+        })
+        .catch(() => {})
+        .finally(() => {
+          var script = document.createElement('script');
+          script.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(clientId) +
+            '&currency=USD&locale=' + (currentLang === 'es' ? 'es_ES' : 'en_US');
+          script.onload = renderPayPalButtons;
+          document.head.appendChild(script);
+        });
+    }
+
+    function initPayment() {
+      // Reset transient state for a fresh payment attempt (edit-info → resubmit)
+      paymentActive = true;
+      const stripeErr = document.getElementById('stripe-error');
+      if (stripeErr) stripeErr.style.display = 'none';
+      const paypalErr = document.getElementById('paypal-error');
+      if (paypalErr) paypalErr.style.display = 'none';
+
+      // Stripe Payment Element setup
+      fetch(CHECKOUT_WORKER + '/stripe-config')
+        .then(r => r.json())
+        .then(config => {
+          if (!config.publishableKey) {
+            document.getElementById('stripe-pay-btn').textContent =
+              currentLang === 'en' ? 'Payment unavailable' : 'Pago no disponible';
+            return;
+          }
+          stripe = Stripe(config.publishableKey);
+
+          return fetch(CHECKOUT_WORKER + '/create-payment-intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: String(pendingOrderId) })
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (!data.clientSecret) throw new Error(data.error || 'No client secret');
+            // Reset any previously mounted element (edit-info → resubmit flow)
+            if (paymentElementInstance) {
+              try { paymentElementInstance.unmount(); } catch (e) {}
+              paymentElementInstance = null;
+            }
+            stripeElements = stripe.elements({ clientSecret: data.clientSecret });
+            paymentElementInstance = stripeElements.create('payment');
+            paymentElementInstance.mount('#stripe-payment-element');
+
+            const payBtn = document.getElementById('stripe-pay-btn');
+            payBtn.disabled = false;
+            payBtn.onclick = async function () {
+              if (!paymentActive || !stripe || !stripeElements) return;
+              paymentActive = false;
+              const btnHTML = payBtn.innerHTML;
+              payBtn.innerHTML = '<span></span><span>' +
+                (currentLang === 'en' ? 'Processing...' : 'Procesando...') + '</span>';
+              payBtn.classList.add('btn-loading');
+
+              const { error } = await stripe.confirmPayment({
+                elements: stripeElements,
+                confirmParams: {
+                  return_url: location.origin + '/order.html?confirming=' + pendingOrderId + '&paid=true',
+                },
+                redirect: 'if_required'
+              });
+
+              if (error) {
+                const errorEl = document.getElementById('stripe-error');
+                errorEl.textContent = error.message ||
+                  (currentLang === 'en' ? 'Payment failed. Please try again.' : 'Pago fallido. Intenta de nuevo.');
+                errorEl.style.display = 'block';
+                payBtn.innerHTML = btnHTML;
+                payBtn.classList.remove('btn-loading');
+                paymentActive = true;
+              } else {
+                pollPaymentStatus();
+              }
+            };
+          });
+        })
+        .catch(err => {
+          const errorEl = document.getElementById('stripe-error');
+          errorEl.textContent = err.message || 'Could not initialize payment.';
+          errorEl.style.display = 'block';
+        });
+
+      loadPayPal();
+    }
+
+    function pollPaymentStatus() {
+      let attempts = 0;
+      const maxAttempts = 15;
+      const interval = setInterval(() => {
+        attempts++;
+        fetch(ORDER_API + '/api/orders/' + pendingOrderId + '/payment-status')
+          .then(r => r.json())
+          .then(data => {
+            if (data.payment_status === 'paid') {
+              clearInterval(interval);
+              showConfirmation();
+            } else if (attempts >= maxAttempts) {
+              clearInterval(interval);
+              showConfirmation();
+            }
+          })
+          .catch(() => {
+            if (attempts >= maxAttempts) {
+              clearInterval(interval);
+              showConfirmation();
+            }
+          });
+      }, 2000);
+    }
+
+    function showConfirmation() {
+      const paySection = document.getElementById('payment-section');
+      const conf = document.getElementById('confirmation');
+
+      if (paySection) paySection.style.display = 'none';
+
+      const details = document.getElementById('confirmation-details');
+      if (details) {
+        const pickupDate = document.getElementById('date').value;
+        const name = document.getElementById('name').value;
+        const email = document.getElementById('email').value;
+        const totalStr = (submittedTotalCents / 100).toFixed(2);
+        const itemsList = cart.map(c => `${c.qty}x ${c.displayName || c.name} ($${(c.qty * c.price).toFixed(2)})`).join(', ');
+
+        details.innerHTML =
+          '<p style="margin:16px 0;"><strong>' +
+          (currentLang === 'en' ? 'Order #' : 'Pedido #') + pendingOrderId + '</strong></p>' +
+          '<p style="margin:8px 0;">' + name + '</p>' +
+          '<p style="margin:8px 0;">' + itemsList + '</p>' +
+          '<p style="margin:8px 0;"><strong>' + (currentLang === 'en' ? 'Pickup: ' : 'Recogida: ') + '</strong>' + pickupDate + '</p>' +
+          '<p style="margin:8px 0;font-size:1.2em;font-weight:700;color:var(--color-mid-green);">' + totalStr + '</p>' +
+          '<p style="margin:8px 0;color:#777;font-size:0.9em;">' +
+          (currentLang === 'en' ? 'Confirmation sent to ' : 'Confirmacion enviada a ') + email + '</p>';
+      }
+
+      conf.style.display = 'block';
+      updateSteps(4);
+      gsap.fromTo(conf, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+      conf.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      cart.length = 0;
+      refreshTileStates();
+      renderCart();
+    }
+
+    function switchPaymentTab(method) {
+      document.querySelectorAll('.payment-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.payment-panel').forEach(p => p.classList.remove('active'));
+      const tab = document.querySelector('.payment-tab[data-method="' + method + '"]');
+      if (tab) tab.classList.add('active');
+      const panel = document.getElementById('panel-' + method);
+      if (panel) panel.classList.add('active');
+      // Trigger PayPal render when switching to the PayPal tab
+      if (method === 'paypal' && !paypalRendered) {
+        renderPayPalButtons();
+      }
+    }
+
+    function goBackToInfo(e) {
+      e.preventDefault();
+      document.getElementById('payment-section').style.display = 'none';
+      document.getElementById('order-form-el').style.display = '';
+      updateSteps(2);
+      document.getElementById('order-form-el').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     const cart = [];
     let pendingOrderId = null;
     let submittedTotalCents = 0;
@@ -1485,7 +1811,7 @@
       }
 
       renderCart();
-      updateSteps(true);
+      updateSteps(2);
     }
 
     function removeFromCart(index) {
@@ -1498,7 +1824,7 @@
         const floatingCart = document.getElementById('floating-cart');
         floatingCart.classList.remove("gsap-shown");
         gsap.to(floatingCart, { autoAlpha: 0, y: 20, scale: 0.9, duration: 0.3, ease: 'power2.in' });
-        updateSteps(false);
+        updateSteps(1);
       }
       
       if (removedName) {
@@ -1587,37 +1913,27 @@
 
       const submitBtn = e.target.querySelector('button[type="submit"]');
       const originalText = submitBtn.textContent;
-      submitBtn.textContent = currentLang === 'en' ? 'Sending...' : 'Enviando...';
+      submitBtn.textContent = currentLang === 'en' ? 'Preparing order...' : 'Preparando pedido...';
       submitBtn.disabled = true;
 
-      const formData = {
-        name: document.getElementById('name').value,
-        email: document.getElementById('email').value,
-        phone: document.getElementById('phone').value,
-        date: document.getElementById('date').value,
-        contactMethod: document.getElementById('contact-method').value,
-        notes: document.getElementById('notes').value || '',
-        items: cart.map(c => `${c.qty}x ${c.displayName || c.name} ($${(c.price * c.qty).toFixed(2)})`).join(', '),
-        total: '$' + getCartTotal().toFixed(2),
-        language: currentLang
-      };
-
       submittedTotalCents = Math.round(getCartTotal() * 100);
-      const totalCentsForApi = submittedTotalCents;
+
       const apiPayload = {
-        customer_name: formData.name,
-        phone: formData.phone || null,
-        pickup_date: formData.date,
+        customer_name: document.getElementById('name').value,
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value || null,
+        pickup_date: document.getElementById('date').value,
         items_json: cart.map(c => ({ name: c.displayName || c.name, qty: c.qty, price: c.price, emoji: c.toastEmoji || '🍞' })),
-        total_cents: totalCentsForApi,
-        payment_method: 'cash',
+        total_cents: submittedTotalCents,
+        payment_method: 'stripe',
         payment_status: 'unpaid',
-        status: 'pending',
+        status: 'awaiting_payment',
         notes: [
-          formData.notes,
-          formData.contactMethod ? 'Contact via: ' + formData.contactMethod : ''
+          document.getElementById('notes').value,
+          document.getElementById('contact-method').value ? 'Contact via: ' + document.getElementById('contact-method').value : ''
         ].filter(Boolean).join(' | ') || null,
-        source: 'website'
+        source: 'website',
+        language: currentLang
       };
 
       fetch(ORDER_API + '/api/orders', {
@@ -1634,120 +1950,26 @@
         if (!pendingOrderId) throw new Error('No order id returned');
 
         document.getElementById('order-form-el').style.display = 'none';
+        updateSteps(3);
 
         const totalNum = submittedTotalCents / 100;
         const totalStr = totalNum.toFixed(2);
-        const totalCents = submittedTotalCents;
-        const itemList = cart.map(c => `${c.qty}x ${c.displayName || c.name}`).join(', ');
-
         const totalEl = document.getElementById('payment-total');
         if (totalEl) totalEl.textContent =
           (currentLang === 'en' ? 'Your total: ' : 'Tu total: ') + '$' + totalStr;
 
-        const stripeBtn = document.getElementById('stripe-pay-btn');
-        if (stripeBtn) {
-          const stripeOriginalHTML = stripeBtn.innerHTML;
-          stripeBtn.onclick = async function () {
-            if (!pendingOrderId) {
-              showToast('❌',
-                currentLang === 'en' ? 'Order not created yet.' : 'Orden no creada.',
-                currentLang === 'en' ? 'Submit the order again.' : 'Envía la orden de nuevo.');
-              return;
-            }
-            this.innerHTML = (currentLang === 'en' ? 'Opening...' : 'Abriendo...');
-            this.disabled = true;
-            try {
-              const res = await fetch(CHECKOUT_WORKER + '/create-checkout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: totalCents, items: itemList, origin: window.location.origin, orderId: pendingOrderId })
-              });
-              const data = await res.json();
-              if (data.url) {
-                window.location.href = data.url;
-                return;
-              }
-              throw new Error(data.error || 'No checkout url');
-            } catch (e) {
-              showToast('❌',
-                currentLang === 'en' ? 'Could not start payment.' : 'No se pudo iniciar el pago.',
-                currentLang === 'en' ? String(e.message || e) : String(e.message || e));
-              this.innerHTML = stripeOriginalHTML;
-              this.disabled = false;
-            }
-          };
-        }
+        const section = document.getElementById('payment-section');
+        section.style.display = 'block';
+        gsap.fromTo(section, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+        section.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        async function loadPayPal() {
-          if (window.paypal) { renderPayPal(); return; }
-          let clientId = 'BAAksZjUQv405OGh130edPt8VARpnP-9wmc4lJFm1w572Mvx5pm2pCu7Nsjy3HC2948Fny-rFBIfnAr4qI';
-          try {
-            const r = await fetch(CHECKOUT_WORKER + '/paypal-client-id');
-            const j = await r.json();
-            if (j.clientId) clientId = j.clientId;
-          } catch (e) {}
-          var script = document.createElement('script');
-          script.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(clientId) + '&currency=USD&locale=' + (currentLang === 'es' ? 'es_ES' : 'en_US');
-          script.onload = renderPayPal;
-          document.head.appendChild(script);
-        }
-
-        function renderPayPal() {
-          var container = document.getElementById('paypal-button-container');
-          if (!container) return;
-          try {
-            paypal.Buttons({
-            style: { layout: 'horizontal', color: 'gold', shape: 'pill', label: 'paypal', tagline: false },
-            createOrder: function (_data, actions) {
-              return actions.order.create({
-                purchase_units: [{
-                  amount: { value: totalStr },
-                  custom_id: String(pendingOrderId || ''),
-                  invoice_id: 'MR-' + (pendingOrderId || '0')
-                }]
-              });
-            },
-            onApprove: function (_data, actions) {
-              return actions.order.capture().then(function () {
-                var statusEl = document.getElementById('payment-status');
-                if (statusEl) {
-                  statusEl.textContent =
-                    currentLang === 'en' ? 'Payment successful! Thank you!' : '¡Pago exitoso! ¡Gracias!';
-                  statusEl.style.color = 'var(--color-mid-green)';
-                  statusEl.style.fontWeight = '600';
-                }
-              });
-            },
-            onError: function () {
-              var statusEl = document.getElementById('payment-status');
-              if (statusEl) statusEl.textContent =
-                currentLang === 'en' ? 'Payment failed. Please try again.' : 'Pago fallido. Intenta de nuevo.';
-            }
-          }).render('#paypal-button-container');
-          } catch (e) {
-            container.textContent =
-              currentLang === 'en' ? 'Venmo/PayPal could not load.' : 'Venmo/PayPal no se pudo cargar.';
-          }
-        }
-
-        loadPayPal();
-
-        var conf = document.getElementById('confirmation');
-        if (conf) {
-          conf.style.display = 'block';
-          gsap.fromTo(conf, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
-          conf.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        try { document.getElementById('step-2').classList.replace('active', 'done'); } catch(e) {}
-        try { document.getElementById('step-3').classList.add('done'); } catch(e) {}
-        try { document.getElementById('connector-2').classList.add('done'); } catch(e) {}
+        initPayment();
       })
       .catch(() => {
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
         showToast('❌',
-          currentLang === 'en' ? 'Could not send. Please try again.' : 'No se pudo enviar. Intenta de nuevo.',
+          currentLang === 'en' ? 'Could not create order. Please try again.' : 'No se pudo crear el pedido. Intenta de nuevo.',
           currentLang === 'en' ? 'Check your connection.' : 'Revisa tu conexión.'
         );
       });
@@ -1758,16 +1980,41 @@
     // Init language & render cart on load
     (function initLang() {
       applyLangToDOM(currentLang);
-      renderCart(); // always render the empty state on load
+      renderCart();
 
-      if (window.location.search.includes('paid=true')) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const confirmingId = urlParams.get('confirming');
+      const paidParam = urlParams.get('paid');
+
+      if (confirmingId) {
+        pendingOrderId = Number(confirmingId);
+        document.getElementById('order-form-el').style.display = 'none';
+        const paySection = document.getElementById('payment-section');
+        if (paySection) paySection.style.display = 'none';
+        updateSteps(4);
+        const conf = document.getElementById('confirmation');
+        if (conf) {
+          conf.style.display = 'block';
+          const details = document.getElementById('confirmation-details');
+          if (details) {
+            details.innerHTML = '<p style="margin:16px 0;">' +
+              (currentLang === 'en' ? 'Your payment was successful! You will receive a confirmation email shortly.' :
+               '¡Tu pago fue exitoso! Recibirás un correo de confirmación en breve.') + '</p>';
+          }
+          gsap.fromTo(conf, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+          conf.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        history.replaceState({}, '', window.location.pathname);
+      } else if (paidParam === 'true') {
         cart.length = 0;
         refreshTileStates();
         renderCart();
-        updateSteps(false);
+        updateSteps(1);
         var banner = document.getElementById('success-banner');
-        banner.style.display = 'block';
-        gsap.fromTo(banner, { autoAlpha: 0, y: -20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+        if (banner) {
+          banner.style.display = 'block';
+          gsap.fromTo(banner, { autoAlpha: 0, y: -20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+        }
         history.replaceState({}, '', window.location.pathname);
       }
     })();

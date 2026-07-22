@@ -4,45 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Muy Rico — Authentic Mexican Bakery | Holland, MI</title>
-  <meta name="description" content="Muy Rico is an authentic Mexican bakery in Holland, Michigan, bringing traditional sweet bread, tortillas, cookies, and bolillos made with family love." />
+  <meta name="description" content="Muy Rico is a family-run Mexican home bakery in Holland, Michigan — conchas, flour tortillas, cookies, and custom cakes baked to order with family love." />
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Muy Rico — Authentic Mexican Bakery | Holland, MI" />
-  <meta property="og:description" content="Traditional sweet bread, homemade flour tortillas, cookies, and bolillos made with passion and heritage in Holland, Michigan." />
-  <meta property="og:image" content="IMG_0264.webp" />
+  <meta property="og:description" content="Conchas, homemade flour tortillas, cookies, and custom cakes baked to order in Holland, Michigan." />
+  <meta property="og:image" content="hero-conchas.webp" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Muy Rico — Authentic Mexican Bakery" />
-  <meta property="twitter:description" content="Traditional sweet bread, tortillas, cookies, and bolillos made with family love in Holland, Michigan." />
-  <meta property="twitter:image" content="IMG_0264.webp" />
+  <meta property="twitter:description" content="Conchas, tortillas, cookies, and cakes baked to order with family love in Holland, Michigan." />
+  <meta property="twitter:image" content="hero-conchas.webp" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍞</text></svg>" />
+  <!-- Favicon: MR monogram -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
 
-  <!-- Preload LCP Hero Background Image -->
-  <link rel="preload" href="IMG_0264.webp" as="image" fetchpriority="high" />
+  <!-- Preload LCP hero image -->
+  <link rel="preload" href="hero-conchas.webp" as="image" fetchpriority="high" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 <body>
 
-
   <!-- Mobile Header (shows at ≤820px) -->
   <header class="mobile-header" id="mobile-header" style="display:none;">
     <div class="mobile-brand">
       <a href="index.html" aria-label="Muy Rico Home">
-        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="110" height="40" loading="eager"/>
+        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="104" height="38" loading="eager"/>
       </a>
     </div>
     <div class="mobile-actions">
-      <a href="order.html" class="mobile-order-btn" id="mobile-order-btn-home">
+      <a href="order.html" class="mobile-order-btn">
         <span class="lang-fade" data-es="Ordenar" data-en="Order">Order</span>
       </a>
       <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">
@@ -56,485 +56,429 @@
       <a href="index.html" class="active" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
       <a href="order.html" data-es="Ordenar" data-en="Order">Order</a>
       <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+      <a href="#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
     </div>
     <div class="mobile-nav-bottom">
       <div class="mobile-lang-switch" role="tablist" aria-label="Select language">
         <button onclick="setLang('es')" role="tab" aria-selected="true" id="mobile-btn-es">ES</button>
         <button onclick="setLang('en')" role="tab" aria-selected="false" id="mobile-btn-en">EN</button>
       </div>
-      <a href="/admin/" class="owner-login-link" id="mobile-owner-link-home" aria-label="Owner dashboard login">
+      <a href="/admin/" class="owner-login-link" aria-label="Owner dashboard login">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
       </a>
     </div>
   </div>
 
-  <div class="site-shell">
-    <aside class="sidebar">
+  <!-- Masthead (desktop) -->
+  <header class="masthead">
+    <a href="index.html" class="masthead-brand" aria-label="Muy Rico Home">
+      <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="132" height="48" loading="eager"/>
+      <span data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
+    </a>
+    <nav class="masthead-nav" aria-label="Primary">
+      <a href="index.html" class="active" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+      <a href="order.html" data-es="Menú" data-en="Menu">Menu</a>
+      <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+      <a href="#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+    </nav>
+    <div class="masthead-actions">
+      <div class="lang-switch" role="tablist" aria-label="Select language">
+        <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
+        <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
+      </div>
+      <a href="order.html" class="btn btn-forest masthead-order"><span class="lang-fade" data-es="Ordena en Línea" data-en="Order Online">Order Online</span></a>
+    </div>
+  </header>
 
-      <div class="sidebar-brand">
-        <a href="index.html" class="brand-link" aria-label="Muy Rico">
-          <img class="brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="170" height="60" loading="eager"/>
-          <span class="brand-line2" data-es="hecho con amor" data-en="made with love">hecho con amor</span>
-        </a>
-        <span class="brand-tagline" data-es="Holland, Michigan" data-en="Holland, Michigan">Holland, Michigan</span>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-group-label" data-es="Navegar" data-en="Navigate">Navegar</div>
-        <div class="section-list">
-          <a href="index.html" class="section-link active" data-es="Nuestra Casa" data-en="Our Home">Nuestra Casa</a>
-          <a href="order.html" class="section-link" data-es="Ordenar" data-en="Order">Ordenar</a>
-        </div>
-        <div class="nav-group-label" style="margin-top:0.8rem;" data-es="Explorar" data-en="Explore">Explorar</div>
-        <div class="section-list">
-          <a href="gallery.html" class="section-link" data-es="Galería" data-en="Gallery">Galería</a>
-        </div>
-      </nav>
-      <div style="margin-top:auto;">
-        <div class="lang-switch" role="tablist" aria-label="Select language">
-          <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
-          <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
-        </div>
-      </div>
-      <div class="cookie-card">
-        <p class="cookie-text" data-es="Operamos bajo la Michigan Cottage Food Law. Todos los productos son hechos en casa con amor."
-           data-en="We operate under the Michigan Cottage Food Law. All products are homemade with love.">
-          Operamos bajo la Michigan Cottage Food Law. Todos los productos son hechos en casa con amor.
+  <main class="main-content">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <img class="engraving hero-engraving" src="decor_monstera.svg" alt="" aria-hidden="true"/>
+      <div class="hero-copy">
+        <p class="eyebrow hero-anim"><span class="lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Family · Tradition · Flavor</span></p>
+        <h1 class="hero-title hero-anim hero-title--welcome">
+          <span class="hero-welcome lang-fade"
+                data-es="Bienvenidos <em class='es-italic'>a</em>"
+                data-en="Welcome <em class='es-italic'>to</em>">Welcome <em class="es-italic">to</em></span>
+          <img class="hero-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="420" height="229" loading="eager"/>
+        </h1>
+        <p class="hero-subhero hero-anim lang-fade"
+           data-es="Somos una familia hermosamente unida, con la meta de enseñar a nuestros hijos a perseguir sus sueños, trabajar duro por sus metas y nunca olvidar su cultura y sus raíces."
+           data-en="We are a beautifully blended family, with the goal of teaching our children to chase their dreams, work hard for their goals, and never forget their culture and roots.">
+          We are a beautifully blended family, with the goal of teaching our children to chase their dreams, work hard for their goals, and never forget their culture and roots.
         </p>
-        <div class="cookie-actions">
-          <a href="order.html" class="btn btn-coral btn-lg" style="font-size:0.75rem;padding:0.5rem 1rem;" data-es="Ver Menú" data-en="View Menu">Ver Menú</a>
+        <p class="hero-sub hero-anim lang-fade"
+           data-es="Un pedacito de México y del Caribe, aquí en Holland, Michigan."
+           data-en="A little piece of Mexico and the Caribbean, here in Holland, Michigan.">
+          A little piece of Mexico and the Caribbean, here in Holland, Michigan.
+        </p>
+        <div class="hero-ctas hero-anim">
+          <a href="order.html" class="btn btn-forest btn-xl"><span class="lang-fade" data-es="Hacer un Pedido" data-en="Place an Order">Place an Order</span></a>
+          <a href="#story" class="link-arrow"><span class="lang-fade" data-es="Nuestra Historia" data-en="Our Story">Our Story</span> ↓</a>
         </div>
-        <a href="/admin/" class="owner-login-link" id="owner-dashboard-link-home" aria-label="Owner dashboard login">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <div class="hero-proof hero-anim">
+          <span class="lang-fade" data-es="Panadería Familiar" data-en="Home Bakery">Home Bakery</span>
+          <span class="lang-fade" data-es="Hecho a la Orden" data-en="Baked to Order">Baked to Order</span>
+          <span>Holland, MI</span>
+        </div>
+      </div>
+      <figure class="hero-photo hero-anim">
+        <img class="hero-photo-img" id="hero-img" src="hero-conchas.webp" alt="Conchas de vainilla y chocolate recién horneadas sobre una rejilla" width="680" height="850" fetchpriority="high"/>
+        <figcaption class="hero-photo-caption lang-fade"
+                    data-es="Conchas — vainilla y chocolate, recién salidas del horno"
+                    data-en="Conchas — vanilla &amp; chocolate, fresh from the oven">Conchas — vanilla &amp; chocolate, fresh from the oven</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============ DEL HORNO / MENU PREVIEW ============ -->
+    <section class="section section--deep hairline-top" id="menu-preview">
+      <div class="section-inner">
+        <div class="section-head reveal">
+          <p class="eyebrow"><span class="lang-fade" data-es="Nuestro Menú" data-en="Our Menu">Our Menu</span></p>
+          <h2 class="section-title">
+            <span class="es-italic lang-fade" data-es="Del Horno" data-en="From the Oven">From the Oven</span>
+            <span class="title-sibling lang-fade" data-es="From the Oven" data-en="Del Horno">Del Horno</span>
+          </h2>
+          <p class="section-intro lang-fade"
+             data-es="Los favoritos de la familia — horneados a la orden cada semana."
+             data-en="Family favorites — baked to order every week.">Family favorites — baked to order every week.</p>
+        </div>
+        <div class="oven-strip reveal" id="oven-strip">
+          <!-- Baked-in defaults; replaced by featured products from /api/products when available -->
+          <a class="oven-card" href="order.html#tile-prod_conchas">
+            <div class="frame"><img class="frame-img" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
+            <div class="oven-card-meta">
+              <h3 class="oven-card-name">Conchas</h3>
+              <span class="oven-card-price">$4</span>
+            </div>
+            <p class="oven-card-desc lang-fade" data-es="Vainilla, chocolate y fresa" data-en="Vanilla, chocolate &amp; fresa">Vanilla, chocolate &amp; fresa</p>
+          </a>
+          <a class="oven-card" href="order.html#tile-prod_cookie">
+            <div class="frame"><img class="frame-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
+            <div class="oven-card-meta">
+              <h3 class="oven-card-name lang-fade" data-es="Galletas de Chispas" data-en="Chocolate Chip Cookie">Chocolate Chip Cookie</h3>
+              <span class="oven-card-price">$4</span>
+            </div>
+            <p class="oven-card-desc lang-fade" data-es="Suaves, recién horneadas" data-en="Soft-baked, made fresh">Soft-baked, made fresh</p>
+          </a>
+          <a class="oven-card" href="order.html#tile-prod_empanadas">
+            <div class="frame"><img class="frame-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
+            <div class="oven-card-meta">
+              <h3 class="oven-card-name">Empanadas</h3>
+              <span class="oven-card-price">$3</span>
+            </div>
+            <p class="oven-card-desc lang-fade" data-es="Doradas y rellenas a mano" data-en="Golden, filled by hand">Golden, filled by hand</p>
+          </a>
+          <a class="oven-card" href="order.html#tile-prod_custom_cake">
+            <div class="frame"><img class="frame-img" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
+            <div class="oven-card-meta">
+              <h3 class="oven-card-name lang-fade" data-es="Pastel Personalizado" data-en="Custom Cake">Custom Cake</h3>
+              <span class="oven-card-price">$60</span>
+            </div>
+            <p class="oven-card-desc lang-fade" data-es="Para tus momentos grandes" data-en="For your biggest moments">For your biggest moments</p>
+          </a>
+        </div>
+        <div class="oven-cta reveal">
+          <a href="order.html" class="link-arrow"><span class="lang-fade" data-es="Ver el Menú Completo" data-en="See the Full Menu">See the Full Menu</span> →</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OUR STORY ============ -->
+    <section class="section hairline-top" id="story">
+      <div class="section-inner">
+        <div class="story-grid">
+          <figure class="story-photo reveal">
+            <img class="story-photo-img" id="story-img" src="story-rebecca-jeff.webp" alt="Rebecca y Jeffery García con la bandera de Puerto Rico y México" loading="lazy"/>
+            <figcaption class="story-photo-caption lang-fade"
+                        data-es="Rebecca y Jeffery — Holland, Michigan"
+                        data-en="Rebecca &amp; Jeffery — Holland, Michigan">Rebecca &amp; Jeffery — Holland, Michigan</figcaption>
+          </figure>
+          <div class="story-copy reveal">
+            <p class="eyebrow"><span class="lang-fade" data-es="Nuestra Historia" data-en="Our Story">Our Story</span></p>
+            <h2 class="section-title">
+              <span class="es-italic lang-fade" data-es="De Nuestro Horno a Tu Mesa" data-en="From Our Kitchen to Yours">From Our Kitchen to Yours</span>
+              <span class="title-sibling lang-fade" data-es="From Our Kitchen to Yours" data-en="De Nuestro Horno a Tu Mesa">De Nuestro Horno a Tu Mesa</span>
+            </h2>
+            <p class="lang-fade"
+               data-es="Muy Rico nació de un pasatiempo sencillo que creció hasta volverse algo mucho más grande. Soy <strong>Rebecca Garcia</strong>, dueña y panadera principal, y junto a mi esposo <strong>Jeffery Garcia</strong> y nuestros cinco hijos — Bailey, Jasmine, Emily, Aurora y Caspian — ponemos nuestro corazón en cada receta que creamos."
+               data-en="Muy Rico was born from a simple hobby that grew into something much bigger. I'm <strong>Rebecca Garcia</strong>, the owner and head baker. Alongside my husband, <strong>Jeffery Garcia</strong>, and our five children — Bailey, Jasmine, Emily, Aurora, and Caspian — we pour our hearts into every recipe we create.">Muy Rico was born from a simple hobby that grew into something much bigger. I'm <strong>Rebecca Garcia</strong>, the owner and head baker. Alongside my husband, <strong>Jeffery Garcia</strong>, and our five children — Bailey, Jasmine, Emily, Aurora, and Caspian — we pour our hearts into every recipe we create.</p>
+
+            <div class="story-chapter">
+              <span class="story-chapter-tag lang-fade" data-es="Las Metas de Nuestra Familia" data-en="Our Family Goals">Our Family Goals</span>
+              <p class="lang-fade"
+                 data-es="Aquí en Muy Rico, hornear es cosa de familia. Nuestros hijos son nuestros mejores probadores y los críticos más exigentes (¡y no lo cambiaríamos por nada!). Los fines de semana son nuestro momento favorito — cuando toda la familia se reúne en la cocina para experimentar con nuevas recetas, ajustar los clásicos y encontrar ese sabor perfecto que hace que todos digan: <strong>«¡Muy Rico!»</strong>"
+                 data-en="Here at Muy Rico, baking is a family thing. Our kids are our biggest taste-testers and toughest critics (and we wouldn't have it any other way!). Weekends are our favorite time of the week — that's when the whole family gathers in the kitchen to experiment with new recipes, tweak the classics, and find that perfect flavor that makes everyone say, <strong>“¡Muy Rico!”</strong>">Here at Muy Rico, baking is a family thing. Our kids are our biggest taste-testers and toughest critics (and we wouldn't have it any other way!). Weekends are our favorite time of the week — that's when the whole family gathers in the kitchen to experiment with new recipes, tweak the classics, and find that perfect flavor that makes everyone say, <strong>“¡Muy Rico!”</strong></p>
+            </div>
+
+            <blockquote class="story-quote lang-fade"
+               data-es="«La práctica hace el progreso. Simplemente no fracasas: te caes y te levantas para intentarlo de nuevo.»"
+               data-en="“Practice makes progress. You simply do not fail — you fall and you get up and try again.”">“Practice makes progress. You simply do not fail — you fall and you get up and try again.”</blockquote>
+
+            <div class="story-chapter">
+              <span class="story-chapter-tag lang-fade" data-es="Con Sabor Latino y Corazón" data-en="With Latino Pride">With Latino Pride</span>
+              <p class="lang-fade"
+                 data-es="Aquí en Muy Rico estamos muy orgullosos de nuestra herencia latina. Nos encanta llevar un toque de calidez y sabor latino a cada mordida — desde panes suaves y dorados hasta galletas y postres que todos pueden disfrutar. Queremos que cada receta lleve un pedacito de amor y pasión por quienes somos."
+                 data-en="Here at Muy Rico we are so proud of our Latino heritage. We love bringing a touch of Latin warmth and flavor to every bite — from soft golden breads to cookies and treats everyone can enjoy. We aim for every recipe to carry a piece of love and passion for who we are.">Here at Muy Rico we are so proud of our Latino heritage. We love bringing a touch of Latin warmth and flavor to every bite — from soft golden breads to cookies and treats everyone can enjoy. We aim for every recipe to carry a piece of love and passion for who we are.</p>
+            </div>
+
+            <div class="story-chapter">
+              <span class="story-chapter-tag lang-fade" data-es="Más que una Panadería" data-en="More Than a Bakery">More Than a Bakery</span>
+              <p class="lang-fade"
+                 data-es="Muy Rico no es solo pan y galletas deliciosos — se trata de reunir a la gente. Somos un negocio joven (¡menos de un año!) pero ya nos estamos enamorando de esta comunidad que nos ha recibido con los brazos abiertos. Ya sea que pases por un pan por la mañana o pidas para recoger en una ocasión especial, recuerda que cada mordida está hecha con cuidado, de nuestra familia, para la tuya."
+                 data-en="Muy Rico isn't just about delicious bread and cookies — it's about bringing people together. We are a young business (less than a year old!), but we're already falling in love with this community that has welcomed us with open arms. Whether you stop by for a morning baked good or you are ordering to pick up for a special occasion, know that every bite is made with care, from our family, to yours.">Muy Rico isn't just about delicious bread and cookies — it's about bringing people together. We are a young business (less than a year old!), but we're already falling in love with this community that has welcomed us with open arms. Whether you stop by for a morning baked good or you are ordering to pick up for a special occasion, know that every bite is made with care, from our family, to yours.</p>
+            </div>
+
+            <p class="story-sign lang-fade"
+               data-es="De nuestro horno a tu mesa — ¡Buen provecho! — Rebecca, Jeffery y toda la familia de Muy Rico 💛"
+               data-en="From our kitchen to yours — ¡Buen provecho! — Rebecca, Jeffery, and the whole Muy Rico family!">From our kitchen to yours — ¡Buen provecho! — Rebecca, Jeffery, and the whole Muy Rico family!</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VALUES ============ -->
+    <section class="section section--deep hairline-top">
+      <div class="section-inner">
+        <div class="section-head reveal">
+          <p class="eyebrow"><span class="lang-fade" data-es="Pasión &amp; Comunidad" data-en="Passion &amp; Community">Passion &amp; Community</span></p>
+          <h2 class="section-title">
+            <span class="es-italic lang-fade" data-es="Con alma en la masa" data-en="Soul in every dough">Soul in every dough</span>
+            <span class="title-sibling lang-fade" data-es="Soul in every dough" data-en="Con alma en la masa">Con alma en la masa</span>
+          </h2>
+        </div>
+        <div class="values-grid reveal">
+          <div class="value-item">
+            <span class="value-item-tag lang-fade" data-es="Nuestro Compromiso" data-en="Our Commitment">Our Commitment</span>
+              <h3 class="value-item-title lang-fade" data-es="Amasado con paciencia" data-en="Kneaded with patience">Kneaded with patience</h3>
+              <p class="value-item-body lang-fade"
+                 data-es="Cada concha reposa el tiempo exacto. Cada masa se trabaja a mano. No hay atajos — solo el proceso lento y cuidadoso que hace que cada bocado valga la pena."
+                 data-en="Every concha rests for exactly the right time. Every dough is worked by hand. There are no shortcuts — just the slow, careful process that makes every bite worth it.">Every concha rests for exactly the right time. Every dough is worked by hand. There are no shortcuts — just the slow, careful process that makes every bite worth it.</p>
+          </div>
+          <div class="value-item">
+              <span class="value-item-tag lang-fade" data-es="Nuestra Comunidad" data-en="Our Community">Our Community</span>
+              <h3 class="value-item-title lang-fade" data-es="Sabor que reúne" data-en="Flavor that gathers">Flavor that gathers</h3>
+              <p class="value-item-body lang-fade"
+                 data-es="Tu apoyo nos permite compartir nuestro amor por el sabor latino con vecinos, amigos y familias de todo Holland — desde cumpleaños y bodas hasta los momentos del día a día que nos reúnen a todos."
+                 data-en="Your support lets us share our love for Latin flavor with neighbors, friends, and families across Holland — from birthdays and weddings to everyday moments that bring everyone together.">Your support lets us share our love for Latin flavor with neighbors, friends, and families across Holland — from birthdays and weddings to everyday moments that bring everyone together.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TESTIMONIALS (hidden until real reviews are published in the dashboard) ============ -->
+    <section class="section hairline-top" id="testimonials" hidden>
+      <div class="section-inner">
+        <div class="section-head section-head--center reveal">
+          <p class="eyebrow eyebrow--center"><span class="lang-fade" data-es="Lo Que Dicen" data-en="Kind Words">Kind Words</span></p>
+          <h2 class="section-title">
+            <span class="es-italic lang-fade" data-es="De nuestra mesa a la suya" data-en="From our table to yours">From our table to yours</span>
+            <span class="title-sibling lang-fade" data-es="From our table to yours" data-en="De nuestra mesa a la suya">De nuestra mesa a la suya</span>
+          </h2>
+        </div>
+        <div class="testimonials-grid reveal" id="testimonials-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============ VISIT / LOCATION & HOURS ============ -->
+    <section class="section section--deep hairline-top" id="visit">
+      <div class="section-inner">
+        <div class="visit-grid">
+          <div class="reveal">
+            <p class="eyebrow"><span class="lang-fade" data-es="Contáctanos" data-en="Contact Us">Contact Us</span></p>
+            <h2 class="section-title">
+              <span class="es-italic lang-fade" data-es="Holland, nuestro hogar" data-en="Holland, our home">Holland, our home</span>
+              <span class="title-sibling lang-fade" data-es="Holland, our home" data-en="Holland, nuestro hogar">Holland, nuestro hogar</span>
+            </h2>
+            <dl class="visit-list" style="margin-top:1.8rem;">
+              <div class="visit-row">
+                <dt class="lang-fade" data-es="Horario" data-en="Hours">Hours</dt>
+                <dd class="lang-fade" data-site-key="visit_hours"
+                    data-es="Aceptamos pedidos a cualquier hora del día — <em>24/7</em>. Horneamos todo fresco, así que coordinamos contigo el mejor momento para tu recogida."
+                    data-en="We accept orders any time of day — <em>24/7</em>. We bake everything fresh, so we'll work with you to find the perfect pickup time.">We accept orders any time of day — <em>24/7</em>. We bake everything fresh, so we'll work with you to find the perfect pickup time.</dd>
+              </div>
+              <div class="visit-row">
+                <dt class="lang-fade" data-es="Pedidos" data-en="Ordering">Ordering</dt>
+                <dd class="lang-fade" data-site-key="visit_ordering"
+                    data-es="Pan y tortillas: danos al menos <em>24–48 horas</em> de aviso. Pasteles: <em>2–5 días</em> para algo especial."
+                    data-en="Bread &amp; tortillas: just give us <em>24–48 hours</em> heads up. Cakes: <em>2–5 days</em> for something special.">Bread &amp; tortillas: just give us <em>24–48 hours</em> heads up. Cakes: <em>2–5 days</em> for something special.</dd>
+              </div>
+              <div class="visit-row">
+                <dt class="lang-fade" data-es="Recogida" data-en="Pickup">Pickup</dt>
+                <dd class="lang-fade" data-site-key="visit_pickup"
+                    data-es="Coordinamos un punto de encuentro cómodo en Holland — ¡te lo compartimos al confirmar tu pedido!"
+                    data-en="We'll coordinate a convenient pickup spot in Holland for you — shared once your order is confirmed!">We'll coordinate a convenient pickup spot in Holland for you — shared once your order is confirmed!</dd>
+              </div>
+              <div class="visit-row">
+                <dt class="lang-fade" data-es="Contacto" data-en="Contact">Contact</dt>
+                <dd class="lang-fade" data-site-key="visit_contact"
+                    data-es="<a href='tel:+16162183582'>(616) 218-3582</a> · <a href='https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr' target='_blank' rel='noopener'>Facebook</a> · <a href='mailto:bexgarcia0208@gmail.com'>bexgarcia0208@gmail.com</a>"
+                    data-en="<a href='tel:+16162183582'>(616) 218-3582</a> · <a href='https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr' target='_blank' rel='noopener'>Facebook</a> · <a href='mailto:bexgarcia0208@gmail.com'>bexgarcia0208@gmail.com</a>"><a href="tel:+16162183582">(616) 218-3582</a> · <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener">Facebook</a> · <a href="mailto:bexgarcia0208@gmail.com">bexgarcia0208@gmail.com</a></dd>
+              </div>
+            </dl>
+          </div>
+          <div class="visit-map reveal">
+            <div class="frame">
+              <iframe title="Muy Rico service area — Holland, Michigan"
+                      src="https://www.google.com/maps?q=Holland,+Michigan,+USA&z=12&output=embed"
+                      loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+              <figcaption class="frame-caption lang-fade"
+                          data-es="Sirviendo Holland y alrededores"
+                          data-en="Serving Holland &amp; the surrounding area">Serving Holland &amp; the surrounding area</figcaption>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COTTAGE FOOD LAW ============ -->
+    <section class="section hairline-top" id="cottage-laws">
+      <div class="section-inner cottage-inner">
+        <div class="section-head reveal">
+          <p class="eyebrow"><span>Michigan Cottage Food Law</span></p>
+          <h2 class="section-title">
+            <span class="es-italic lang-fade" data-es="Cocina casera, con confianza" data-en="A home kitchen you can trust">A home kitchen you can trust</span>
+            <span class="title-sibling lang-fade" data-es="A home kitchen you can trust" data-en="Cocina casera, con confianza">Cocina casera, con confianza</span>
+          </h2>
+        </div>
+        <div class="cottage-block reveal">
+          <div class="cottage-kicker">
+            <h3 class="lang-fade" data-es="¿Qué significa?" data-en="What does it mean?">What does it mean?</h3>
+            <span class="lang-fade" data-es="Activo" data-en="Active">Active</span>
+          </div>
+          <p class="lang-fade"
+             data-es="Cada bocado sale de la cocina de nuestra familia — no de una fábrica ni de un almacén. Bajo la Michigan Cottage Food Law, estamos orgullosos de hornear todo aquí en Holland y llevarlo directo a ti. Sin intermediarios, sin producción en masa — solo una familia poniendo amor en cada receta."
+             data-en="Every bite comes from our family's home kitchen — not a factory, not a warehouse. Under Michigan's Cottage Food Law, we're proud to bake everything right here in Holland and bring it straight to you. No middlemen, no mass production — just a family putting love into every recipe.">Every bite comes from our family's home kitchen — not a factory, not a warehouse. Under Michigan's Cottage Food Law, we're proud to bake everything right here in Holland and bring it straight to you. No middlemen, no mass production — just a family putting love into every recipe.</p>
+        </div>
+        <div class="cottage-block reveal">
+          <div class="cottage-kicker">
+            <h3 class="lang-fade" data-es="Cómo ordenar" data-en="How to order">How to order</h3>
+            <span class="lang-fade" data-es="Directo a ti" data-en="Direct to you">Direct to you</span>
+          </div>
+          <p class="lang-fade"
+             data-es="Vendemos directamente a nuestros vecinos: pedidos en línea, recogida local y entrega dentro de Michigan. Cada pedido va directo de nuestro horno a tu mesa."
+             data-en="We sell directly to our neighbors — online ordering, local pickup, and delivery within Michigan. Every order goes straight to your table.">We sell directly to our neighbors — online ordering, local pickup, and delivery within Michigan. Every order goes straight to your table.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CTA BAND ============ -->
+    <section class="cta-band">
+      <img class="engraving" src="decor_monstera.svg" alt="" aria-hidden="true" style="width:180px;top:-30px;left:-40px;transform:rotate(-15deg);"/>
+      <img class="engraving" src="decor_monstera.svg" alt="" aria-hidden="true" style="width:150px;bottom:-40px;right:-30px;transform:rotate(140deg);"/>
+      <p class="eyebrow cta-band-eyebrow"><span class="lang-fade" data-es="¿Antojo de algo rico?" data-en="Craving something rico?">Craving something rico?</span></p>
+        <h2 class="cta-band-title lang-fade"
+          data-es="Horneado <em class='es-italic'>a la orden</em>, solo para ti."
+          data-en="Made <em class='es-italic'>fresh</em>, just for you.">Made <em class="es-italic">fresh</em>, just for you.</h2>
+      <p class="cta-band-sub lang-fade"
+         data-es="Elige tus favoritos del menú — ¡nosotros nos encargamos del resto!"
+         data-en="Pick your favorites from the menu — we'll handle the rest!">Pick your favorites from the menu — we'll handle the rest!</p>
+      <div class="cta-band-ctas">
+        <a href="order.html" class="btn btn-forest btn-xl"><span class="lang-fade" data-es="Ordena en Línea" data-en="Order Online">Order Online</span></a>
+        <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" class="btn btn-ghost btn-xl">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          <span class="lang-fade" data-es="Síguenos" data-en="Follow Us">Follow Us</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="site-footer">
+      <span class="footer-mark" aria-hidden="true">MR</span>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+        <a href="order.html" data-es="Menú" data-en="Menu">Menu</a>
+        <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+        <a href="#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+      </nav>
+      <div class="footer-connect">
+        <div class="footer-accept">
+          <span class="footer-accept-label lang-fade" data-es="Aceptamos" data-en="We Accept">We Accept</span>
+          <div class="pay-chips">
+            <span class="pay-chip">VISA</span>
+            <span class="pay-chip">Mastercard</span>
+            <span class="pay-chip">Apple Pay</span>
+            <span class="pay-chip">Cash App</span>
+            <span class="pay-chip">PayPal</span>
+            <span class="pay-chip">Venmo</span>
+          </div>
+        </div>
+        <div class="footer-social">
+          <span class="footer-accept-label lang-fade" data-es="Síguenos" data-en="Follow Us">Follow Us</span>
+          <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </a>
+        </div>
+      </div>
+      <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Made with love.</p>
+      <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Family · Tradition · Flavor</span>
+      <div>
+        <a href="/admin/" class="owner-login-link footer-owner-link" aria-label="Owner dashboard login">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
         </a>
       </div>
-    </aside>
-
-    <main class="main-content">
-      <section class="hero-section">
-        <div class="hero-eyebrow">
-          <div class="eyebrow-line"></div>
-          <span class="eyebrow-text lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Familia · Tradición · Sabor</span>
-          <div class="eyebrow-line" style="background:linear-gradient(to left, var(--color-accent-coral), transparent);"></div>
-        </div>
-        <h1 class="hero-headline">
-          <span class="hero-headline-top lang-fade" data-es="Bienvenidos" data-en="Welcome">Bienvenidos</span>
-          <span class="hero-headline-mid lang-fade" data-es="a" data-en="to" style="color:#ec524a;opacity: 1;">a</span>
-
-
-          <img class="hero-muy-rico-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="800" height="180" loading="eager"/>
-        </h1>
-        <svg class="hero-divider" viewBox="0 0 180 24" fill="none" aria-hidden="true"><path d="M0 12 Q45 0 90 12 T180 12" stroke="var(--color-accent-coral)" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="90" cy="12" r="4" fill="var(--color-bright-hibiscus)"/></svg>
-         <p class="hero-subheadline lang-fade"
-            data-es="Somos una familia hermosamente unida, con la meta de enseñar a nuestros hijos a perseguir sus sueños, trabajar duro por sus metas y nunca olvidar su cultura y sus raíces."
-            data-en="We are a beautifully blended family, with the goal of teaching our children to chase their dreams, work hard for their goals, and never forget their culture and roots.">
-            Somos una familia hermosamente unida, con la meta de enseñar a nuestros hijos a perseguir sus sueños, trabajar duro por sus metas y nunca olvidar su cultura y sus raíces.
-         </p>
-
-        <p class="hero-description lang-fade"
-           data-es="Un pedacito de México y del Caribe, aquí en Holland, Michigan."
-           data-en="A little piece of Mexico and the Caribbean, here in Holland, Michigan.">
-           Un pedacito de México y del Caribe, aquí en Holland, Michigan.
-        </p>
-
-        <div class="hero-ctas">
-          <a href="order.html" class="btn btn-coral btn-xl"><span class="lang-fade" data-es="Hacer un Pedido" data-en="Place an Order">Hacer un Pedido</span></a>
-          <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" class="btn btn-follow btn-xl">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-            <span class="lang-fade" data-es="Síguenos" data-en="Follow Us">Síguenos</span>
-          </a>
-        </div>
-        <a href="#story" class="hero-scroll-hint">
-          <span class="lang-fade" data-es="Desplázate para conocernos" data-en="Scroll to meet us">Desplázate para conocernos</span>
-          <svg class="scroll-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-        </a>
-      </section>
-
-      <div class="wave-divider">
-        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 0 720 40 T1440 40 V80 H0Z" fill="rgba(212,237,218,0.18)"/></svg>
-      </div>
-
-      <section class="featured-section" id="story">
-        <div class="section-label-row">
-          <span class="section-label lang-fade" data-es="Nuestra Historia" data-en="Our Story">Nuestra Historia</span>
-          <div class="section-rule"></div>
-        </div>
-        <div class="featured-grid reveal">
-          <div class="product-visual-wrapper story-photo">
-            <div class="product-display" id="story-display" aria-hidden="false">
-              <img
-                class="story-photo-img"
-                src="DSC_0095.jpg"
-                alt="Rebecca y Jeff"
-                loading="lazy"
-              />
-            </div>
-          </div>
-          <div class="product-copy">
-            <span class="product-category-pill lang-fade" data-es="De Nuestro Horno a Tu Mesa" data-en="From Our Kitchen to Yours">De Nuestro Horno a Tu Mesa</span>
-            <h2 class="product-name lang-fade" data-es="De Nuestro Horno a Tu Mesa" data-en="From Our Kitchen to Yours">From Our Kitchen to Yours</h2>
-
-            <p class="product-description lang-fade"
-               data-es="Muy Rico nació de un pasatiempo sencillo que creció hasta volverse algo mucho más grande. Soy Rebecca Garcia, dueña y panadera principal, y junto a mi esposo Jeffery Garcia y nuestros cinco hijos — Bailey, Jasmine, Emily, Aurora y Caspian — ponemos nuestro corazón en cada receta que creamos."
-               data-en="Muy Rico was born from a simple hobby that grew into something much bigger. I'm Rebecca Garcia, the owner and head baker. Alongside my husband, Jeffery Garcia, and our five children — Bailey, Jasmine, Emily, Aurora, and Caspian — we pour our hearts into every recipe we create.">
-              Muy Rico was born from a simple hobby that grew into something much bigger. I'm Rebecca Garcia, the owner and head baker. Alongside my husband, Jeffery Garcia, and our five children — Bailey, Jasmine, Emily, Aurora, and Caspian — we pour our hearts into every recipe we create.
-            </p>
-
-            <h3 class="product-description lang-fade" style="margin-top:0.9rem;"
-                data-es="Las Metas de Nuestra Familia"
-                data-en="Our Family Goals">Our Family Goals</h3>
-            <p class="product-description lang-fade"
-               data-es="Aquí en Muy Rico, hornear es cosa de familia. Nuestros hijos son nuestros mejores probadores y los críticos más exigentes (¡y no lo cambiaríamos por nada!). Los fines de semana son nuestro momento favorito — cuando toda la familia se reúne en la cocina para experimentar con nuevas recetas, ajustar los clásicos y encontrar ese sabor perfecto que hace que todos digan: “¡Muy Rico!”. En la cocina de Muy Rico vivimos bajo el lema “La práctica hace el progreso”. Enseñamos a nuestros hijos que “simplemente no fracasas. Te caes y te levantas para intentarlo de nuevo”."
-               data-en="Here at Muy Rico, baking is a family thing. Our kids are our biggest taste-testers and toughest critics (and we wouldn't have it any other way!). Weekends are our favorite time of the week — that's when the whole family gathers in the kitchen to experiment with new recipes, tweak the classics, and find that perfect flavor that makes everyone say, “¡Muy Rico!”. Here in the Muy Rico kitchen we live by “Practice makes progress.” We aim to teach our children that you “simply do not fail. You fall and you get up and try again.”">
-              Here at Muy Rico, baking is a family thing. Our kids are our biggest taste-testers and toughest critics (and we wouldn't have it any other way!). Weekends are our favorite time of the week — that's when the whole family gathers in the kitchen to experiment with new recipes, tweak the classics, and find that perfect flavor that makes everyone say, “¡Muy Rico!”. Here in the Muy Rico kitchen we live by “Practice makes progress.” We aim to teach our children that you “simply do not fail. You fall and you get up and try again.”
-            </p>
-
-            <h3 class="product-description lang-fade" style="margin-top:0.9rem;"
-                data-es="Con Sabor Latino y Corazón"
-                data-en="With Latino Pride">With Latino Pride</h3>
-            <p class="product-description lang-fade"
-                data-es="Aquí en Muy Rico estamos muy orgullosos de nuestra herencia latina. Nos encanta llevar un toque de calidez y sabor latino a cada mordida — desde panes suaves y dorados hasta galletas y postres que todos pueden disfrutar. Queremos que cada receta lleve un pedacito de amor y pasión por quienes somos."
-               data-en="Here at Muy Rico we are so proud of our Latino heritage. We love bringing a touch of Latin warmth and flavor to every bite — from soft golden breads to cookies and treats everyone can enjoy. We aim for every recipe to carry a piece of love and passion for who we are.">
-              Here at Muy Rico we are so proud of our Latino heritage. We love bringing a touch of Latin warmth and flavor to every bite — from soft golden breads to cookies and treats everyone can enjoy. We aim for every recipe to carry a piece of love and passion for who we are.
-            </p>
-
-
-            <h3 class="product-description lang-fade" style="margin-top:0.9rem;"
-                data-es="Más que una Panadería"
-                data-en="More Than a Bakery">More Than a Bakery</h3>
-            <p class="product-description lang-fade"
-               data-es="Muy Rico no es solo pan y galletas deliciosos — se trata de reunir a la gente. Somos un negocio joven (¡menos de un año!) pero ya nos estamos enamorando de esta comunidad que nos ha recibido con los brazos abiertos. Ya sea que pases por un pan por la mañana o pidas para recoger en una ocasión especial, recuerda que cada mordida está hecha con cuidado, de nuestra familia, para la tuya."
-               data-en="Muy Rico isn't just about delicious bread and cookies — it's about bringing people together. We are a young business (less than a year old!), but we're already falling in love with this community that has welcomed us with open arms. Whether you stop by for a morning baked good or you are ordering to pick up for a special occasion, know that every bite is made with care, from our family, to yours.">
-              Muy Rico isn't just about delicious bread and cookies — it's about bringing people together. We are a young business (less than a year old!), but we're already falling in love with this community that has welcomed us with open arms. Whether you stop by for a morning baked good or you are ordering to pick up for a special occasion, know that every bite is made with care, from our family, to yours.
-            </p>
-
-            <p class="product-description lang-fade"
-               data-es="Gracias por tu paciencia mientras seguimos creando nuestro sitio web. ¡Esperamos poder preparar tus pedidos pronto!"
-               data-en="Thank you for your patience as we continue to build our website. We look forward to preparing your orders!">
-              Thank you for your patience as we continue to build our website. We look forward to preparing your orders!
-            </p>
-
-            <p class="product-description lang-fade"
-               data-es="De Nuestro Horno a Tu Mesa — ¡Buen provecho! — Rebecca, Jeffery y toda la familia de Muy Rico 💛"
-               data-en="From our kitchen to yours — ¡Buen provecho! — Rebecca, Jeffery, and the whole Muy Rico family!">
-
-              From our kitchen to yours — ¡Buen provecho! — Rebecca, Jeffery, and the whole Muy Rico family!
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div class="wave-divider">
-        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 80 720 40 T1440 40 V0 H0Z" fill="rgba(251,203,201,0.2)"/></svg>
-      </div>
-
-      <section class="boutiques-section tropical-passion-section">
-        <!-- Tropical SVG leaf decorations -->
-        <svg class="tropical-leaf tropical-leaf--left" viewBox="0 0 200 320" fill="none" aria-hidden="true">
-          <path d="M100 320 C20 270 0 180 0 90 Q0 0 60 0 T120 90 Q180 0 200 60 T140 200 Q190 280 100 320Z" fill="#1e4636" opacity="0.13"/>
-          <path d="M100 280 C40 240 15 160 20 80 Q30 20 80 30 T130 100 Q160 30 180 70 T140 180 Q170 240 100 280Z" fill="#40916c" opacity="0.09"/>
-        </svg>
-        <svg class="tropical-leaf tropical-leaf--right" viewBox="0 0 200 320" fill="none" aria-hidden="true">
-          <path d="M100 320 C20 270 0 180 0 90 Q0 0 60 0 T120 90 Q180 0 200 60 T140 200 Q190 280 100 320Z" fill="#d93d59" opacity="0.08"/>
-          <path d="M100 280 C40 240 15 160 20 80 Q30 20 80 30 T130 100 Q160 30 180 70 T140 180 Q170 240 100 280Z" fill="#f7a8a4" opacity="0.1"/>
-        </svg>
-
-        <div class="tropical-header reveal">
-          <div class="tropical-eyebrow">
-            <span class="tropical-eyebrow-icon">🌺</span>
-            <span class="tropical-eyebrow-text lang-fade" data-es="Pasión &amp; Comunidad" data-en="Passion &amp; Community">Pasión &amp; Comunidad</span>
-            <span class="tropical-eyebrow-icon">🌺</span>
-          </div>
-          <h2 class="tropical-title lang-fade" data-es="Holland, Nuestro Hogar" data-en="Holland, Our Home">Holland, Nuestro Hogar</h2>
-          <p class="tropical-subtitle lang-fade"
-             data-es="Vivimos y crecemos en Holland, Michigan — siendo parte de cada cumpleaños, boda y domingo en familia de nuestra comunidad."
-             data-en="We live and grow in Holland, Michigan — being part of every birthday, wedding, and family Sunday in our community.">
-            Vivimos y crecemos en Holland, Michigan — siendo parte de cada cumpleaños, boda y domingo en familia de nuestra comunidad.
-          </p>
-        </div>
-
-        <div class="tropical-cards">
-
-          <!-- Card 1: Our Commitment -->
-          <article class="tropical-card tropical-card--green reveal">
-            <div class="tropical-card-bg-art">
-              <svg viewBox="0 0 400 260" fill="none" preserveAspectRatio="xMidYMid slice">
-                <ellipse cx="360" cy="-20" rx="160" ry="140" fill="#40916c" opacity="0.18"/>
-                <ellipse cx="20" cy="240" rx="120" ry="100" fill="#1e4636" opacity="0.14"/>
-                <path d="M380 0 C340 60 310 120 350 200 T380 260" stroke="#74c69d" stroke-width="2" opacity="0.25" fill="none"/>
-                <path d="M0 180 C40 140 80 160 60 220 T0 260" fill="#40916c" opacity="0.1"/>
-              </svg>
-            </div>
-            <div class="tropical-card-inner">
-              <div class="tropical-icon-wrap tropical-icon-wrap--green">
-                <span class="tropical-icon">🌴</span>
-              </div>
-              <div class="tropical-card-tag lang-fade" data-es="NUESTRO COMPROMISO" data-en="OUR COMMITMENT">NUESTRO COMPROMISO</div>
-              <h3 class="tropical-card-title lang-fade" data-es="Con el Alma en la Masa" data-en="Soul in Every Dough">Con el Alma en la Masa</h3>
-              <p class="tropical-card-body lang-fade"
-                 data-es="Amasamos cada pieza con paciencia y amor. Las conchas reposan el tiempo exacto, y cada hornada lleva la dedicación que solo una familia puede dar."
-                 data-en="We knead every piece with patience and love. Our conchas rest for exactly the right time, and every batch carries the dedication only a family can give.">
-                Amasamos cada pieza con paciencia y amor. Las conchas reposan el tiempo exacto, y cada hornada lleva la dedicación que solo una familia puede dar.
-              </p>
-              <div class="tropical-card-flourish">
-                <span>🌿</span><span class="tropical-dash"></span><span>🌺</span><span class="tropical-dash"></span><span>🌿</span>
-              </div>
-            </div>
-          </article>
-
-          <!-- Card 2: Our Community -->
-          <article class="tropical-card tropical-card--coral reveal">
-            <div class="tropical-card-bg-art">
-              <svg viewBox="0 0 400 260" fill="none" preserveAspectRatio="xMidYMid slice">
-                <ellipse cx="40" cy="-10" rx="150" ry="120" fill="#d93d59" opacity="0.12"/>
-                <ellipse cx="380" cy="260" rx="130" ry="110" fill="#e63946" opacity="0.10"/>
-                <path d="M20 0 C60 70 40 140 20 200 T60 260" stroke="#f7a8a4" stroke-width="2" opacity="0.28" fill="none"/>
-                <path d="M400 80 C360 100 340 140 380 180 T400 240" fill="#fbcbc9" opacity="0.12"/>
-              </svg>
-            </div>
-            <div class="tropical-card-inner">
-              <div class="tropical-icon-wrap tropical-icon-wrap--coral">
-                <span class="tropical-icon">🌸</span>
-              </div>
-              <div class="tropical-card-tag lang-fade" data-es="NUESTRA COMUNIDAD" data-en="OUR COMMUNITY">NUESTRA COMUNIDAD</div>
-              <h3 class="tropical-card-title lang-fade" data-es="Compartiendo Sabor &amp; Cultura" data-en="Sharing Flavor &amp; Culture">Compartiendo Sabor &amp; Cultura</h3>
-              <p class="tropical-card-body lang-fade"
-                 data-es="Tu apoyo nos permite compartir sabor y herencia latina con vecinos, amigos y familias de todo Holland — desde mercados locales hasta entregas en tu puerta."
-                 data-en="Your support lets us share flavor and Latin heritage with neighbors, friends, and families across Holland — from local markets to deliveries right at your door.">
-                Tu apoyo nos permite compartir sabor y herencia latina con vecinos, amigos y familias de todo Holland — desde mercados locales hasta entregas en tu puerta.
-              </p>
-              <div class="tropical-card-flourish">
-                <span>🌺</span><span class="tropical-dash"></span><span>🍞</span><span class="tropical-dash"></span><span>🌺</span>
-              </div>
-            </div>
-          </article>
-
-        </div>
-      </section>
-
-      <div class="wave-divider">
-        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 0 720 40 T1440 40 V80 H0Z" fill="rgba(212,237,218,0.18)"/></svg>
-      </div>
-
-      <section class="roadmap-section" id="cottage-laws">
-        <div class="section-label-row" style="max-width:720px;margin:0 auto 2.5rem;">
-          <span class="section-label lang-fade" data-es="Michigan Cottage Food Law" data-en="Michigan Cottage Food Law">Michigan Cottage Food Law</span>
-          <div class="section-rule"></div>
-        </div>
-        <div class="roadmap-timeline">
-          <div class="roadmap-item reveal">
-            <div class="phase-dot"><span class="dot-inner"></span></div>
-            <div class="phase-card phase-card--active">
-              <div class="phase-header">
-                <span class="phase-number lang-fade" data-es="¿QUÉ SIGNIFICA?" data-en="WHAT DOES IT MEAN?">¿QUÉ SIGNIFICA?</span>
-                <span class="phase-status status-progress lang-fade" data-es="ACTIVO" data-en="ACTIVE">ACTIVO</span>
-              </div>
-              <h3 class="phase-title lang-fade" data-es="Cottage Food Law" data-en="Cottage Food Law">Cottage Food Law</h3>
-              <p class="phase-goal lang-fade"
-                 data-es="Operamos de manera transparente bajo la Michigan Cottage Food Law. Preparamos alimentos no potencialmente peligrosos en nuestra cocina doméstica y los vendemos directamente a ti."
-                 data-en="We operate transparently under the Michigan Cottage Food Law. We prepare non-potentially hazardous foods in our home kitchen and sell them directly to you.">
-                Operamos de manera transparente bajo la Michigan Cottage Food Law. Preparamos alimentos no potencialmente peligrosos en nuestra cocina doméstica y los vendemos directamente a ti.
-              </p>
-              <ul class="phase-deliverables">
-                <li class="lang-fade" data-es="Panes, galletas, pasteles, tortillas y dulces hechos a mano." data-en="Handmade breads, cookies, cakes, tortillas, and sweets.">Panes, galletas, pasteles, tortillas y dulces hechos a mano.</li>
-                <li class="lang-fade" data-es="Venta directa al consumidor sin cocina comercial." data-en="Direct-to-consumer sales without a commercial kitchen.">Venta directa al consumidor sin cocina comercial.</li>
-                <li class="lang-fade" data-es="Precios justos y productos frescos, hechos a mano." data-en="Fair prices and fresh, handmade products.">Precios justos y productos frescos, hechos a mano.</li>
-              </ul>
-            </div>
-          </div>
-          <div class="roadmap-item reveal">
-            <div class="phase-dot"><span class="dot-inner"></span></div>
-            <div class="phase-card">
-              <div class="phase-header">
-                <span class="phase-number lang-fade" data-es="PUBLIC ACT 51 DE 2025" data-en="PUBLIC ACT 51 OF 2025">PUBLIC ACT 51 DE 2025</span>
-                <span class="phase-status status-done lang-fade" data-es="LEGAL" data-en="LEGAL">LEGAL</span>
-              </div>
-              <h3 class="phase-title lang-fade" data-es="Venta Online & Local" data-en="Online & Local Sales">Venta Online & Local</h3>
-              <p class="phase-goal lang-fade"
-                 data-es="Según HB 4122, podemos vender por internet, entregar localmente o enviar directamente a consumidores dentro del estado de Michigan. No vendemos al por mayor."
-                  data-en="Under HB 4122, we can sell online, deliver locally, or ship directly to consumers within the state of Michigan. We do not sell wholesale.">
-                 Según HB 4122, podemos vender por internet, entregar localmente o enviar directamente a consumidores dentro del estado de Michigan. No vendemos al por mayor.
-              </p>
-              <ul class="phase-deliverables">
-                <li class="lang-fade" data-es="Cada pedido va directamente de nuestra cocina a tu mesa." data-en="Every order goes straight from our kitchen to your table.">Cada pedido va directamente de nuestra cocina a tu mesa.</li>
-                <li class="lang-fade" data-es="Coordinamos punto de recogida seguro en Holland, MI." data-en="We coordinate a safe pickup point in Holland, MI.">Coordinamos punto de recogida seguro en Holland, MI.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div class="contact-row" style="max-width:900px;margin:3rem auto 0;">
-          <div class="contact-chip reveal">
-            <strong class="lang-fade" data-es="Recogido en Holland" data-en="Pickup in Holland">Recogido en Holland</strong>
-            <span class="lang-fade" data-es="Coordinamos punto de encuentro seguro en el área de Holland, MI." data-en="We coordinate a safe meeting point in the Holland, MI area.">Coordinamos punto de encuentro seguro en el área de Holland, MI.</span>
-          </div>
-          <div class="contact-chip reveal">
-            <strong class="lang-fade" data-es="Pedido Anticipado" data-en="Advance Order">Pedido Anticipado</strong>
-            <span class="lang-fade" data-es="Tortillas y pan dulce: 24-48 hrs. Pasteles: 3-5 d&iacute;as." data-en="Tortillas and sweet bread: 24-48 hrs. Cakes: 3-5 days.">Tortillas y pan dulce: 24-48 hrs. Pasteles: 3-5 d&iacute;as.</span>
-          </div>
-          <div class="contact-chip reveal">
-            <strong class="lang-fade" data-es="Atención Personal" data-en="Personal Service">Atención Personal</strong>
-            <span class="lang-fade" data-es="Escríbenos a través del formulario de pedido o por redes sociales." data-en="Write to us via the order form or social media.">Escríbenos a través del formulario de pedido o por redes sociales.</span>
-          </div>
-        </div>
-      </section>
-
-      <div class="wave-divider">
-        <svg viewBox="0 0 1440 80" fill="none" preserveAspectRatio="none"><path d="M0 40 Q360 80 720 40 T1440 40 V0 H0Z" fill="rgba(30,70,54,0.08)"/></svg>
-      </div>
-
-
-
-      <footer class="site-footer">
-        <svg class="footer-leaf-l" viewBox="0 0 110 140" fill="none" aria-hidden="true"><path d="M55 140 C15 115 0 70 0 35 Q0 0 35 0 T70 35 Q95 0 95 35 T70 90 Q95 125 55 140Z" fill="var(--color-mid-green)" opacity="0.2"/></svg>
-        <svg class="footer-leaf-r" viewBox="0 0 110 140" fill="none" aria-hidden="true"><path d="M55 140 C15 115 0 70 0 35 Q0 0 35 0 T70 35 Q95 0 95 35 T70 90 Q95 125 55 140Z" fill="var(--color-mid-green)" opacity="0.15"/></svg>
-        <div class="footer-hib-row">
-          <svg width="36" height="36" viewBox="0 0 60 60" fill="none"><circle cx="30" cy="30" r="8" fill="var(--color-bright-hibiscus)" opacity="0.5"/><circle cx="30" cy="12" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="30" cy="48" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="12" cy="30" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/><circle cx="48" cy="30" r="6" fill="var(--color-bright-hibiscus)" opacity="0.4"/></svg>
-        </div>
-        <div class="footer-coqui-divider">
-          <span>🌸</span><span class="divider-dot">●</span><span>🍞</span><span class="divider-dot">●</span><span>🌿</span><span class="divider-dot">●</span><span>🍰</span><span class="divider-dot">●</span><span>🌸</span>
-        </div>
-        <div class="footer-social">
-          <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          </a>
-        </div>
-        <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Hecho con amor.</p>
-        <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Familia · Tradición · Sabor</span>
-      </footer>
-    </main>
-  </div>
+    </footer>
+  </main>
 
   <script>
     gsap.registerPlugin(ScrollTrigger);
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let currentLang = 'es';
+    const isDev = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const ORDER_API = isDev ? 'http://localhost:8787' : '';
+    let currentLang = 'en';
 
-    if (!prefersReduced) {
-      // Hero entrance
-      const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      heroTl.from('.hero-eyebrow', { y: 30, autoAlpha: 0, duration: 0.8 })
-            .from('.hero-headline-top', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.5')
-            .from('.hero-headline-bottom', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.8')
-            .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: 0.8, transformOrigin: 'left center' }, '-=0.6')
-            .from('.hero-subheadline', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5')
-            .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5')
-            .from('.hero-scroll-hint', { y: 10, autoAlpha: 0, duration: 0.5 }, '-=0.3');
-
-      // Buttons animation — separate from main timeline, CSS starts them hidden
-      gsap.to('.hero-ctas > *', {
-        y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12,
-        ease: 'power3.out', delay: 1.5
-      });
-
-      // Sidebar items
-      gsap.from('.sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card', {
-        x: -40, autoAlpha: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out', delay: 0.2
-      });
-
-      // Scroll reveals using ScrollTrigger
-      gsap.utils.toArray('.reveal').forEach((el, i) => {
-        // The story text is critical-path; keep it visible immediately
-        if (el.closest && el.closest('#story')) return;
-        gsap.fromTo(el, 
-          { y: 40, autoAlpha: 0 },
-          {
-            scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none reverse' },
-            y: 0, autoAlpha: 1, duration: 0.8, delay: i * 0.1, ease: 'power3.out'
-          }
-        );
-      });
-
-      // Product display tilt on hover (3D)
-      const storyDisplay = document.getElementById('story-display');
-      if (storyDisplay) {
-        storyDisplay.addEventListener('mousemove', e => {
-          const rect = storyDisplay.getBoundingClientRect();
-          const cx = rect.left + rect.width / 2;
-          const cy = rect.top + rect.height / 2;
-          const rotX = -((e.clientY - cy) / (rect.height / 2)) * 5;
-          const rotY = ((e.clientX - cx) / (rect.width / 2)) * 5;
-          gsap.to(storyDisplay, { rotateX: rotX, rotateY: rotY, duration: 0.3, ease: 'power2.out' });
-        });
-        storyDisplay.addEventListener('mouseleave', () => {
-          gsap.to(storyDisplay, { rotateX: 0, rotateY: 0, duration: 0.5, ease: 'power2.out' });
-        });
-      }
-
-      // Floating tags bob
-      gsap.to('.tag-1', { y: -7, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-      gsap.to('.tag-2', { y: -7, duration: 3.8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.6 });
-      gsap.to('.tag-3', { y: -7, duration: 3.5, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.2 });
-
-
-
-      // Footer elements
-
-      gsap.from('.footer-hib-row', { scale: 0.8, autoAlpha: 0, duration: 0.8, ease: 'back.out(1.5)', scrollTrigger: { trigger: '.site-footer', start: 'top 95%' } });
-      gsap.from('.footer-coqui-divider > *', { scale: 0, autoAlpha: 0, duration: 0.4, stagger: 0.08, ease: 'back.out(2)', scrollTrigger: { trigger: '.site-footer', start: 'top 92%' } });
-      gsap.from('.footer-copyright, .footer-tagline', { y: 15, autoAlpha: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 90%' } });
-
-    } else {
-      // Reduced motion: just show everything
-      gsap.set('.hero-eyebrow, .hero-headline-top, .hero-headline-bottom, .hero-divider, .hero-subheadline, .hero-description, .hero-ctas > *, .btn-follow, .hero-scroll-hint, .sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card, .reveal, .footer-hib-row, .footer-coqui-divider > *, .footer-copyright, .footer-tagline', { autoAlpha: 1 });
+    /* ---------------- Language ---------------- */
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
-
-    // Bilingual toggle
-    function setLang(lang) {
-      if (lang === currentLang) return;
-      currentLang = lang;
-      document.getElementById('btn-es').classList.toggle('active', lang === 'es');
-      document.getElementById('btn-es').setAttribute('aria-selected', lang === 'es');
-      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-      document.getElementById('btn-en').setAttribute('aria-selected', lang === 'en');
-
-      document.querySelectorAll('[data-es][data-en]').forEach(el => {
-        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-          // handled via data-placeholder if needed
-        } else {
-          el.style.opacity = '0';
-          setTimeout(() => {
-            el.textContent = el.getAttribute('data-' + lang);
-            el.style.opacity = '1';
-          }, 250);
-        }
-      });
-    }
-
-    // Smooth scroll for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', e => {
-        const target = document.querySelector(a.getAttribute('href'));
-        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-      });
-    });
-
-    // ---- Ensure story text visible ----
-    const storyReveal = document.querySelector('#story .reveal');
-    if (storyReveal) storyReveal.style.opacity = '1';
-
-    // Initialize language content (default: EN) and persist via localStorage.
-    // Ensure localStorage write happens through the wrapped setLang.
-    const _setLang = setLang;
-    setLang = function(lang) {
-      localStorage.setItem('lang', lang);
-      // Sync mobile lang buttons
+    function applyLangToDOM(lang) {
+      const btnEs = document.getElementById('btn-es');
+      const btnEn = document.getElementById('btn-en');
+      if (btnEs) { btnEs.classList.toggle('active', lang === 'es'); btnEs.setAttribute('aria-selected', lang === 'es'); }
+      if (btnEn) { btnEn.classList.toggle('active', lang === 'en'); btnEn.setAttribute('aria-selected', lang === 'en'); }
       const mEs = document.getElementById('mobile-btn-es');
       const mEn = document.getElementById('mobile-btn-en');
       if (mEs) { mEs.classList.toggle('active', lang === 'es'); mEs.setAttribute('aria-selected', lang === 'es'); }
       if (mEn) { mEn.classList.toggle('active', lang === 'en'); mEn.setAttribute('aria-selected', lang === 'en'); }
-      return _setLang(lang);
-    };
-
-    if (typeof setLang === 'function') {
-      const saved = (() => {
-        try { return localStorage.getItem('lang'); } catch (e) { return null; }
-      })();
-      setLang(saved === 'es' || saved === 'en' ? saved : 'en');
+      document.querySelectorAll('[data-es][data-en]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-' + lang);
+      });
+    }
+    function setLang(lang) {
+      if (lang === currentLang) return;
+      currentLang = lang;
+      try { localStorage.setItem('lang', lang); } catch (e) {}
+      applyLangToDOM(lang);
     }
 
-    // ---- Hamburger toggle ----
+    /* ---------------- Motion ---------------- */
+    function initReveals() {
+      if (prefersReduced) {
+        gsap.set('.reveal', { autoAlpha: 1, y: 0 });
+        return;
+      }
+      gsap.utils.toArray('.reveal').forEach(el => {
+        gsap.fromTo(el,
+          { y: 24, autoAlpha: 0 },
+          { scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none reverse' },
+            y: 0, autoAlpha: 1, duration: 0.8, ease: 'power3.out' }
+        );
+      });
+    }
+    if (!prefersReduced) {
+      // One orchestrated entrance: copy column staggers in, photo slides from the right
+      gsap.from('.hero-photo', { x: 40, autoAlpha: 0, duration: 1, ease: 'power3.out' });
+      gsap.from('.hero-copy .hero-anim', {
+        y: 26, autoAlpha: 0, duration: 0.8, stagger: 0.12,
+        ease: 'power3.out', delay: 0.15, clearProps: 'opacity,visibility,transform'
+      });
+    }
+
+    /* ---------------- Hamburger ---------------- */
     const hamburgerBtn = document.getElementById('hamburger-btn');
     const mobileDrawer = document.getElementById('mobile-nav-drawer');
     if (hamburgerBtn && mobileDrawer) {
@@ -543,7 +487,6 @@
         hamburgerBtn.setAttribute('aria-expanded', isOpen);
         mobileDrawer.style.display = isOpen ? 'flex' : 'none';
       });
-      // Close drawer when a nav link is clicked
       mobileDrawer.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', () => {
           hamburgerBtn.classList.remove('open');
@@ -552,6 +495,103 @@
         });
       });
     }
+
+    /* ---------------- Smooth anchors ---------------- */
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' }); }
+      });
+    });
+
+    /* ---------------- Dashboard hydration: /api/site ---------------- */
+    function applySiteContent(content) {
+      if (!content) return;
+      if (content.hero_image && content.hero_image.image_url) {
+        const img = document.getElementById('hero-img');
+        if (img) { img.src = content.hero_image.image_url; }
+      }
+      if (content.story_image && content.story_image.image_url) {
+        const img = document.getElementById('story-img');
+        if (img) { img.src = content.story_image.image_url; }
+      }
+      document.querySelectorAll('[data-site-key]').forEach(el => {
+        const row = content[el.getAttribute('data-site-key')];
+        if (!row) return;
+        if (row.value_en) el.setAttribute('data-en', row.value_en);
+        if (row.value_es) el.setAttribute('data-es', row.value_es);
+      });
+    }
+    function renderTestimonials(list) {
+      if (!list || !list.length) return;
+      const section = document.getElementById('testimonials');
+      const grid = document.getElementById('testimonials-grid');
+      if (!section || !grid) return;
+      grid.innerHTML = list.map(t => `
+        <figure class="testimonial">
+          <blockquote class="testimonial-quote lang-fade"
+                      data-es="${escapeHtml(t.quote_es || t.quote_en)}"
+                      data-en="${escapeHtml(t.quote_en)}">${escapeHtml(t.quote_en)}</blockquote>
+          <figcaption class="testimonial-meta">
+            ${escapeHtml(t.author || '')}
+            ${t.occasion ? `<span> · ${escapeHtml(t.occasion)}</span>` : ''}
+          </figcaption>
+        </figure>`).join('');
+      section.hidden = false;
+    }
+    async function loadSite() {
+      try {
+        const res = await fetch((ORDER_API || '') + '/api/site');
+        if (!res.ok) return;
+        const data = await res.json();
+        applySiteContent(data.content || {});
+        renderTestimonials(data.testimonials || []);
+        applyLangToDOM(currentLang);
+      } catch (e) { /* baked-in defaults remain */ }
+    }
+
+    /* ---------------- Dashboard hydration: featured products ---------------- */
+    function renderOven(products) {
+      if (!products || !products.length) return;
+      const strip = document.getElementById('oven-strip');
+      if (!strip) return;
+      strip.innerHTML = products.map(p => {
+        const nameEn = escapeHtml(p.name);
+        const nameEs = escapeHtml(p.name_es || p.name);
+        const descEn = escapeHtml(p.description || '');
+        const descEs = escapeHtml(p.description_es || p.description || '');
+        const price = '$' + (Number(p.price) || 0);
+        const img = p.image_url ? escapeHtml(p.image_url) : 'menu-conchas.webp';
+        return `
+          <a class="oven-card" href="order.html#tile-${encodeURIComponent(p.id)}">
+            <div class="frame"><img class="frame-img" src="${img}" alt="${nameEn}" loading="lazy"/></div>
+            <div class="oven-card-meta">
+              <h3 class="oven-card-name lang-fade" data-es="${nameEs}" data-en="${nameEn}">${nameEn}</h3>
+              <span class="oven-card-price">${price}</span>
+            </div>
+            <p class="oven-card-desc lang-fade" data-es="${descEs}" data-en="${descEn}">${descEn}</p>
+          </a>`;
+      }).join('');
+    }
+    async function loadFeatured() {
+      try {
+        const res = await fetch((ORDER_API || '') + '/api/products');
+        if (!res.ok) return;
+        const data = await res.json();
+        const all = (data.products || []).filter(p => p.active !== false);
+        let picks = all.filter(p => p.featured && p.image_url).slice(0, 4);
+        if (!picks.length) picks = all.filter(p => p.image_url).slice(0, 4);
+        if (picks.length) { renderOven(picks); applyLangToDOM(currentLang); }
+      } catch (e) { /* baked-in defaults remain */ }
+    }
+
+    /* ---------------- Init ---------------- */
+    const saved = (() => { try { return localStorage.getItem('lang'); } catch (e) { return null; } })();
+    currentLang = (saved === 'es' || saved === 'en') ? saved : 'en';
+    applyLangToDOM(currentLang);
+    initReveals();
+    loadSite();
+    loadFeatured();
   </script>
 </body>
 </html>

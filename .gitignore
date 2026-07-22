@@ -5,3 +5,7 @@ home-bakery-management-system/node_modules/
 orders/.wrangler/
 workers/.wrangler/
 /.wrangler/
+# Local dev secrets (never commit)
+.dev.vars
+orders/.dev.vars
+workers/.dev.vars
