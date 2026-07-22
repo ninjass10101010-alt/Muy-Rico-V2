@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 260" fill="none">
+  <!-- Stem -->
+  <path d="M110,250 C110,220 108,190 110,160" stroke="#3d5a3a" stroke-width="5" stroke-linecap="round" fill="none"/>
+
+  <!-- Main leaf body - filled -->
+  <path d="M110,160 C90,155 55,140 35,115 C20,95 25,60 50,40 C70,25 95,20 110,30 C125,20 150,25 170,40 C195,60 200,95 185,115 C165,140 130,155 110,160 Z" fill="#4a7c59"/>
+
+  <!-- Lighter overlay for depth -->
+  <path d="M110,160 C95,155 65,140 48,118 C35,100 38,72 58,52 C73,38 93,33 110,40 C127,33 147,38 162,52 C182,72 185,100 172,118 C155,140 125,155 110,160 Z" fill="#5a9a6a" opacity="0.6"/>
+
+  <!-- Central vein -->
+  <path d="M110,160 C110,130 110,80 110,35" stroke="#3d5a3a" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+
+  <!-- Left side veins -->
+  <path d="M110,60 C90,55 65,50 45,52" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M110,85 C85,82 55,80 38,85" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M110,110 C85,108 58,110 40,118" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M110,135 C90,135 65,138 48,145" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <!-- Right side veins -->
+  <path d="M110,60 C130,55 155,50 175,52" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M110,85 C135,82 165,80 182,85" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M110,110 C135,108 162,110 180,118" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M110,135 C130,135 155,138 172,145" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <!-- Fenestrations (holes) - characteristic monstera feature -->
+  <ellipse cx="72" cy="70" rx="10" ry="14" fill="#f5f0e8" transform="rotate(-15 72 70)"/>
+  <ellipse cx="148" cy="70" rx="10" ry="14" fill="#f5f0e8" transform="rotate(15 148 70)"/>
+  <ellipse cx="60" cy="100" rx="9" ry="12" fill="#f5f0e8" transform="rotate(-10 60 100)"/>
+  <ellipse cx="160" cy="100" rx="9" ry="12" fill="#f5f0e8" transform="rotate(10 160 100)"/>
+  <ellipse cx="68" cy="132" rx="8" ry="10" fill="#f5f0e8" transform="rotate(-5 68 132)"/>
+  <ellipse cx="152" cy="132" rx="8" ry="10" fill="#f5f0e8" transform="rotate(5 152 132)"/>
+
+  <!-- Hand-drawn outline for organic feel -->
+  <path d="M110,160 C88,154 52,138 32,112 C16,90 22,55 48,35 C68,20 93,16 110,28 C127,16 152,20 172,35 C198,55 204,90 188,112 C168,138 132,154 110,160 Z" stroke="#2c3a2f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Slight irregularity on edges for hand-drawn feel -->
+  <path d="M50,40 C45,50 40,65 38,80" stroke="#2c3a2f" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <path d="M170,40 C175,50 180,65 182,80" stroke="#2c3a2f" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.5"/>
+</svg>

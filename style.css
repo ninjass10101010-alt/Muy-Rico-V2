@@ -190,7 +190,7 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 .engraving {
   position: absolute;
   pointer-events: none;
-  opacity: 0.65;
+  opacity: 0.8;
   z-index: 0;
 }
 
@@ -603,9 +603,9 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   line-height: 1.3;
 }
 .hero-engraving {
-  top: -20px;
+  top: -15px;
   right: 10px;
-  width: 180px;
+  width: 150px;
   transform: rotate(12deg);
   z-index: 2;
 }
