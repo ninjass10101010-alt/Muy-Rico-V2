@@ -1042,7 +1042,7 @@
     const CHECKOUT_WORKER = 'https://muy-rico-checkout.bexgarcia0208.workers.dev';
     // Orders API — auto-detect local dev vs production
     const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    const ORDER_API = isDev ? 'http://localhost:8787' : '';
+    const ORDER_API = isDev ? 'http://localhost:8787' : 'https://muy-rico-orders-api.bexgarcia0208.workers.dev';
 
     let allProducts = [];
     let activeCategory = 'all';
