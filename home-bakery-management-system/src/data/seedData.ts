@@ -70,14 +70,14 @@ export const seedInventory: InventoryItem[] = [
 export const seedProducts: Product[] = [
   {
     id: "prod_cookie",
-    name: "Chocolate Chip Cookie",
+    name: "Chocolate Chip Coqui",
     category: "Cookies",
     price: 4,
     cost: 1.2,
     sku: "MR-CKE",
     emoji: "🍪",
     active: true,
-    description: "Classic soft-baked chocolate chip cookie.",
+    description: "Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of \"Treat yo self\".",
     ingredients: "Enriched flour (wheat flour, niacin, reduced iron, thiamine mononitrate, riboflavin, folic acid), butter (cream, salt), chocolate chips (sugar, chocolate liquor, cocoa butter, butterfat, soy lecithin), sugar, brown sugar, eggs, vanilla extract, baking soda, salt.",
     allergens: "Contains: wheat, milk, eggs, soy.",
     recipe: [
@@ -167,7 +167,7 @@ export const seedProducts: Product[] = [
     emoji: "🍭",
     active: true,
     description: "Chocolate cake pop dipped in candy coating.",
-    ingredients: "Enriched Flour Bleached (wheat flour, niacin, iron, thiamin mononitrate, riboflavin, folic acid), sugar, cocoa processed with alkali, corn syrup, leavening (baking soda, sodium aluminum phosphate, monocalcium phosphate), modified corn starch, corn starch, palm oil, salt, artificial flavor, water, butter (cream, salt), eggs, vanilla extract. Frosting binder: sugar, palm oil, water, corn syrup, canola oil, cocoa (processed with alkali), corn starch, and 2% or less of: mono- and diglycerides, natural and artificial flavor, modified corn starch, cellulose, salt, propylene glycol monostearate, carrageenan, distilled monoglycerides, polysorbate 80, potassium sorbate (preservative), cellulose gum, sodium stearoyl lactylate, antioxidants (citric acid, ascorbyl palmitate, mixed tocopherols, chamomile and rosemary extracts). Candy coating: sugar, palm oil, cocoa, soy lecithin.",
+    ingredients: "Enriched Flour Bleached (wheat flour, niacin, iron, thiamin mononitrate, riboflavin, folic acid), sugar, cocoa processed with alkali, corn syrup, leavening (baking soda, sodium aluminum phosphate, monocalcium phosphate), modified corn starch, corn starch, palm oil, salt, artificial flavor, water, butter (cream, salt), eggs, vanilla extract. Frosting binder: sugar, palm oil, water, corn syrup, canola oil, cocoa (processed with alkali), corn starch, and 2% or less of: mono- and diglycerides, natural and artificial flavor, modified corn starch, cellulose, salt, propylene glycol monostearate, carrageenan, distilled monoglycerides, polysorbate 60, potassium sorbate (preservative), cellulose gum, sodium stearoyl lactylate, antioxidants (citric acid, ascorbyl palmitate, mixed tocopherols, chamomile and rosemary extracts). Candy coating: sugar, palm oil, cocoa, soy lecithin.",
     allergens: "Contains: wheat, milk, eggs, soy.",
     recipe: [
       { inventoryItemId: "inv_betty_crocker_chocolate", qtyPerUnit: 0.028 },
@@ -177,6 +177,43 @@ export const seedProducts: Product[] = [
       { inventoryItemId: "inv_vanilla", qtyPerUnit: 0.005 },
     ],
     auto_generate_label: true,
+    flavor_groups: [
+      { name: 'Cake', options: ['Chocolate', 'Vanilla'] },
+      { name: 'Chocolate Dip', options: ['Milk Chocolate', 'White Chocolate'] },
+      { name: 'Topping', options: ['Marble', 'Sprinkles', 'Chocolate Drizzle', 'Chocolate Accessories', 'Fondant Accessories'] },
+    ],
+    pack_sizes: [
+      { id: 'single', label: 'Single', label_es: 'Individual', price: 3, qty: 1, unit_label: '$3.00 ea', unit_label_es: '$3.00 c/u' },
+      { id: 'half-dozen', label: 'Half Dozen (6)', label_es: 'Media Docena (6)', price: 15, qty: 6, badge: 'Save $3', badge_es: '¡Ahorra $3!', unit_label: '$2.50 ea', unit_label_es: '$2.50 c/u' },
+      { id: 'dozen', label: 'Dozen (12)', label_es: 'Docena (12)', price: 28, qty: 12, badge: 'Save $8', badge_es: '¡Ahorra $8!', unit_label: '$2.33 ea', unit_label_es: '$2.33 c/u' },
+    ],
+  },
+  {
+    id: "prod_empanadas",
+    name: "Empanadas",
+    category: "Bread",
+    price: 3,
+    cost: 0.9,
+    sku: "MR-EMP",
+    emoji: "🥟",
+    active: true,
+    description: "Golden, hand-filled empanadas. Crispy on the outside, savory on the inside. Made to order with your choice of filling.",
+    ingredients: "Enriched flour (wheat flour, niacin, reduced iron, thiamine mononitrate, riboflavin, folic acid), butter (cream, salt), water, eggs, salt. Fillings vary.",
+    allergens: "Contains: wheat, milk, eggs.",
+    recipe: [
+      { inventoryItemId: "inv_flour", qtyPerUnit: 0.15 },
+      { inventoryItemId: "inv_butter", qtyPerUnit: 0.05 },
+      { inventoryItemId: "inv_eggs", qtyPerUnit: 0.03 },
+    ],
+    auto_generate_label: true,
+    flavor_groups: [
+      { name: 'Filling', options: ['Cajeta', 'Piña', 'Fresa'] },
+    ],
+    pack_sizes: [
+      { id: 'single', label: 'Single', label_es: 'Individual', price: 3, qty: 1, unit_label: '$3.00 ea', unit_label_es: '$3.00 c/u' },
+      { id: 'half-dozen', label: 'Half Dozen (6)', label_es: 'Media Docena (6)', price: 15, qty: 6, badge: 'Save $3', badge_es: '¡Ahorra $3!', unit_label: '$2.50 ea', unit_label_es: '$2.50 c/u' },
+      { id: 'dozen', label: 'Dozen (12)', label_es: 'Docena (12)', price: 28, qty: 12, badge: 'Save $8', badge_es: '¡Ahorra $8!', unit_label: '$2.33 ea', unit_label_es: '$2.33 c/u' },
+    ],
   },
   {
     id: "prod_custom_cake",

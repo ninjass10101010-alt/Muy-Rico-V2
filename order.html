@@ -471,9 +471,17 @@
       margin-top: 0.1rem; letter-spacing: 0.02em;
     }
     .pack-unit-price { font-size: 0.72rem; color: var(--color-text-muted); }
+  /* ── Pastel overrides for menu page ── */
+  .product-tile { background: var(--tint-card); }
+  .product-tile:nth-child(6n+1) { --tint-card: #E6F2E4; }
+  .product-tile:nth-child(6n+2) { --tint-card: #F9EDE2; }
+  .product-tile:nth-child(6n+3) { --tint-card: #F2E6F0; }
+  .product-tile:nth-child(6n+4) { --tint-card: #E6EEF6; }
+  .product-tile:nth-child(6n+5) { --tint-card: #F7EBE4; }
+  .product-tile:nth-child(6n+6) { --tint-card: #EAF0E8; }
   </style>
   </head>
-  <body>
+  <body class="page-order">
 
   <!-- Toast container -->
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
@@ -609,10 +617,10 @@
                The script at the bottom replaces this inner content with live
                products from /api/products when JS + API are available. -->
 
-          <article class="product-tile reveal has-hero has-packs" id="tile-prod_cookie" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Cookie" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_cookie" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Coqui" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
             <div class="tile-hero"><img class="tile-hero-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
-            <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Cookie">Galleta de Chispas de Chocolate</h3>
-            <p class="tile-desc lang-fade" data-es="Galletas con chispas de chocolate horneadas suaves. Elige una individual o ahorra en la docena." data-en="Soft-baked chocolate chip cookies. Choose a single or save on a dozen.">Soft-baked chocolate chip cookies. Choose a single or save on a dozen.</p>
+            <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Coqui">Galleta de Chispas de Chocolate</h3>
+            <p class="tile-desc lang-fade" data-es="Classic soft-baked chocolate chip cookie. Dozen Pricing: $40." data-en="Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;.">Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;.</p>
             <div class="pack-selects">
               <div class="pack-option selected" data-pack-id="single" data-pack-price="4" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
                 <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
@@ -735,7 +743,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal has-hero" id="tile-prod_empanadas" data-category="Bread" data-name="Empanadas" data-name-en="Empanadas" data-price="3.00" data-icon="empanada.svg" data-toast-emoji="🥟">
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_empanadas" data-category="Bread" data-name="Empanadas" data-name-en="Empanadas" data-price="3.00" data-icon="empanada.svg" data-toast-emoji="🥟" data-has-flavors="1" data-has-packs="1" data-pack-price="3" data-pack-qty="1" data-pack-label="Single">
             <div class="tile-hero"><img class="tile-hero-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Empanadas" data-en="Empanadas">Empanadas</h3>
             <p class="tile-desc lang-fade"
@@ -743,8 +751,35 @@
                data-en="Golden, hand-filled empanadas. Crispy on the outside, savory on the inside. Made to order with your choice of filling.">
               Golden, hand-filled empanadas. Crispy on the outside, savory on the inside. Made to order with your choice of filling.
             </p>
+            <div class="flavor-selects">
+              <div class="flavor-group">
+                <label class="flavor-label lang-fade" data-es="Relleno" data-en="Filling">Filling</label>
+                <select class="flavor-select" data-group="Filling" aria-label="Empanada filling">
+                  <option value="" data-es="Seleccionar" data-en="Select">Select</option>
+                  <option value="Cajeta">Cajeta</option>
+                  <option value="Piña" data-es="Piña" data-en="Pineapple">Pineapple</option>
+                  <option value="Fresa" data-es="Fresa" data-en="Strawberry">Strawberry</option>
+                </select>
+              </div>
+            </div>
+            <div class="pack-selects">
+              <div class="pack-option selected" data-pack-id="single" data-pack-price="3" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+                <span class="pack-unit-price lang-fade" data-es="$3.00 c/u" data-en="$3.00 ea">$3.00 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="half-dozen" data-pack-price="15" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Media Docena (6)" data-en="Half Dozen (6)">Half Dozen (6)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $3!" data-en="Save $3">Save $3</span>
+                <span class="pack-unit-price lang-fade" data-es="$2.50 c/u" data-en="$2.50 ea">$2.50 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="dozen" data-pack-price="28" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)">Dozen (12)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $8!" data-en="Save $8">Save $8</span>
+                <span class="pack-unit-price lang-fade" data-es="$2.33 c/u" data-en="$2.33 ea">$2.33 ea</span>
+              </div>
+            </div>
             <div class="tile-bottom">
-              <span class="tile-price">$3 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <span class="tile-price" id="price-prod_empanadas">$3.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -756,7 +791,7 @@
             </div>
           </article>
 
-           <article class="product-tile reveal has-hero" id="tile-prod_cakepop" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭">
+           <article class="product-tile reveal has-hero has-packs" id="tile-prod_cakepop" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="🍭" data-has-flavors="1" data-has-packs="1" data-pack-price="3" data-pack-qty="1" data-pack-label="Single">
             <div class="tile-hero"><img class="tile-hero-img" src="menu-cakepops.webp" alt="Cakepops" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Cakepops" data-en="Cakepops">Cakepops</h3>
             <p class="tile-desc lang-fade"
@@ -764,8 +799,44 @@
                data-en="Such a sweet perfect little ball of customizable bliss. Choose your cake flavor, choose your chocolate dip, choose your topping. These are the kind of life choices we live to make! (Please keep in mind that custom cakepops may vary in pricing.)">
               Such a sweet perfect little ball of customizable bliss. Choose your cake flavor, choose your chocolate dip, choose your topping. These are the kind of life choices we live to make! (Please keep in mind that custom cakepops may vary in pricing.)
             </p>
+            <div class="flavor-selects">
+              <select class="flavor-select" aria-label="Cake flavor" data-group="Cake">
+                <option value="" data-es="Sabor del bizcocho" data-en="Cake flavor">Cake flavor</option>
+                <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
+                <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
+              </select>
+              <select class="flavor-select" aria-label="Chocolate dip" data-group="Chocolate Dip">
+                <option value="" data-es="Baño de chocolate" data-en="Chocolate dip">Chocolate dip</option>
+                <option value="Milk Chocolate" data-es="Chocolate con Leche" data-en="Milk Chocolate">Milk Chocolate</option>
+                <option value="White Chocolate" data-es="Chocolate Blanco" data-en="White Chocolate">White Chocolate</option>
+              </select>
+              <select class="flavor-select" aria-label="Topping" data-group="Topping">
+                <option value="" data-es="Decoración" data-en="Topping">Topping</option>
+                <option value="Marble" data-es="Marmoleado" data-en="Marble">Marble</option>
+                <option value="Sprinkles" data-es="Chispas de Colores" data-en="Sprinkles">Sprinkles</option>
+                <option value="Chocolate Drizzle" data-es="Baño de Chocolate" data-en="Chocolate Drizzle">Chocolate Drizzle</option>
+                <option value="Chocolate Accessories" data-es="Accesorios de Chocolate" data-en="Chocolate Accessories">Chocolate Accessories</option>
+                <option value="Fondant Accessories" data-es="Accesorios de Fondant" data-en="Fondant Accessories">Fondant Accessories</option>
+              </select>
+            </div>
+            <div class="pack-selects">
+              <div class="pack-option selected" data-pack-id="single" data-pack-price="3" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+                <span class="pack-unit-price lang-fade" data-es="$3.00 c/u" data-en="$3.00 ea">$3.00 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="half-dozen" data-pack-price="15" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Media Docena (6)" data-en="Half Dozen (6)">Half Dozen (6)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $3!" data-en="Save $3">Save $3</span>
+                <span class="pack-unit-price lang-fade" data-es="$2.50 c/u" data-en="$2.50 ea">$2.50 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="dozen" data-pack-price="28" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)">Dozen (12)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $8!" data-en="Save $8">Save $8</span>
+                <span class="pack-unit-price lang-fade" data-es="$2.33 c/u" data-en="$2.33 ea">$2.33 ea</span>
+              </div>
+            </div>
             <div class="tile-bottom">
-              <span class="tile-price">$3 <span class="lang-fade" data-es="c/u" data-en="ea">c/u</span></span>
+              <span class="tile-price" id="price-prod_cakepop">$3.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -1006,18 +1077,19 @@
           <div class="footer-accept">
             <span class="footer-accept-label lang-fade" data-es="Aceptamos" data-en="We Accept">We Accept</span>
             <div class="pay-chips">
-              <span class="pay-chip">VISA</span>
-              <span class="pay-chip">Mastercard</span>
-              <span class="pay-chip">Apple Pay</span>
-              <span class="pay-chip">Cash App</span>
-              <span class="pay-chip">PayPal</span>
-              <span class="pay-chip">Venmo</span>
+              <span class="pay-chip pay-visa"><svg fill="#1A1F71" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.112 8.262L5.97 15.758H3.92L2.374 9.775c-.094-.368-.175-.503-.461-.658C1.447 8.864.677 8.627 0 8.479l.046-.217h3.3a.904.904 0 01.894.764l.817 4.338 2.018-5.102zm8.033 5.049c.008-1.979-2.736-2.088-2.717-2.972.006-.269.262-.555.822-.628a3.66 3.66 0 011.913.336l.34-1.59a5.207 5.207 0 00-1.814-.333c-1.917 0-3.266 1.02-3.278 2.479-.012 1.079.963 1.68 1.698 2.04.756.367 1.01.603 1.006.931-.005.504-.602.725-1.16.734-.975.015-1.54-.263-1.992-.473l-.351 1.642c.453.208 1.289.39 2.156.398 2.037 0 3.37-1.006 3.377-2.564m5.061 2.447H24l-1.565-7.496h-1.656a.883.883 0 00-.826.55l-2.909 6.946h2.036l.405-1.12h2.488zm-2.163-2.656l1.02-2.815.588 2.815zm-8.16-4.84l-1.603 7.496H8.34l1.605-7.496z"/></svg></span>
+              <span class="pay-chip pay-mastercard"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="12" r="7" fill="#EB001B"/><circle cx="16" cy="12" r="7" fill="#F79E1B"/></svg></span>
+              <span class="pay-chip pay-applepay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" fill="#000"/></svg></span>
+              <span class="pay-chip pay-cashapp"><svg fill="#00D632" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.59 3.475a5.1 5.1 0 00-3.05-3.05c-1.31-.42-2.5-.42-4.92-.42H8.36c-2.4 0-3.61 0-4.9.4a5.1 5.1 0 00-3.05 3.06C0 4.765 0 5.965 0 8.365v7.27c0 2.41 0 3.6.4 4.9a5.1 5.1 0 003.05 3.05c1.3.41 2.5.41 4.9.41h7.28c2.41 0 3.61 0 4.9-.4a5.1 5.1 0 003.06-3.06c.41-1.3.41-2.5.41-4.9v-7.25c0-2.41 0-3.61-.41-4.91zm-6.17 4.63l-.93.93a.5.5 0 01-.67.01 5 5 0 00-3.22-1.18c-.97 0-1.94.32-1.94 1.21 0 .9 1.04 1.2 2.24 1.65 2.1.7 3.84 1.58 3.84 3.64 0 2.24-1.74 3.78-4.58 3.95l-.26 1.2a.49.49 0 01-.48.39H9.63l-.09-.01a.5.5 0 01-.38-.59l.28-1.27a6.54 6.54 0 01-2.88-1.57v-.01a.48.48 0 010-.68l1-.97a.49.49 0 01.67 0c.91.86 2.13 1.34 3.39 1.32 1.3 0 2.17-.55 2.17-1.42 0-.87-.88-1.1-2.54-1.72-1.76-.63-3.43-1.52-3.43-3.6 0-2.42 2.01-3.6 4.39-3.71l.25-1.23a.48.48 0 01.48-.38h1.78l.1.01c.26.06.43.31.37.57l-.27 1.37c.9.3 1.75.77 2.48 1.39l.02.02c.19.2.19.5 0 .68z"/></svg></span>
+              <span class="pay-chip pay-paypal"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797H9.1c-.462 0-.85.325-.922.746l-1.102 6.76z" fill="#003087"/><path d="M5.016 23.927c-.453.005-.83-.36-.833-.815L7.076 21.34l-1.102 6.76c-.07.422.21.827.632.827h3.95c.462 0 .85-.325.922-.747l1.126-6.92h2.004c4.298 0 7.664-1.747 8.647-6.796.979-5.025-.594-7.31-2.31-8.647.747.733 1.023 1.685.887 3.035l-.013.083c-.983 5.05-4.349 6.797-8.647 6.797H9.1c-.462 0-.85.325-.922.746l-1.102 6.76-1.994 1.73a.818.818 0 01-.465.154z" fill="#009CDE"/></svg></span>
+              <span class="pay-chip pay-venmo"><svg viewBox="0 0 48 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="24" rx="4" fill="#008CFF"/><text x="24" y="16" text-anchor="middle" fill="white" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="11">Venmo</text></svg></span>
             </div>
           </div>
           <div class="footer-social">
             <span class="footer-accept-label lang-fade" data-es="Síguenos" data-en="Follow Us">Follow Us</span>
-            <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link social-link-fb">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              <span>Facebook</span>
             </a>
           </div>
         </div>

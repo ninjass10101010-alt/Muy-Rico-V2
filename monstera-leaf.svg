@@ -1,40 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 260" fill="none">
-  <!-- Stem -->
-  <path d="M110,250 C110,220 108,190 110,160" stroke="#3d5a3a" stroke-width="5" stroke-linecap="round" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 340" fill="none">
+  <defs>
+    <linearGradient id="leaf-base" x1="38" y1="42" x2="222" y2="308" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5f8b63"/>
+      <stop offset="0.48" stop-color="#356c4d"/>
+      <stop offset="1" stop-color="#1d4b38"/>
+    </linearGradient>
+    <linearGradient id="leaf-highlight" x1="72" y1="72" x2="190" y2="274" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a3bd91" stop-opacity="0.64"/>
+      <stop offset="0.52" stop-color="#6e9a70" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#1d4b38" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="leaf-cutouts" maskUnits="userSpaceOnUse" x="0" y="0" width="280" height="340">
+      <rect width="280" height="340" fill="black"/>
+      <path fill="white" d="M140 315C125 292 98 277 71 254C45 231 29 207 24 184C20 164 27 153 41 153C52 153 65 162 80 177C66 156 45 143 38 124C32 107 38 95 52 91C68 87 86 101 101 115C89 95 68 78 68 60C68 44 80 35 96 38C116 42 132 63 140 86C148 63 164 42 184 38C200 35 212 44 212 60C212 78 191 95 179 115C194 101 212 87 228 91C242 95 248 107 242 124C235 143 214 156 200 177C215 162 228 153 239 153C253 153 260 164 256 184C251 207 235 231 209 254C182 277 155 292 140 315Z"/>
+      <g fill="black">
+        <path d="M39 123C55 117 74 121 95 133C75 129 57 133 42 141C37 137 35 130 39 123Z"/>
+        <path d="M241 123C225 117 206 121 185 133C205 129 223 133 238 141C243 137 245 130 241 123Z"/>
+        <path d="M24 183C42 177 61 184 83 199C60 192 43 196 30 204C25 198 22 191 24 183Z"/>
+        <path d="M256 183C238 177 219 184 197 199C220 192 237 196 250 204C255 198 258 191 256 183Z"/>
+        <path d="M53 231C70 224 86 231 103 246C84 239 70 243 60 251C56 246 53 239 53 231Z"/>
+        <path d="M227 231C210 224 194 231 177 246C196 239 210 243 220 251C224 246 227 239 227 231Z"/>
+        <path d="M92 153C101 144 115 147 119 156C121 166 111 174 99 175C89 176 86 166 92 153Z"/>
+        <path d="M188 153C179 144 165 147 161 156C159 166 169 174 181 175C191 176 194 166 188 153Z"/>
+        <path d="M82 194C91 183 106 184 111 194C113 204 102 214 90 214C79 214 75 204 82 194Z"/>
+        <path d="M198 194C189 183 174 184 169 194C167 204 178 214 190 214C201 214 205 204 198 194Z"/>
+        <path d="M106 239C113 228 124 229 128 238C130 247 122 256 113 257C104 256 101 248 106 239Z"/>
+        <path d="M174 239C167 228 156 229 152 238C150 247 158 256 167 257C176 256 179 248 174 239Z"/>
+      </g>
+    </mask>
+    <clipPath id="leaf-shape">
+      <path d="M140 315C125 292 98 277 71 254C45 231 29 207 24 184C20 164 27 153 41 153C52 153 65 162 80 177C66 156 45 143 38 124C32 107 38 95 52 91C68 87 86 101 101 115C89 95 68 78 68 60C68 44 80 35 96 38C116 42 132 63 140 86C148 63 164 42 184 38C200 35 212 44 212 60C212 78 191 95 179 115C194 101 212 87 228 91C242 95 248 107 242 124C235 143 214 156 200 177C215 162 228 153 239 153C253 153 260 164 256 184C251 207 235 231 209 254C182 277 155 292 140 315Z"/>
+    </clipPath>
+  </defs>
 
-  <!-- Main leaf body - filled -->
-  <path d="M110,160 C90,155 55,140 35,115 C20,95 25,60 50,40 C70,25 95,20 110,30 C125,20 150,25 170,40 C195,60 200,95 185,115 C165,140 130,155 110,160 Z" fill="#4a7c59"/>
+  <g mask="url(#leaf-cutouts)">
+    <path d="M140 315C125 292 98 277 71 254C45 231 29 207 24 184C20 164 27 153 41 153C52 153 65 162 80 177C66 156 45 143 38 124C32 107 38 95 52 91C68 87 86 101 101 115C89 95 68 78 68 60C68 44 80 35 96 38C116 42 132 63 140 86C148 63 164 42 184 38C200 35 212 44 212 60C212 78 191 95 179 115C194 101 212 87 228 91C242 95 248 107 242 124C235 143 214 156 200 177C215 162 228 153 239 153C253 153 260 164 256 184C251 207 235 231 209 254C182 277 155 292 140 315Z" fill="url(#leaf-base)"/>
+    <path d="M140 89C111 78 81 82 51 103C77 97 99 106 122 125C102 111 83 112 61 123C89 121 111 136 140 157C169 136 191 121 219 123C197 112 178 111 158 125C181 106 203 97 229 103C199 82 169 78 140 89Z" fill="url(#leaf-highlight)" opacity="0.8"/>
+    <g clip-path="url(#leaf-shape)" stroke="#a4c295" stroke-linecap="round" fill="none">
+      <path d="M140 315C139 254 140 178 140 86" stroke-width="5"/>
+      <path d="M139 143C115 122 89 104 57 96" stroke-width="2.3" opacity="0.72"/>
+      <path d="M139 164C111 148 80 132 40 124" stroke-width="2.2" opacity="0.62"/>
+      <path d="M139 188C108 175 74 161 28 158" stroke-width="2.1" opacity="0.58"/>
+      <path d="M139 213C107 204 72 193 28 185" stroke-width="2" opacity="0.54"/>
+      <path d="M139 239C110 235 79 227 46 213" stroke-width="1.9" opacity="0.48"/>
+      <path d="M141 143C165 122 191 104 223 96" stroke-width="2.3" opacity="0.72"/>
+      <path d="M141 164C169 148 200 132 240 124" stroke-width="2.2" opacity="0.62"/>
+      <path d="M141 188C172 175 206 161 252 158" stroke-width="2.1" opacity="0.58"/>
+      <path d="M141 213C173 204 208 193 252 185" stroke-width="2" opacity="0.54"/>
+      <path d="M141 239C170 235 201 227 234 213" stroke-width="1.9" opacity="0.48"/>
+      <path d="M140 315C132 303 119 291 101 279" stroke-width="2" opacity="0.52"/>
+      <path d="M140 315C148 303 161 291 179 279" stroke-width="2" opacity="0.52"/>
+    </g>
+    <path d="M140 309C137 262 137 207 138 157C138 122 139 99 140 86C143 99 145 123 144 157C143 207 143 262 140 309Z" fill="#b0ca99" opacity="0.48"/>
+    <path d="M140 315C125 292 98 277 71 254C45 231 29 207 24 184C20 164 27 153 41 153C52 153 65 162 80 177C66 156 45 143 38 124C32 107 38 95 52 91C68 87 86 101 101 115C89 95 68 78 68 60C68 44 80 35 96 38C116 42 132 63 140 86C148 63 164 42 184 38C200 35 212 44 212 60C212 78 191 95 179 115C194 101 212 87 228 91C242 95 248 107 242 124C235 143 214 156 200 177C215 162 228 153 239 153C253 153 260 164 256 184C251 207 235 231 209 254C182 277 155 292 140 315Z" stroke="#1b4030" stroke-width="3.2" stroke-linejoin="round"/>
+  </g>
 
-  <!-- Lighter overlay for depth -->
-  <path d="M110,160 C95,155 65,140 48,118 C35,100 38,72 58,52 C73,38 93,33 110,40 C127,33 147,38 162,52 C182,72 185,100 172,118 C155,140 125,155 110,160 Z" fill="#5a9a6a" opacity="0.6"/>
-
-  <!-- Central vein -->
-  <path d="M110,160 C110,130 110,80 110,35" stroke="#3d5a3a" stroke-width="3.5" stroke-linecap="round" fill="none"/>
-
-  <!-- Left side veins -->
-  <path d="M110,60 C90,55 65,50 45,52" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M110,85 C85,82 55,80 38,85" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M110,110 C85,108 58,110 40,118" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M110,135 C90,135 65,138 48,145" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-
-  <!-- Right side veins -->
-  <path d="M110,60 C130,55 155,50 175,52" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M110,85 C135,82 165,80 182,85" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M110,110 C135,108 162,110 180,118" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M110,135 C130,135 155,138 172,145" stroke="#3d5a3a" stroke-width="2" stroke-linecap="round" fill="none"/>
-
-  <!-- Fenestrations (holes) - characteristic monstera feature -->
-  <ellipse cx="72" cy="70" rx="10" ry="14" fill="#f5f0e8" transform="rotate(-15 72 70)"/>
-  <ellipse cx="148" cy="70" rx="10" ry="14" fill="#f5f0e8" transform="rotate(15 148 70)"/>
-  <ellipse cx="60" cy="100" rx="9" ry="12" fill="#f5f0e8" transform="rotate(-10 60 100)"/>
-  <ellipse cx="160" cy="100" rx="9" ry="12" fill="#f5f0e8" transform="rotate(10 160 100)"/>
-  <ellipse cx="68" cy="132" rx="8" ry="10" fill="#f5f0e8" transform="rotate(-5 68 132)"/>
-  <ellipse cx="152" cy="132" rx="8" ry="10" fill="#f5f0e8" transform="rotate(5 152 132)"/>
-
-  <!-- Hand-drawn outline for organic feel -->
-  <path d="M110,160 C88,154 52,138 32,112 C16,90 22,55 48,35 C68,20 93,16 110,28 C127,16 152,20 172,35 C198,55 204,90 188,112 C168,138 132,154 110,160 Z" stroke="#2c3a2f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-
-  <!-- Slight irregularity on edges for hand-drawn feel -->
-  <path d="M50,40 C45,50 40,65 38,80" stroke="#2c3a2f" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.5"/>
-  <path d="M170,40 C175,50 180,65 182,80" stroke="#2c3a2f" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <path d="M140 315C139 326 137 333 136 338" stroke="#315b42" stroke-width="6" stroke-linecap="round"/>
 </svg>

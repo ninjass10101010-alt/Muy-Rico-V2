@@ -1,4 +1,6 @@
 .DS_Store
+node_modules/
+test-results/
 home-bakery-management-system/dist/
 home-bakery-management-system/node_modules/
 # admin/ directory is built by postbuild.sh and deployed via wrangler

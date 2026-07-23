@@ -54,6 +54,8 @@ export default function Homepage() {
   const [draft, setDraft] = useState<TestimonialDraft>(emptyDraft);
   const [savingT, setSavingT] = useState(false);
 
+  const CAPTION_KEYS = ['hero_image_caption', 'story_image_caption'];
+
   const refresh = useCallback(async () => {
     setError(null);
     try {
@@ -64,6 +66,10 @@ export default function Homepage() {
       for (const slot of TEXT_SLOTS) {
         const row = site.content?.[slot.key];
         td[slot.key] = { en: row?.value_en || "", es: row?.value_es || "" };
+      }
+      for (const key of CAPTION_KEYS) {
+        const row = site.content?.[key];
+        td[key] = { en: row?.value_en || "", es: row?.value_es || "" };
       }
       setTextDraft(td);
     } catch (e: any) {
@@ -95,6 +101,22 @@ export default function Homepage() {
       setError(e?.message || "Upload failed");
     } finally {
       setUploadingKey(null);
+    }
+  }
+
+  async function saveCaption(slotKey: string) {
+    const key = slotKey + '_caption';
+    const val = textDraft[key];
+    if (!val) return;
+    setSavingText(true);
+    try {
+      await saveSiteContent({ [key]: { value_en: val.en, value_es: val.es } });
+      await refresh();
+      flash("Caption saved.");
+    } catch (e: any) {
+      setError(e?.message || "Save failed");
+    } finally {
+      setSavingText(false);
     }
   }
 
@@ -217,6 +239,29 @@ export default function Homepage() {
                       onChange={(e) => onPhotoFile(slot.key, e.target.files?.[0] || null)}
                     />
                   </label>
+                  <div className="mt-3 border-t border-cocoa/10 pt-3">
+                    <p className="mb-2 text-xs font-medium text-cocoa/70">Caption</p>
+                    <input
+                      className="mb-1.5 w-full rounded-xl border border-cocoa/15 px-3 py-2 text-sm"
+                      placeholder="English — e.g. Fresh from the oven"
+                      value={textDraft[slot.key + '_caption']?.en || ''}
+                      onChange={(e) => setTextDraft(d => ({ ...d, [slot.key + '_caption']: { en: e.target.value, es: d[slot.key + '_caption']?.es || '' } }))}
+                    />
+                    <input
+                      className="mb-2 w-full rounded-xl border border-cocoa/15 px-3 py-2 text-sm"
+                      placeholder="Español — e.g. Recién salidos del horno"
+                      value={textDraft[slot.key + '_caption']?.es || ''}
+                      onChange={(e) => setTextDraft(d => ({ ...d, [slot.key + '_caption']: { en: d[slot.key + '_caption']?.en || '', es: e.target.value } }))}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => saveCaption(slot.key)}
+                      disabled={savingText}
+                      className="rounded-full bg-coral px-3.5 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {savingText ? "Saving…" : "Save caption"}
+                    </button>
+                  </div>
                 </div>
               </article>
             );
