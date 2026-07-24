@@ -415,7 +415,7 @@ export const seedProfile: BusinessProfile = {
   website: "https://muy-rico.com",
   registrationNumber: "",
   businessType: "cottage",
-  acceptedMethods: { stripe: false, cashapp: true, venmo: true, applepay: true, cash: true },
+  acceptedMethods: { stripe: false, paypal: false, cashapp: true, venmo: true, applepay: true, cash: true },
   cashtag: "$MuyRicoBakery",
   venmoHandle: "@Muy-Rico",
   applePayEnabled: true,

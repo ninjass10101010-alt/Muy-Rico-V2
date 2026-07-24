@@ -1,4 +1,4 @@
-export type PaymentMethod = "stripe" | "cashapp" | "venmo" | "applepay" | "cash";
+export type PaymentMethod = "stripe" | "paypal" | "cashapp" | "venmo" | "applepay" | "cash";
 
 export type OrderSource = "website" | "in-person";
 
@@ -110,6 +110,7 @@ export interface Order {
   source: OrderSource;
   status: OrderStatus;
   paymentMethod: PaymentMethod | null;
+  paymentSubMethod?: string | null;
   paymentStatus: PaymentStatus;
   subtotal: number;
   discount: number;
@@ -128,6 +129,7 @@ export interface Payment {
   customerName: string;
   amount: number;
   method: PaymentMethod;
+  methodDetails?: string | null;
   date: string;
   active?: boolean;
 }
@@ -284,4 +286,21 @@ export interface ComplianceResult {
   score: number;
   issues: ComplianceIssue[];
   isCompliant: boolean;
+}
+
+export interface Receipt {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  email: string | null;
+  itemsJson: string;
+  totalCents: number;
+  paymentMethod: string;
+  paymentSubMethod: string | null;
+  orderStatus: string;
+  status: "sent" | "failed";
+  messageId: string | null;
+  sentAt: string;
+  createdAt: string;
 }

@@ -69,6 +69,7 @@ const defaultProfile: BusinessProfile = {
   businessType: "cottage",
   acceptedMethods: {
     stripe: true,
+    paypal: false,
     cashapp: true,
     venmo: true,
     applepay: false,
