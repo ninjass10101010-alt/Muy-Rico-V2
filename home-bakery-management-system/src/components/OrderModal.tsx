@@ -3,7 +3,7 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import Modal from "./ui/Modal";
 import { useStore } from "../context/StoreContext";
 import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../types";
-import { PAYMENT_METHOD_LABELS } from "../utils/format";
+import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 
 export default function OrderModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { products, customers, handleCreateCustomer, profile, apiCreateOrder } = useStore();
@@ -32,9 +32,8 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const pickedProduct = products.find((p) => p.id === productPick);
   const pickedFlavorGroups = pickedProduct?.flavor_groups ?? [];
   const flavorsComplete = pickedFlavorGroups.every((g) => !!flavorSelections[g.name]);
-  const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[]).filter(
-    (m) => profile.acceptedMethods[m],
-  );
+  const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[])
+    .filter((m) => profile.acceptedMethods[m] && !ONLINE_ONLY.includes(m));
 
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.qty * i.price, 0), [items]);
   const total = Math.max(0, +(subtotal - discount).toFixed(2));

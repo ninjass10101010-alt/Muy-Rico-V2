@@ -3,7 +3,7 @@ import { CheckCircle2, ChevronDown, Tag, Trash2, Wallet } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
-import { formatCurrency, formatDate, PAYMENT_METHOD_LABELS } from "../utils/format";
+import { formatCurrency, formatDate, PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 import { generateOrderLabels } from "../utils/api";
 import type { Order, OrderStatus, PaymentMethod } from "../types";
 import type { Page } from "../App";
@@ -68,7 +68,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   }
 
   const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[]).filter(
-    (m) => profile.acceptedMethods[m],
+    (m) => profile.acceptedMethods[m] && !ONLINE_ONLY.includes(m),
   );
 
   return (
