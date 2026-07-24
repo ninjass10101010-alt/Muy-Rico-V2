@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { CreditCard, DollarSign, Smartphone } from "lucide-react";
 import { useStore } from "../context/StoreContext";
-import { formatCurrency, formatDateTime, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABELS } from "../utils/format";
+import { formatCurrency, formatDateTime, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABELS, formatPaymentSubMethod } from "../utils/format";
 import type { PaymentMethod } from "../types";
 
 const METHOD_ICONS: Record<PaymentMethod, string> = {
   stripe: "💳",
+  paypal: "🅿️",
   cashapp: "💵",
   venmo: "📲",
   applepay: "🍎",
@@ -74,12 +75,17 @@ export default function Payments({ search }: { search: string }) {
                   <td className="px-4 py-3 font-medium text-cocoa">{p.orderNumber}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{p.customerName}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                      style={{ backgroundColor: `${PAYMENT_METHOD_COLORS[p.method]}1A`, color: PAYMENT_METHOD_COLORS[p.method] }}
-                    >
-                      {METHOD_ICONS[p.method]} {PAYMENT_METHOD_LABELS[p.method]}
-                    </span>
+                    <div>
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                        style={{ backgroundColor: `${PAYMENT_METHOD_COLORS[p.method]}1A`, color: PAYMENT_METHOD_COLORS[p.method] }}
+                      >
+                        {METHOD_ICONS[p.method]} {PAYMENT_METHOD_LABELS[p.method]}
+                      </span>
+                      {p.methodDetails && formatPaymentSubMethod(p.methodDetails) && (
+                        <div className="mt-0.5 text-xs text-cocoa-muted/60">{formatPaymentSubMethod(p.methodDetails)}</div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-cocoa-muted">{formatDateTime(p.date)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-cocoa">{formatCurrency(p.amount)}</td>
