@@ -534,7 +534,7 @@ async function markOrderPaid(id, request, env, ctx) {
   if (!alreadyPaid) {
     const payId = `pay_${id}_${Date.now().toString(36)}`;
     const customerName = order.customer_name || '';
-    const amount = Number(order.total_cents) || 0;
+    const amount = (Number(order.total_cents) || 0) / 100;
     await env.DB.prepare(`
       INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date, created_at, active)
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
