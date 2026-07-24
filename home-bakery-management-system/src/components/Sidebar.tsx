@@ -7,6 +7,7 @@ import {
   Package,
   Users,
   Wallet,
+  Mail,
   Tag,
   Settings,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const NAV: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "inventory", label: "Inventory", icon: Package },
   { id: "customers", label: "Customers", icon: Users },
   { id: "payments", label: "Payments", icon: Wallet },
+  { id: "receipts", label: "Receipts", icon: Mail },
   { id: "labels", label: "Label Designer", icon: Tag },
   { id: "settings", label: "Settings", icon: Settings },
 ];

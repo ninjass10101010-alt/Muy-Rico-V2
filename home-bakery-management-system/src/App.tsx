@@ -11,6 +11,7 @@ import Homepage from "./pages/Homepage";
 import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
 import Payments from "./pages/Payments";
+import Receipts from "./pages/Receipts";
 import LabelDesigner from "./pages/LabelDesigner";
 import Settings from "./pages/Settings";
 import PublicOrder from "./pages/PublicOrder";
@@ -24,6 +25,7 @@ export type Page =
   | "inventory"
   | "customers"
   | "payments"
+  | "receipts"
   | "labels"
   | "settings";
 
@@ -64,6 +66,7 @@ function AdminApp() {
           {page === "inventory" && <Inventory search={search} />}
           {page === "customers" && <Customers search={search} />}
           {page === "payments" && <Payments search={search} />}
+          {page === "receipts" && <Receipts search={search} />}
           {page === "labels" && <LabelDesigner filterByOrder={labelFilter} />}
           {page === "settings" && <Settings />}
         </main>

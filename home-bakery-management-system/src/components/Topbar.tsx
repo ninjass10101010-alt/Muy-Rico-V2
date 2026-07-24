@@ -10,6 +10,7 @@ const TITLES: Record<Page, { title: string; subtitle: string }> = {
   inventory: { title: "Inventory", subtitle: "Ingredients & supplies on hand" },
   customers: { title: "Customers", subtitle: "Your regulars & their history" },
   payments: { title: "Payments", subtitle: "Venmo, Cash App, Apple Pay & cash" },
+  receipts: { title: "Receipts", subtitle: "Customer receipt email history & resend" },
   labels: { title: "Label Designer", subtitle: "Design & print product labels" },
   settings: { title: "Settings", subtitle: "Business profile & payment setup" },
 };
