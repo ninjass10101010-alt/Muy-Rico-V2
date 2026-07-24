@@ -43,10 +43,12 @@ The existing `buildMethodLabel(order, isEn)` and `formatStatusLabel(status, isEn
 - **Returns:** `text/html` content type
 - **Behavior:**
   1. Fetch the receipt row by ID
-  2. Reconstruct an order-like object from the receipt's snapshot fields (`customer_name`, `items_json`, `total_cents`, `payment_method`, `payment_sub_method`, `order_status`, `pickup_date` stored as `sent_at` for display)
-  3. Call `buildReceiptHtml(order, isEn)` — language defaults to `'en'` since receipts don't store language; the order's original language is not snapshotted (acceptable — receipts print in English)
-  4. Append `<script>window.print()</script>` before `</body>` so the browser auto-opens the print dialog
-  5. Return the HTML as a `Response` with `Content-Type: text/html`
+  2. Use `receipt.order_id` to fetch the full order from the `orders` table (`SELECT * FROM orders WHERE id = ?`) — this gives us `pickup_date`, `pickup_time`, `language`, `created_at`, etc. which aren't snapshotted in the receipt
+  3. If the order has been deleted, fall back to the receipt's snapshot fields (skip pickup date/time — show "—" instead)
+  4. Determine `isEn` from `order.language` (or default to `'en'` if the order is missing)
+  5. Call `buildReceiptHtml(order, isEn)`
+  6. Append `<script>window.print()</script>` before `</body>` so the browser auto-opens the print dialog
+  7. Return the HTML as a `Response` with `Content-Type: text/html`
 
 ### 3. Generate-receipt endpoint (`POST /api/orders/:id/generate-receipt`)
 
