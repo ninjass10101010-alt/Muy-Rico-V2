@@ -602,21 +602,66 @@ async function notifyOrderPaid(env, order, id, method) {
   }
 }
 
+function buildMethodLabel(order, isEn) {
+  const method = order.payment_method;
+  let label;
+  if (method === 'stripe') label = isEn ? 'Card' : 'Tarjeta';
+  else if (method === 'paypal') label = 'PayPal';
+  else if (method === 'cashapp') label = 'Cash App';
+  else if (method === 'venmo') label = 'Venmo';
+  else if (method === 'applepay') label = 'Apple Pay';
+  else if (method === 'cash') label = isEn ? 'Cash' : 'Efectivo';
+  else label = method || '—';
+  // Append sub-method details for Stripe/PayPal
+  const sub = order.payment_sub_method;
+  if (sub) {
+    try {
+      const parsed = JSON.parse(sub);
+      if (parsed.type === 'card' && parsed.brand) {
+        const brand = parsed.brand.charAt(0).toUpperCase() + parsed.brand.slice(1).toLowerCase();
+        const funding = parsed.funding ? ' ' + parsed.funding.charAt(0).toUpperCase() + parsed.funding.slice(1).toLowerCase() : '';
+        const last4 = parsed.last4 ? ' (…' + parsed.last4 + ')' : '';
+        label = `${brand}${funding}${last4}`;
+      } else if (parsed.type === 'paypal_wallet') {
+        label = 'PayPal Wallet';
+      }
+    } catch { /* keep base label */ }
+  }
+  return label;
+}
+
+function formatStatusLabel(status, isEn) {
+  const map = isEn ? {
+    'pending': 'Pending',
+    'in-progress': 'In Progress',
+    'ready': 'Ready',
+    'completed': 'Completed',
+    'cancelled': 'Cancelled',
+    'awaiting_payment': 'Awaiting Payment',
+  } : {
+    'pending': 'Pendiente',
+    'in-progress': 'En Progreso',
+    'ready': 'Listo',
+    'completed': 'Completado',
+    'cancelled': 'Cancelado',
+    'awaiting_payment': 'Esperando Pago',
+  };
+  return map[status] || status;
+}
+
 async function sendCustomerConfirmation(env, order) {
   const email = order.email;
   if (!email || !env.RESEND_API_KEY) {
     console.warn('sendCustomerConfirmation: missing email or RESEND_API_KEY for order', order.id);
-    return;
+    return { ok: false };
   }
 
   const isEn = order.language === 'en';
   const customer = order.customer_name.trim();
   const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '$0.00';
   const orderDate = (order.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
-  const methodLabel = order.payment_method === 'stripe'
-    ? (isEn ? 'Card' : 'Tarjeta')
-    : order.payment_method === 'paypal' ? 'PayPal'
-    : (order.payment_method || '—');
+  const methodLabel = buildMethodLabel(order, isEn);
+  const statusLabel = order.status ? formatStatusLabel(order.status, isEn) : '—';
 
   // Itemized receipt rows: name, qty × unit, line total (right-aligned like a paper receipt)
   let itemRows = '';
@@ -641,6 +686,7 @@ async function sendCustomerConfirmation(env, order) {
     paidNote: 'Your payment was received and your order is being prepared.',
     date: 'Date',
     payment: 'Payment',
+    statusLabel: 'Status',
     pickup: 'Pickup',
     item: 'Item',
     qty: 'Qty',
@@ -655,6 +701,7 @@ async function sendCustomerConfirmation(env, order) {
     paidNote: 'Tu pago fue recibido y tu pedido se está preparando.',
     date: 'Fecha',
     payment: 'Pago',
+    statusLabel: 'Estado',
     pickup: 'Recogida',
     item: 'Producto',
     qty: 'Cant.',
@@ -684,6 +731,10 @@ async function sendCustomerConfirmation(env, order) {
       <tr>
         <td style="color: #8a8078; font-size: 13px; padding: 3px 0;">${L.payment}</td>
         <td style="color: #4a423d; font-size: 13px; text-align: right; padding: 3px 0;">${methodLabel}</td>
+      </tr>
+      <tr>
+        <td style="color: #8a8078; font-size: 13px; padding: 3px 0;">${L.statusLabel}</td>
+        <td style="color: #4a423d; font-size: 13px; text-align: right; padding: 3px 0;">${statusLabel}</td>
       </tr>
       <tr>
         <td style="color: #8a8078; font-size: 13px; padding: 3px 0;">${L.pickup}</td>
@@ -735,6 +786,7 @@ async function sendCustomerConfirmation(env, order) {
     ``,
     `${L.date}: ${orderDate}`,
     `${L.payment}: ${methodLabel}`,
+    `${L.statusLabel}: ${statusLabel}`,
     `${L.pickup}: ${order.pickup_date || '—'}${order.pickup_time ? ' ' + order.pickup_time : ''}`,
     `Order: #${order.id}`,
     ``,
@@ -764,8 +816,16 @@ async function sendCustomerConfirmation(env, order) {
     if (!res.ok) {
       const err = await res.text();
       console.error("Resend customer email failed:", res.status, err);
+      return { ok: false };
     }
-  } catch (e) { console.error('Customer email notify failed:', e); }
+    const data = await res.json().catch(() => ({}));
+    return { ok: true, messageId: data.id || null };
+  } catch (e) {
+    console.error('Customer email notify failed:', e);
+    return { ok: false };
+  }
+
+  return { ok: false };
 }
 
 async function cancelOrder(id, env, actor) {
