@@ -424,6 +424,44 @@ export async function deletePayment(id: string): Promise<{ ok: boolean }> {
   });
 }
 
+// ─── Receipts ─────────────────────────────────────────────────────────────────
+
+export interface ApiReceipt {
+  id: string;
+  orderId: number;
+  orderNumber: string | null;
+  customerName: string;
+  email: string | null;
+  itemsJson: string;
+  totalCents: number;
+  paymentMethod: string;
+  paymentSubMethod: string | null;
+  orderStatus: string;
+  status: "sent" | "failed";
+  messageId: string | null;
+  sentAt: string;
+  createdAt: string;
+}
+
+export async function fetchReceipts(filters?: {
+  order_id?: string;
+  email?: string;
+  search?: string;
+}): Promise<ApiReceipt[]> {
+  const params = new URLSearchParams();
+  if (filters?.order_id) params.set("order_id", filters.order_id);
+  if (filters?.email) params.set("email", filters.email);
+  if (filters?.search) params.set("search", filters.search);
+  params.set("limit", "500");
+  const qs = params.toString();
+  const data = await apiFetch<{ receipts: ApiReceipt[] }>(`/api/receipts${qs ? `?${qs}` : ""}`);
+  return data.receipts;
+}
+
+export async function resendReceiptApi(id: string): Promise<{ ok: boolean; status: string; messageId: string | null }> {
+  return apiFetch(`/api/receipts/${encodeURIComponent(id)}/resend`, { method: "POST" });
+}
+
 // ─── Label templates ──────────────────────────────────────────────────────────
 
 export interface ApiLabelTemplate {
