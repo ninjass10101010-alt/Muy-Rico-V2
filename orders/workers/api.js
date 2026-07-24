@@ -217,6 +217,8 @@ export default {
       if (path === '/api/receipts' && method === 'GET') return await listReceipts(request, env);
       const rm = path.match(/^\/api\/receipts\/([^/]+)$/);
       if (rm && method === 'GET') return await getReceipt(rm[1], env);
+      const rhm = path.match(/^\/api\/receipts\/([^/]+)\/html$/);
+      if (rhm && method === 'GET') return await getReceiptHtml(rhm[1], env);
       const rsm = path.match(/^\/api\/receipts\/([^/]+)\/resend$/);
       if (rsm && method === 'POST') return await resendReceipt(rsm[1], request, env, ctx, actorName);
 
@@ -659,14 +661,7 @@ function formatStatusLabel(status, isEn) {
   return map[status] || status;
 }
 
-async function sendCustomerConfirmation(env, order) {
-  const email = order.email;
-  if (!email || !env.RESEND_API_KEY) {
-    console.warn('sendCustomerConfirmation: missing email or RESEND_API_KEY for order', order.id);
-    return { ok: false };
-  }
-
-  const isEn = order.language === 'en';
+function buildReceiptHtml(order, isEn) {
   const customer = order.customer_name.trim();
   const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '$0.00';
   const orderDate = (order.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
@@ -690,7 +685,6 @@ async function sendCustomerConfirmation(env, order) {
   }
 
   const L = isEn ? {
-    subject: `Receipt — Muy Rico Order #${order.id}`,
     receipt: 'RECEIPT',
     thanks: 'Thank you for your order!',
     paidNote: 'Your payment was received and your order is being prepared.',
@@ -705,7 +699,6 @@ async function sendCustomerConfirmation(env, order) {
     contact: 'Questions about your order? Reply to this email or call/text us at (616) 218-3582.',
     footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
   } : {
-    subject: `Recibo — Pedido Muy Rico #${order.id}`,
     receipt: 'RECIBO',
     thanks: '¡Gracias por tu pedido!',
     paidNote: 'Tu pago fue recibido y tu pedido se está preparando.',
@@ -721,7 +714,7 @@ async function sendCustomerConfirmation(env, order) {
     footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
   };
 
-  const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; padding: 24px 12px; color: #333;">
+  return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; padding: 24px 12px; color: #333;">
 <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.07);">
 
   <div style="background: #1e4636; padding: 28px 32px 24px; text-align: center;">
@@ -781,6 +774,49 @@ async function sendCustomerConfirmation(env, order) {
 
 </div>
 </div>`;
+}
+
+async function sendCustomerConfirmation(env, order) {
+  const email = order.email;
+  if (!email || !env.RESEND_API_KEY) {
+    console.warn('sendCustomerConfirmation: missing email or RESEND_API_KEY for order', order.id);
+    return { ok: false };
+  }
+
+  const isEn = order.language === 'en';
+  const html = buildReceiptHtml(order, isEn);
+
+  const customer = order.customer_name.trim();
+  const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '$0.00';
+  const orderDate = (order.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const methodLabel = buildMethodLabel(order, isEn);
+  const statusLabel = order.status ? formatStatusLabel(order.status, isEn) : '—';
+
+  const L = isEn ? {
+    subject: `Receipt — Muy Rico Order #${order.id}`,
+    receipt: 'RECEIPT',
+    thanks: 'Thank you for your order!',
+    paidNote: 'Your payment was received and your order is being prepared.',
+    date: 'Date',
+    payment: 'Payment',
+    statusLabel: 'Status',
+    pickup: 'Pickup',
+    total: 'TOTAL PAID',
+    contact: 'Questions about your order? Reply to this email or call/text us at (616) 218-3582.',
+    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  } : {
+    subject: `Recibo — Pedido Muy Rico #${order.id}`,
+    receipt: 'RECIBO',
+    thanks: '¡Gracias por tu pedido!',
+    paidNote: 'Tu pago fue recibido y tu pedido se está preparando.',
+    date: 'Fecha',
+    payment: 'Pago',
+    statusLabel: 'Estado',
+    pickup: 'Recogida',
+    total: 'TOTAL PAGADO',
+    contact: '¿Preguntas sobre tu pedido? Responde a este correo o llámanos al (616) 218-3582.',
+    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  };
 
   // Plain-text fallback (improves spam score + accessibility)
   let textItems = '';
@@ -894,6 +930,38 @@ async function getReceipt(id, env) {
   const receipt = await env.DB.prepare('SELECT * FROM receipts WHERE id = ?').bind(id).first();
   if (!receipt) return json({ error: 'Not found' }, 404);
   return json({ receipt: snakeToCamelObject(receipt) }, 200);
+}
+
+async function getReceiptHtml(id, env) {
+  const receipt = await env.DB.prepare('SELECT * FROM receipts WHERE id = ?').bind(id).first();
+  if (!receipt) return json({ error: 'Not found' }, 404);
+  // Fetch the full order for pickup_date, pickup_time, language, created_at
+  let order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(receipt.order_id).first();
+  let isEn = true;
+  if (order) {
+    isEn = order.language === 'en';
+  } else {
+    // Order deleted — fall back to receipt snapshot (no pickup date/time)
+    order = {
+      id: receipt.order_id,
+      customer_name: receipt.customer_name || '',
+      email: receipt.email || null,
+      items_json: receipt.items_json || '[]',
+      total_cents: receipt.total_cents || 0,
+      payment_method: receipt.payment_method || 'unknown',
+      payment_sub_method: receipt.payment_sub_method || null,
+      status: receipt.order_status || 'pending',
+      pickup_date: null,
+      pickup_time: null,
+      created_at: receipt.created_at,
+    };
+  }
+  const html = buildReceiptHtml(order, isEn);
+  const printable = html + '\n<script>window.print();</script>';
+  return new Response(printable, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', ...CORS },
+  });
 }
 
 async function resendReceipt(id, request, env, ctx, actor) {
