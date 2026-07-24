@@ -4,7 +4,7 @@ import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod } from "../utils/format";
-import { generateOrderLabels } from "../utils/api";
+import { generateOrderLabels, receiptHtmlUrl } from "../utils/api";
 import type { Order, OrderStatus, PaymentMethod } from "../types";
 import type { Page } from "../App";
 
@@ -15,7 +15,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, receipts, resendReceipt } = useStore();
+  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, receipts, resendReceipt, generateReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -64,6 +64,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
     const updated: Order = { ...payFor, paymentStatus: "paid", paymentMethod: payMethod };
     await apiUpdateOrder(Number(payFor.id), { payment_status: "paid", payment_method: payMethod });
     await recordPayment(updated);
+    generateReceipt(Number(payFor.id)).catch(() => {});
     setPayFor(null);
   }
 
@@ -242,14 +243,22 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                     .map((r) => (
                       <li key={r.id} className="flex items-center justify-between">
                         <span>
-                          {r.status === "sent" ? "✓" : "✗"} {formatDateTime(r.sentAt)}
+                          {r.status === "sent" ? "✓" : r.status === "printed" ? "🖨" : "✗"} {formatDateTime(r.sentAt)}
                         </span>
-                        <button
-                          onClick={() => resendReceipt(r.id)}
-                          className="text-xs text-coral hover:underline"
-                        >
-                          Resend
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => window.open(receiptHtmlUrl(r.id))}
+                            className="text-xs text-cocoa-muted hover:underline"
+                          >
+                            Print
+                          </button>
+                          <button
+                            onClick={() => resendReceipt(r.id)}
+                            className="text-xs text-coral hover:underline"
+                          >
+                            Resend
+                          </button>
+                        </div>
                       </li>
                     ))}
                 </ul>
