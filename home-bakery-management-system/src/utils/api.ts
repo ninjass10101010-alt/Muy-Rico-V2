@@ -30,6 +30,7 @@ interface ApiOrder {
   items_json: string;
   total_cents: number;
   payment_method: string;
+  payment_sub_method: string | null;
   payment_status: string;
   status: string;
   notes: string | null;
@@ -389,6 +390,7 @@ export interface ApiPayment {
   customerName: string;
   amount: number;
   method: PaymentMethod;
+  methodDetails: string | null;
   date: string;
   createdAt: string;
   active: boolean;

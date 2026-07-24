@@ -87,6 +87,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // normalize legacy 'done' → 'completed' for the UI
           status: (r.status === "done" ? "completed" : r.status) as Order["status"],
           paymentMethod: r.payment_method as Order["paymentMethod"],
+          paymentSubMethod: r.payment_sub_method || null,
           paymentStatus: r.payment_status as Order["paymentStatus"],
           subtotal: r.total_cents / 100,
           discount: 0,
@@ -230,6 +231,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       customerName: row.customerName,
       amount: Number(row.amount) || 0,
       method: row.method,
+      methodDetails: row.methodDetails || null,
       date: row.date,
       active: Boolean(row.active),
     };
