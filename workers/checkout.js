@@ -145,7 +145,11 @@ async function handleStripeWebhook(request, env) {
       console.warn(`stripe ${event.type} without order id — ignored`);
       return json({ received: true });
     }
-    const ok = await markOrderPaidViaApi(orderId, "stripe", env);
+
+    // Fetch charge details to capture the specific card/instrument used.
+    const subMethod = await extractStripeSubMethod(event, obj, env);
+
+    const ok = await markOrderPaidViaApi(orderId, "stripe", env, subMethod);
     if (!ok) return json({ error: "mark-paid failed" }, 500);
   } else {
     // Acknowledge but ignore other event types (e.g. checkout.session.async_payment_*)
@@ -164,12 +168,12 @@ async function hmacSha256(secret, payload) {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function markOrderPaidViaApi(orderId, method, env) {
+async function markOrderPaidViaApi(orderId, method, env, subMethod = null) {
   try {
     const res = await ordersApiFetch(env, "/api/orders/" + encodeURIComponent(orderId) + "/mark-paid", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method }),
+      body: JSON.stringify({ method, sub_method: subMethod }),
     });
     if (res.status === 404) {
       console.error("mark-paid 404 for order", orderId);
@@ -183,6 +187,93 @@ async function markOrderPaidViaApi(orderId, method, env) {
   } catch (e) {
     console.error("mark-paid network error", e);
     return false;
+  }
+}
+
+async function extractStripeSubMethod(event, obj, env) {
+  const key = env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  try {
+    let chargeId = null;
+    if (event.type === "payment_intent.succeeded") {
+      chargeId = obj.latest_charge || (obj.charges && obj.charges.data && obj.charges.data[0] && obj.charges.data[0].id);
+    } else if (event.type === "checkout.session.completed") {
+      // obj is a checkout session — expand payment_intent to get the charge
+      const piId = typeof obj.payment_intent === "string" ? obj.payment_intent : null;
+      if (piId) {
+        const piRes = await fetch("https://api.stripe.com/v1/payment_intents/" + piId, {
+          headers: { Authorization: "Bearer " + key },
+        });
+        const pi = await piRes.json();
+        chargeId = pi.latest_charge || (pi.charges && pi.charges.data && pi.charges.data[0] && pi.charges.data[0].id);
+      }
+    }
+    if (!chargeId) return null;
+    const chargeRes = await fetch("https://api.stripe.com/v1/charges/" + chargeId, {
+      headers: { Authorization: "Bearer " + key },
+    });
+    const charge = await chargeRes.json();
+    const pmd = charge.payment_method_details;
+    if (!pmd) return null;
+    if (pmd.type === "card" && pmd.card) {
+      return JSON.stringify({
+        type: "card",
+        brand: pmd.card.brand || "unknown",
+        funding: pmd.card.funding || "unknown",
+        last4: pmd.card.last4 || null,
+      });
+    }
+    return JSON.stringify({ type: pmd.type });
+  } catch (e) {
+    console.error("extractStripeSubMethod failed:", e);
+    return null;
+  }
+}
+
+function extractPayPalSubMethod(captureData) {
+  try {
+    const ps = captureData && captureData.payment_source;
+    if (!ps) return null;
+    if (ps.paypal) {
+      return JSON.stringify({ type: "paypal_wallet" });
+    }
+    if (ps.card) {
+      return JSON.stringify({
+        type: "card",
+        brand: ps.card.brand || "unknown",
+        funding: ps.card.type ? ps.card.type.toLowerCase() : "unknown",
+      });
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function extractPayPalWebhookSubMethod(event, env) {
+  try {
+    const resource = event.resource || {};
+    // PAYMENT.CAPTURE.COMPLETED — resource is a capture; fetch the order to get payment_source.
+    const captureId = resource.id;
+    if (!captureId) return null;
+    const auth = await paypalAuth(env);
+    if (!auth) return null;
+    const capRes = await fetch(env.PAYPAL_API_BASE + "/v2/payments/captures/" + encodeURIComponent(captureId), {
+      headers: { Authorization: "Bearer " + auth },
+    });
+    if (!capRes.ok) return null;
+    const cap = await capRes.json();
+    const orderId = cap.supplementary_data && cap.supplementary_data.related_ids && cap.supplementary_data.related_ids.order_id;
+    if (!orderId) return null;
+    const orderRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(orderId), {
+      headers: { Authorization: "Bearer " + auth },
+    });
+    if (!orderRes.ok) return null;
+    const order = await orderRes.json();
+    return extractPayPalSubMethod(order);
+  } catch (e) {
+    console.error("extractPayPalWebhookSubMethod failed:", e);
+    return null;
   }
 }
 
@@ -243,7 +334,8 @@ async function handlePayPalWebhook(request, env) {
       console.warn("paypal event without order id — ignored");
       return json({ received: true });
     }
-    const ok = await markOrderPaidViaApi(orderId, "paypal", env);
+    const subMethod = await extractPayPalWebhookSubMethod(event, env);
+    const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod);
     if (!ok) return json({ error: "mark-paid failed" }, 500);
   } else {
     console.log("paypal event ignored:", event.event_type);
@@ -366,7 +458,8 @@ async function handlePayPalCapture(request, env) {
     return json({ error: captureData.message || "Capture failed" }, 400);
   }
 
-  const ok = await markOrderPaidViaApi(orderId, "paypal", env);
+  const subMethod = extractPayPalSubMethod(captureData);
+  const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod);
   if (!ok) return json({ error: "mark-paid failed" }, 500);
 
   return json({ ok: true });
