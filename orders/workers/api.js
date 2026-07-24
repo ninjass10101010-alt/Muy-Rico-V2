@@ -132,6 +132,11 @@ export default {
         return await markOrderPaid(Number(mpm[1]), request, env, ctx);
       }
 
+      const grm = path.match(/^\/api\/orders\/(\d+)\/generate-receipt$/);
+      if (grm && method === 'POST') {
+        return await generateReceiptForOrder(Number(grm[1]), request, env, ctx, actorName);
+      }
+
       const paym = path.match(/^\/api\/orders\/(\d+)\/payable$/);
       if (paym && method === 'GET') {
         return await getOrderPayable(Number(paym[1]), request, env);
@@ -874,10 +879,12 @@ async function sendCustomerConfirmation(env, order) {
   return { ok: false };
 }
 
-async function logReceipt(env, order, emailResult, orderId) {
-  const status = emailResult && emailResult.ok ? 'sent' : 'failed';
+async function logReceiptWithId(env, order, emailResult, orderId, receiptId) {
+  let status;
+  if (emailResult && emailResult.ok) status = 'sent';
+  else if (emailResult && emailResult.skipped) status = 'printed';
+  else status = 'failed';
   const messageId = (emailResult && emailResult.messageId) || null;
-  const receiptId = `rcpt_${orderId}_${Date.now().toString(36)}`;
   try {
     await env.DB.prepare(`
       INSERT INTO receipts (id, order_id, order_number, customer_name, email, items_json, total_cents, payment_method, payment_sub_method, order_status, status, message_id, sent_at, created_at)
@@ -896,12 +903,18 @@ async function logReceipt(env, order, emailResult, orderId) {
       status,
       messageId,
     ).run();
+    const eventLabel = status === 'sent' ? 'receipt:sent' : status === 'printed' ? 'receipt:printed' : 'receipt:failed';
     await env.DB.prepare(`
       INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)
-    `).bind(orderId, 'system', status === 'sent' ? 'receipt:sent' : 'receipt:failed').run();
+    `).bind(orderId, 'system', eventLabel).run();
   } catch (e) {
     console.error('logReceipt failed:', e);
   }
+}
+
+async function logReceipt(env, order, emailResult, orderId) {
+  const receiptId = `rcpt_${orderId}_${Date.now().toString(36)}`;
+  await logReceiptWithId(env, order, emailResult, orderId, receiptId);
 }
 
 async function listReceipts(request, env) {
@@ -973,6 +986,32 @@ async function resendReceipt(id, request, env, ctx, actor) {
   const result = await sendCustomerConfirmation(env, order);
   await logReceipt(env, order, result, receipt.order_id);
   return json({ ok: true, status: result.ok ? 'sent' : 'failed', messageId: result.messageId || null }, 200);
+}
+
+async function generateReceiptForOrder(id, request, env, ctx, actor) {
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+  if (!order) return json({ error: 'Order not found' }, 404);
+
+  let emailResult;
+  if (order.email && env.RESEND_API_KEY) {
+    emailResult = await sendCustomerConfirmation(env, order);
+  } else {
+    emailResult = { ok: false, messageId: null, skipped: true };
+  }
+
+  const receiptId = `rcpt_${id}_${Date.now().toString(36)}`;
+  await logReceiptWithId(env, order, emailResult, id, receiptId);
+
+  await env.DB.prepare(`
+    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'receipt:generated')
+  `).bind(id, actor || 'system').run();
+
+  return json({
+    ok: true,
+    receiptId,
+    status: emailResult.ok ? 'sent' : emailResult.skipped ? 'printed' : 'failed',
+    messageId: emailResult.messageId || null,
+  }, 200);
 }
 
 async function cancelOrder(id, env, actor) {
