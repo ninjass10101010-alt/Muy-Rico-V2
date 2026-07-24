@@ -7,6 +7,7 @@ interface ApiOrderCreate {
   customer_name: string;
   customer_id?: string | null;
   phone?: string | null;
+  email?: string | null;
   pickup_date: string;
   pickup_time?: string | null;
   items_json: { name: string; qty: number; price: number }[];
@@ -460,6 +461,14 @@ export async function fetchReceipts(filters?: {
 
 export async function resendReceiptApi(id: string): Promise<{ ok: boolean; status: string; messageId: string | null }> {
   return apiFetch(`/api/receipts/${encodeURIComponent(id)}/resend`, { method: "POST" });
+}
+
+export async function generateReceiptApi(orderId: number): Promise<{ ok: boolean; receiptId: string; status: string; messageId: string | null }> {
+  return apiFetch(`/api/orders/${orderId}/generate-receipt`, { method: "POST" });
+}
+
+export function receiptHtmlUrl(receiptId: string): string {
+  return `${API_BASE}/api/receipts/${encodeURIComponent(receiptId)}/html`;
 }
 
 // ─── Label templates ──────────────────────────────────────────────────────────

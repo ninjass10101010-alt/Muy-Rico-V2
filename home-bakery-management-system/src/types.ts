@@ -299,7 +299,7 @@ export interface Receipt {
   paymentMethod: string;
   paymentSubMethod: string | null;
   orderStatus: string;
-  status: "sent" | "failed";
+  status: "sent" | "failed" | "printed";
   messageId: string | null;
   sentAt: string;
   createdAt: string;
