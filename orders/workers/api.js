@@ -213,6 +213,13 @@ export default {
       if (path === '/api/customers' && method === 'POST') return await createCustomer(request, env, actorName);
       if (path === '/api/payments' && method === 'GET') return await listPayments(env);
       if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
+
+      if (path === '/api/receipts' && method === 'GET') return await listReceipts(request, env);
+      const rm = path.match(/^\/api\/receipts\/([^/]+)$/);
+      if (rm && method === 'GET') return await getReceipt(rm[1], env);
+      const rsm = path.match(/^\/api\/receipts\/([^/]+)\/resend$/);
+      if (rsm && method === 'POST') return await resendReceipt(rsm[1], request, env, ctx, actorName);
+
       if (path === '/api/labels' && method === 'GET') return await listLabelTemplates(env);
       if (path === '/api/labels' && method === 'POST') return await createLabelTemplate(request, env, actorName);
       if (path === '/api/profile' && method === 'GET') return await getProfile(env);
@@ -543,7 +550,10 @@ async function markOrderPaid(id, request, env, ctx) {
     // Fire owner notification + customer confirmation email in background
     if (ctx) {
       ctx.waitUntil(notifyOrderPaid(env, updatedOrder, id, method));
-      ctx.waitUntil(sendCustomerConfirmation(env, updatedOrder));
+      ctx.waitUntil((async () => {
+        const result = await sendCustomerConfirmation(env, updatedOrder);
+        await logReceipt(env, updatedOrder, result, id);
+      })());
       // Labels were deferred for awaiting_payment orders — generate them now
       if (wasAwaiting) {
         ctx.waitUntil(generateLabelsForOrder(env, id, order));
@@ -826,6 +836,75 @@ async function sendCustomerConfirmation(env, order) {
   }
 
   return { ok: false };
+}
+
+async function logReceipt(env, order, emailResult, orderId) {
+  const status = emailResult && emailResult.ok ? 'sent' : 'failed';
+  const messageId = (emailResult && emailResult.messageId) || null;
+  const receiptId = `rcpt_${orderId}_${Date.now().toString(36)}`;
+  try {
+    await env.DB.prepare(`
+      INSERT INTO receipts (id, order_id, order_number, customer_name, email, items_json, total_cents, payment_method, payment_sub_method, order_status, status, message_id, sent_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `).bind(
+      receiptId,
+      orderId,
+      `MR-${orderId}`,
+      order.customer_name || '',
+      order.email || null,
+      order.items_json || '[]',
+      Number(order.total_cents) || 0,
+      order.payment_method || 'unknown',
+      order.payment_sub_method || null,
+      order.status || 'pending',
+      status,
+      messageId,
+    ).run();
+    await env.DB.prepare(`
+      INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)
+    `).bind(orderId, 'system', status === 'sent' ? 'receipt:sent' : 'receipt:failed').run();
+  } catch (e) {
+    console.error('logReceipt failed:', e);
+  }
+}
+
+async function listReceipts(request, env) {
+  const sp = new URL(request.url).searchParams;
+  const orderId = sp.get('order_id');
+  const email = sp.get('email');
+  const search = sp.get('search');
+  const limit = Math.min(Number(sp.get('limit')) || 200, 500);
+  const where = [];
+  const binds = [];
+  if (orderId) { where.push('order_id = ?'); binds.push(Number(orderId)); }
+  if (email) { where.push('email LIKE ?'); binds.push(`%${email}%`); }
+  if (search) { where.push('(customer_name LIKE ? OR order_number LIKE ?)'); binds.push(`%${search}%`, `%${search}%`); }
+  const sql = `
+    SELECT * FROM receipts
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    ORDER BY created_at DESC
+    LIMIT ?
+  `;
+  binds.push(limit);
+  const { results } = await env.DB.prepare(sql).bind(...binds).all();
+  return json({ receipts: results.map(snakeToCamelObject) }, 200);
+}
+
+async function getReceipt(id, env) {
+  const receipt = await env.DB.prepare('SELECT * FROM receipts WHERE id = ?').bind(id).first();
+  if (!receipt) return json({ error: 'Not found' }, 404);
+  return json({ receipt: snakeToCamelObject(receipt) }, 200);
+}
+
+async function resendReceipt(id, request, env, ctx, actor) {
+  const receipt = await env.DB.prepare('SELECT * FROM receipts WHERE id = ?').bind(id).first();
+  if (!receipt) return json({ error: 'Not found' }, 404);
+  // Fetch the current order to send a fresh receipt
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(receipt.order_id).first();
+  if (!order) return json({ error: 'Order not found' }, 404);
+  const result = await sendCustomerConfirmation(env, order);
+  await logReceipt(env, order, result, receipt.order_id);
+  return json({ ok: true, status: result.ok ? 'sent' : 'failed', messageId: result.messageId || null }, 200);
 }
 
 async function cancelOrder(id, env, actor) {
