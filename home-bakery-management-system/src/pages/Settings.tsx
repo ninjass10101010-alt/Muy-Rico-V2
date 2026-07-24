@@ -7,6 +7,7 @@ import { backfillAllOrderLabels } from "../utils/api";
 
 const METHOD_ICONS: Record<PaymentMethod, string> = {
   stripe: "💳",
+  paypal: "🅿️",
   cashapp: "💵",
   venmo: "📲",
   applepay: "🍎",
