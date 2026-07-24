@@ -3,7 +3,7 @@ import { CheckCircle2, ChevronDown, Tag, Trash2, Wallet } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
-import { formatCurrency, formatDate, PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
+import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod } from "../utils/format";
 import { generateOrderLabels } from "../utils/api";
 import type { Order, OrderStatus, PaymentMethod } from "../types";
 import type { Page } from "../App";
@@ -15,7 +15,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders } = useStore();
+  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, receipts, resendReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -224,6 +224,37 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 <span>{selected.foodColoring}</span>
               </div>
             )}
+            <div className="rounded-xl bg-sand-50 p-3 text-sm">
+              <span className="text-cocoa-muted/60">Payment: </span>
+              {selected.paymentMethod ? PAYMENT_METHOD_LABELS[selected.paymentMethod] : "—"}
+              {selected.paymentSubMethod && formatPaymentSubMethod(selected.paymentSubMethod) && (
+                <span className="ml-1 text-cocoa-muted/60">({formatPaymentSubMethod(selected.paymentSubMethod)})</span>
+              )}
+            </div>
+            <div className="border-t border-sand-200 pt-3">
+              <p className="mb-2 text-xs font-semibold uppercase text-cocoa-muted/60">Receipts</p>
+              {receipts.filter((r) => r.orderId === selected.id).length === 0 ? (
+                <p className="text-sm text-cocoa-muted/50">No receipts sent for this order.</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {receipts
+                    .filter((r) => r.orderId === selected.id)
+                    .map((r) => (
+                      <li key={r.id} className="flex items-center justify-between">
+                        <span>
+                          {r.status === "sent" ? "✓" : "✗"} {formatDateTime(r.sentAt)}
+                        </span>
+                        <button
+                          onClick={() => resendReceipt(r.id)}
+                          className="text-xs text-coral hover:underline"
+                        >
+                          Resend
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
             <div className="flex items-center justify-between text-xs text-cocoa-muted">
               <span>Ordered {formatDate(selected.createdAt)}</span>
               <span>Due {formatDate(selected.dueDate)}</span>
