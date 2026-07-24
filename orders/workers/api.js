@@ -494,6 +494,7 @@ async function markOrderPaid(id, request, env, ctx) {
   if (!method || !ALLOWED_PAYMENT.includes(method)) {
     return json({ error: `Invalid or missing method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
   }
+  const subMethod = body.sub_method || null;
 
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   if (!order) return json({ error: 'Not found' }, 404);
@@ -504,8 +505,8 @@ async function markOrderPaid(id, request, env, ctx) {
 
   if (!alreadyPaid) {
     await env.DB.prepare(`
-      UPDATE orders SET payment_status = 'paid', payment_method = ? WHERE id = ?
-    `).bind(method, id).run();
+      UPDATE orders SET payment_status = 'paid', payment_method = ?, payment_sub_method = ? WHERE id = ?
+    `).bind(method, subMethod, id).run();
   }
 
   // Audit trail (additive — always record the webhook fired)
@@ -521,9 +522,9 @@ async function markOrderPaid(id, request, env, ctx) {
     const customerName = order.customer_name || '';
     const amount = Number(order.total_cents) || 0;
     await env.DB.prepare(`
-      INSERT INTO payments (id, order_id, customer_name, amount, method, date, created_at, active)
-      VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
-    `).bind(payId, id, customerName, amount, method).run();
+      INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date, created_at, active)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+    `).bind(payId, id, customerName, amount, method, subMethod).run();
 
     // Transition from awaiting_payment to pending on first payment
     const wasAwaiting = order.status === 'awaiting_payment';
@@ -536,7 +537,7 @@ async function markOrderPaid(id, request, env, ctx) {
 
     // Re-read order with email + language for notifications
     const updatedOrder = await env.DB.prepare(
-      'SELECT id, customer_name, email, language, items_json, total_cents, pickup_date, pickup_time, payment_method, payment_status, created_at FROM orders WHERE id = ?'
+      'SELECT id, customer_name, email, language, items_json, total_cents, pickup_date, pickup_time, payment_method, payment_sub_method, payment_status, status, created_at FROM orders WHERE id = ?'
     ).bind(id).first();
 
     // Fire owner notification + customer confirmation email in background
