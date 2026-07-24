@@ -6,11 +6,12 @@ import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../ty
 import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 
 export default function OrderModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { products, customers, handleCreateCustomer, profile, apiCreateOrder } = useStore();
+  const { products, customers, handleCreateCustomer, profile, apiCreateOrder, generateReceipt } = useStore();
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [source, setSource] = useState<OrderSource>("in-person");
   const [items, setItems] = useState<OrderItem[]>([]);
   const [flavorSelections, setFlavorSelections] = useState<Record<string, string>>({});
@@ -78,6 +79,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
     setCustomerId("");
     setCustomerName("");
     setPhone("");
+    setEmail("");
     setSource("in-person");
     setItems([]);
     setPaymentMethod("cash");
@@ -136,10 +138,11 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
       }
     }
 
-    await apiCreateOrder({
+    const result = await apiCreateOrder({
       customer_name: finalCustomerName || "Walk-in Customer",
       customer_id: customerIdForOrder,
       phone: finalPhone || null,
+      email: email.trim() || null,
       pickup_date: dueDate,
       items_json: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId })),
       total_cents: Math.round(total * 100),
@@ -149,6 +152,10 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
       source,
       food_coloring: foodColoring.trim() || null,
     });
+
+    if (result?.id && paymentStatus === "paid") {
+      generateReceipt(result.id).catch(() => {});
+    }
 
     resetForm();
     onClose();
@@ -222,6 +229,12 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Phone number"
+                  className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email (for receipt)"
                   className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
                 />
               </div>
