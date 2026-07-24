@@ -1,7 +1,8 @@
 import { useMemo, useState, Fragment } from "react";
-import { MailCheck, MailX, RotateCw, Search } from "lucide-react";
+import { MailCheck, MailX, Printer, RotateCw, Search } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import { formatCurrency, formatDateTime, PAYMENT_METHOD_LABELS, formatPaymentSubMethod } from "../utils/format";
+import { receiptHtmlUrl } from "../utils/api";
 import type { Receipt } from "../types";
 
 export default function Receipts({ search }: { search: string }) {
@@ -92,6 +93,10 @@ export default function Receipts({ search }: { search: string }) {
                       <span className="inline-flex items-center gap-1 rounded-full bg-mid-green/10 px-2 py-0.5 text-xs font-medium text-mid-green">
                         <MailCheck size={12} /> Sent
                       </span>
+                    ) : r.status === "printed" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sand-200 px-2 py-0.5 text-xs font-medium text-cocoa-muted">
+                        <Printer size={12} /> Print Only
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
                         <MailX size={12} /> Failed
@@ -101,14 +106,23 @@ export default function Receipts({ search }: { search: string }) {
                   <td className="px-4 py-3 text-right font-medium">{formatCurrency(r.totalCents / 100)}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{formatDateTime(r.sentAt)}</td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleResend(r); }}
-                      disabled={resending === r.id}
-                      className="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50 disabled:opacity-50"
-                    >
-                      <RotateCw size={12} className={resending === r.id ? "animate-spin" : ""} />
-                      Resend
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.open(receiptHtmlUrl(r.id)); }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50"
+                      >
+                        <Printer size={12} />
+                        Print
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleResend(r); }}
+                        disabled={resending === r.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50 disabled:opacity-50"
+                      >
+                        <RotateCw size={12} className={resending === r.id ? "animate-spin" : ""} />
+                        Resend
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {expanded === r.id && (
