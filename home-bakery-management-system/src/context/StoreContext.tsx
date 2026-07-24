@@ -20,7 +20,7 @@ import type {
   Receipt,
 } from "../types";
 import { newId } from "../utils/format";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt } from "../utils/api";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -45,6 +45,7 @@ interface StoreContextValue {
   receipts: Receipt[];
   refreshReceipts: () => Promise<void>;
   resendReceipt: (id: string) => Promise<void>;
+  generateReceipt: (orderId: number) => Promise<void>;
   labelTemplates: LabelTemplate[];
   handleCreateLabel: (t: Parameters<typeof apiCreateLabelTemplate>[0]) => Promise<{ ok: boolean; id: string }>;
   handleUpdateLabel: (id: string, patch: Parameters<typeof apiUpdateLabelTemplate>[1]) => Promise<void>;
@@ -537,6 +538,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshReceipts]);
 
+  const generateReceipt = useCallback(async (orderId: number) => {
+    try {
+      await generateReceiptApi(orderId);
+      await refreshReceipts();
+    } catch (err) {
+      console.warn("Failed to generate receipt:", err);
+    }
+  }, [refreshReceipts]);
+
   const resetAllData = useCallback(async () => {
     try {
       await resetSeedData();
@@ -591,6 +601,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       receipts,
       refreshReceipts,
       resendReceipt,
+      generateReceipt,
       labelTemplates,
       handleCreateLabel,
       handleUpdateLabel,
@@ -607,7 +618,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       apiCancelOrder: handleApiCancelOrder,
       apiDeleteOrder: handleApiDeleteOrder,
     }),
-    [products, inventory, customers, orders, payments, receipts, labelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt],
+    [products, inventory, customers, orders, payments, receipts, labelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
