@@ -1695,13 +1695,22 @@ async function deletePayment(id, env, actor) {
 const LABEL_FIELDS = [
   'name', 'shape', 'bg_color', 'accent_color', 'text_color', 'business_name',
   'product_name', 'details', 'ingredients', 'allergens', 'net_weight', 'price',
-  'show_price', 'show_best_by', 'best_by_days', 'logo_emoji', 'logo_image', 'logo_size',
+  'show_price', 'show_best_by', 'best_by_days', 'best_by_date', 'logo_emoji', 'logo_image', 'logo_size',
   'font', 'business_id_mode', 'address', 'phone_number', 'registration_number',
   'show_disclaimer', 'label_width', 'label_height', 'display_order',
   'elements', 'website_url', 'orientation',
   'disclaimer_variant', 'product_type', 'net_weight_us', 'net_weight_metric',
   'allergen_tags', 'no_allergens_confirmed', 'nutrient_claim', 'bg_image', 'avery_preset',
 ];
+
+// FDA major allergens for auto-tagging from allergen text
+const FDA_ALLERGENS = ['milk', 'eggs', 'wheat', 'soybeans', 'soy', 'peanuts', 'tree nuts', 'fish', 'shellfish', 'sesame'];
+
+function parseAllergenTags(allergenText) {
+  if (!allergenText) return [];
+  const lower = allergenText.toLowerCase();
+  return FDA_ALLERGENS.filter(a => lower.includes(a));
+}
 
 async function generateLabelsForOrder(env, orderId, body) {
   let items = [];
@@ -1792,12 +1801,13 @@ async function generateLabelsForOrder(env, orderId, body) {
       product_type: 'standard',
       net_weight_us: '',
       net_weight_metric: '',
-      allergen_tags: null,
+      allergen_tags: JSON.stringify(parseAllergenTags(allergens)),
       no_allergens_confirmed: 0,
       nutrient_claim: 0,
       bg_image: null,
       avery_preset: 'single',
-      active: 1
+      active: 1,
+      best_by_date: new Date(Date.now() + (7 * 86400000)).toISOString().slice(0, 10),
     };
 
     const cols = ['id', ...LABEL_FIELDS, 'active'];

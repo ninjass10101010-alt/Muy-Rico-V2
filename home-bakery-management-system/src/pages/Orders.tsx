@@ -279,7 +279,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             </div>
             <button
               onClick={() => {
-                setLabelFilter(selected.orderNumber);
+                setLabelFilter(String(selected.id));
                 setPage("labels");
                 setSelected(null);
               }}
