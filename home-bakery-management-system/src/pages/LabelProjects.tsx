@@ -1,5 +1,3 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { toPng } from "html-to-image";
 import { Edit3, Copy, Trash2, Tag } from "lucide-react";
 import type { LabelTemplate } from "../types";
 import { effectiveDimensions, ensureElements } from "../components/label/defaultElements";
@@ -48,37 +46,12 @@ function LabelCard({
   onDelete: () => void;
   onDuplicate: () => void;
 }) {
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
-
   const { effW, effH } = effectiveDimensions(
     template.labelWidth,
     template.labelHeight,
     template.shape,
     template.orientation || "portrait"
   );
-
-  const generateThumbnail = useCallback(async () => {
-    if (!previewRef.current) return;
-    try {
-      const filter = (node: HTMLElement) =>
-        !(node.classList && node.classList.contains("deco-layer"));
-      const dataUrl = await toPng(previewRef.current, {
-        pixelRatio: 0.5,
-        cacheBust: true,
-        filter,
-      });
-      setThumbnail(dataUrl);
-    } catch {
-      // silently ignore thumbnail failures
-    }
-  }, []);
-
-  useEffect(() => {
-    // Wait a tick for layout to settle
-    const id = setTimeout(() => generateThumbnail(), 100);
-    return () => clearTimeout(id);
-  }, [generateThumbnail]);
 
   const shapeClass =
     template.shape === "circle"
@@ -93,7 +66,6 @@ function LabelCard({
     <div className="group relative overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm transition hover:shadow-md">
       <div className="flex aspect-[3/4] items-center justify-center bg-sand-50 p-4">
         <div
-          ref={previewRef}
           className={`flex h-full w-full items-center justify-center overflow-hidden border-2 ${shapeClass}`}
           style={{
             aspectRatio: `${effW} / ${effH}`,
@@ -104,22 +76,14 @@ function LabelCard({
             maxHeight: "100%",
           }}
         >
-          {thumbnail ? (
-            <img
-              src={thumbnail}
-              alt={template.name}
-              className="h-full w-full object-contain"
-            />
-          ) : (
-            <MiniPreview template={template} />
-          )}
+          <MiniPreview template={template} />
         </div>
       </div>
 
       <div className="border-t border-sand-100 px-3 py-2.5">
         <p className="truncate text-sm font-medium text-cocoa">{template.name}</p>
         <p className="text-[11px] text-cocoa-muted">
-          {template.labelWidth}&Prime; × {template.labelHeight}&Prime;
+          {template.labelWidth}&Prime; &times; {template.labelHeight}&Prime;
         </p>
       </div>
 
@@ -183,7 +147,7 @@ function MiniPreview({ template }: { template: LabelTemplate }) {
         if (el.type === "logo") {
           return (
             <span key={el.id} className="text-[16px]">
-              {template.logoEmoji || "🏷️"}
+              {template.logoEmoji || "\u{1F3F7}\u{FE0F}"}
             </span>
           );
         }
