@@ -108,7 +108,7 @@ export default {
       if (path === '/api/orders' && method === 'POST')  return await createOrder(request, env, ctx, actorName);
       if (path === '/api/orders' && method === 'GET')   return await listOrders(request, env, actorName);
       if (path === '/api/stats'  && method === 'GET')   return await getStats(env, actorName);
-      if (path === '/api/products' && method === 'GET') return await listProducts(env);
+      if (path === '/api/products' && method === 'GET') return await listProducts(env, url.searchParams.get('include_hidden') === '1' && !!actorEmail);
       if (path === '/api/upload' && method === 'POST') return await uploadImage(request, env);
       if (path === '/api/products' && method === 'POST') return await createProduct(request, env, actorName);
       if (path === '/api/inventory' && method === 'GET') return await listInventory(env);
@@ -1121,10 +1121,13 @@ function parseRecipe(v) {
   }
 }
 
-async function listProducts(env) {
+async function listProducts(env, includeHidden) {
+  const where = includeHidden
+    ? 'WHERE active = 1'
+    : 'WHERE active = 1 AND show_online = 1';
   const { results } = await env.DB.prepare(`
     SELECT * FROM products
-    WHERE active = 1
+    ${where}
     ORDER BY display_order ASC, name ASC
   `).all();
   const products = (results || []).map(r => {
@@ -1138,6 +1141,7 @@ async function listProducts(env) {
       active: Boolean(r.active),
       auto_generate_label: Boolean(r.auto_generate_label),
       featured: Boolean(r.featured),
+      show_online: r.show_online === undefined ? true : Boolean(r.show_online),
     };
   });
   return json({ products }, 200);
@@ -1156,6 +1160,7 @@ async function getProduct(id, env) {
     active: Boolean(row.active),
     auto_generate_label: Boolean(row.auto_generate_label),
     featured: Boolean(row.featured),
+    show_online: row.show_online === undefined ? true : Boolean(row.show_online),
   };
   return json({ product }, 200);
 }
@@ -1165,7 +1170,7 @@ const PRODUCT_FIELDS = [
   'price', 'cost', 'sku', 'emoji', 'image_url',
   'active', 'ingredients', 'allergens',
   'flavors', 'pack_sizes', 'recipe', 'display_order', 'auto_generate_label',
-  'featured',
+  'featured', 'show_online',
 ];
 
 async function createProduct(request, env, actor) {
@@ -1180,8 +1185,8 @@ async function createProduct(request, env, actor) {
     await env.DB.prepare(`
       INSERT INTO products
         (id, name, name_es, description, description_es, category, price, cost,
-         sku, emoji, image_url, active, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label, featured)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         sku, emoji, image_url, active, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label, featured, show_online)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.name,
@@ -1203,6 +1208,7 @@ async function createProduct(request, env, actor) {
       Number(body.display_order) || 0,
       body.auto_generate_label === false ? 0 : 1,
       body.featured ? 1 : 0,
+      body.show_online === false ? 0 : 1,
     ).run();
   } catch (err) {
     return json({ error: String(err) }, 400);
@@ -1220,7 +1226,7 @@ async function updateProduct(id, request, env, actor) {
   for (const f of PRODUCT_FIELDS) {
     if (body[f] === undefined) continue;
     let val = body[f];
-    if (f === 'active' || f === 'featured' || f === 'auto_generate_label') val = val ? 1 : 0;
+    if (f === 'active' || f === 'featured' || f === 'auto_generate_label' || f === 'show_online') val = val ? 1 : 0;
     if (f === 'flavors') val = parseFlavors(body.flavor_groups || body.flavors || []);
     if (f === 'pack_sizes') val = parseFlavors(body.pack_sizes || []);
     if (f === 'recipe')  val = parseRecipe(val);
