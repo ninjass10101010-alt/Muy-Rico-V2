@@ -21,6 +21,9 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [selected, setSelected] = useState<Order | null>(null);
   const [payFor, setPayFor] = useState<Order | null>(null);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
+  const [editPayFor, setEditPayFor] = useState<Order | null>(null);
+  const [editPayMethod, setEditPayMethod] = useState<PaymentMethod>("cash");
+  const [editPaySub, setEditPaySub] = useState("");
   const [generatingLabels, setGeneratingLabels] = useState(false);
   const [labelGenResult, setLabelGenResult] = useState<string | null>(null);
 
@@ -231,6 +234,12 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               {selected.paymentSubMethod && formatPaymentSubMethod(selected.paymentSubMethod) && (
                 <span className="ml-1 text-cocoa-muted/60">({formatPaymentSubMethod(selected.paymentSubMethod)})</span>
               )}
+              <button
+                onClick={() => { setEditPayFor(selected); setEditPayMethod(selected.paymentMethod || "cash"); setEditPaySub(selected.paymentSubMethod || ""); }}
+                className="ml-2 text-xs font-semibold text-coral hover:underline"
+              >
+                Edit
+              </button>
             </div>
             <div className="border-t border-sand-200 pt-3">
               <p className="mb-2 text-xs font-semibold uppercase text-cocoa-muted/60">Receipts</p>
@@ -328,6 +337,44 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
             >
               <CheckCircle2 size={16} /> Mark as Paid
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!editPayFor} onClose={() => setEditPayFor(null)} title="Edit Payment Method">
+        {editPayFor && (
+          <div className="space-y-4">
+            <p className="text-sm text-cocoa-muted">
+              Correct how order {editPayFor.orderNumber} was paid. Records only; does not charge or refund. Already-sent receipts are not resent.
+            </p>
+            <select
+              value={editPayMethod}
+              onChange={(e) => setEditPayMethod(e.target.value as PaymentMethod)}
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+            >
+              {enabledMethods.map((m) => (
+                <option key={m} value={m}>
+                  {PAYMENT_METHOD_LABELS[m]}
+                </option>
+              ))}
+            </select>
+            <input
+              value={editPaySub}
+              onChange={(e) => setEditPaySub(e.target.value)}
+              placeholder="Sub-method (optional, e.g. card brand or handle)"
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+            />
+            <button
+              onClick={async () => {
+                await apiUpdateOrder(Number(editPayFor.id), { payment_method: editPayMethod, payment_sub_method: editPaySub.trim() || null });
+                await refreshOrders();
+                setEditPayFor(null);
+                setSelected(null);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+            >
+              <CheckCircle2 size={16} /> Save Payment Method
             </button>
           </div>
         )}
