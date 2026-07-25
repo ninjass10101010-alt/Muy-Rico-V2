@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import Modal from "./ui/Modal";
+import ProductIcon from "./ProductIcon";
 import { useStore } from "../context/StoreContext";
 import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../types";
 import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
@@ -15,6 +16,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const [source, setSource] = useState<OrderSource>("in-person");
   const [items, setItems] = useState<OrderItem[]>([]);
   const [flavorSelections, setFlavorSelections] = useState<Record<string, string>>({});
+  const [packPick, setPackPick] = useState("");
   const [productPick, setProductPick] = useState(products[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("paid");
@@ -32,6 +34,8 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const activeProducts = products.filter((p) => p.active);
   const pickedProduct = products.find((p) => p.id === productPick);
   const pickedFlavorGroups = pickedProduct?.flavor_groups ?? [];
+  const pickedPacks = pickedProduct?.pack_sizes ?? [];
+  const activePack = pickedPacks.find((pk) => pk.id === packPick) ?? pickedPacks[0] ?? null;
   const flavorsComplete = pickedFlavorGroups.every((g) => !!flavorSelections[g.name]);
   const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[])
     .filter((m) => profile.acceptedMethods[m] && !ONLINE_ONLY.includes(m));
@@ -44,9 +48,11 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
     if (!p) return;
     const groups = p.flavor_groups ?? [];
     if (groups.some((g) => !flavorSelections[g.name])) return; // all groups required
-    const flavorNote = groups.length
+    const packNote = activePack ? ` (${activePack.label})` : "";
+    const flavorNote = packNote + (groups.length
       ? ` (${groups.map((g) => `${g.name}: ${flavorSelections[g.name]}`).join(", ")})`
-      : "";
+      : "");
+    const packPrice = activePack ? Number(activePack.price) : p.price;
     const displayName = p.name + flavorNote;
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === p.id && (i.flavorNote || "") === flavorNote);
@@ -55,9 +61,10 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
           i.productId === p.id && (i.flavorNote || "") === flavorNote ? { ...i, qty: i.qty + 1 } : i,
         );
       }
-      return [...prev, { productId: p.id, name: displayName, emoji: p.emoji, qty: 1, price: p.price, flavorNote }];
+      return [...prev, { productId: p.id, name: displayName, emoji: p.emoji, qty: 1, price: packPrice, flavorNote }];
     });
     setFlavorSelections({});
+    setPackPick("");
   }
 
   const itemKey = (i: OrderItem) => `${i.productId}|${i.flavorNote || ""}`;
@@ -321,12 +328,13 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               onChange={(e) => {
                 setProductPick(e.target.value);
                 setFlavorSelections({});
+                setPackPick("");
               }}
               className="flex-1 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
             >
               {activeProducts.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.emoji} {p.name} — ${p.price.toFixed(2)}
+                  {p.show_online === false ? "[Hidden] " : ""}{p.name} — ${(p.pack_sizes?.[0]?.price ?? p.price).toFixed(2)}
                 </option>
               ))}
             </select>
@@ -338,6 +346,27 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               <Plus size={16} />
             </button>
           </div>
+
+          {pickedPacks.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {pickedPacks.map((pk) => (
+                <button
+                  key={pk.id}
+                  type="button"
+                  onClick={() => setPackPick(pk.id)}
+                  className={`rounded-xl border px-3 py-2 text-left text-xs transition ${
+                    (activePack?.id ?? "") === pk.id
+                      ? "border-palm bg-palm/10 text-cocoa"
+                      : "border-sand-200 text-cocoa-muted hover:border-sand-300"
+                  }`}
+                >
+                  <span className="block font-semibold">{pk.label}</span>
+                  <span className="block">{pk.unit_label || `$${Number(pk.price).toFixed(2)}`}</span>
+                  {pk.badge && <span className="mt-0.5 inline-block rounded bg-hibiscus px-1.5 py-0.5 text-[10px] font-bold text-white">{pk.badge}</span>}
+                </button>
+              ))}
+            </div>
+          )}
 
           {pickedFlavorGroups.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
@@ -368,7 +397,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-cocoa">
-                    {item.emoji} {item.name}
+                    <ProductIcon emoji={item.emoji} size={18} /> {item.name}
                   </p>
                   <p className="text-xs text-cocoa-muted">${item.price.toFixed(2)} each</p>
                 </div>
