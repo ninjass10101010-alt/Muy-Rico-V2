@@ -473,7 +473,7 @@ async function getOrder(id, env, actor) {
 
 async function updateOrder(id, request, env, actor) {
   const body = await request.json();
-  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'food_coloring'];
+  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring'];
   const sets = [], binds = [];
   for (const f of allowed) {
     if (body[f] === undefined) continue;
@@ -487,6 +487,18 @@ async function updateOrder(id, request, env, actor) {
   binds.push(id);
   const r = await env.DB.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+
+  // Keep the latest recorded payment in sync when the method is corrected
+  if (body.payment_method !== undefined) {
+    const latest = await env.DB.prepare(
+      `SELECT id FROM payments WHERE order_id = ? AND active = 1 ORDER BY created_at DESC, id DESC LIMIT 1`
+    ).bind(id).first();
+    if (latest) {
+      await env.DB.prepare(
+        `UPDATE payments SET method = ?, method_details = COALESCE(?, method_details) WHERE id = ?`
+      ).bind(body.payment_method, body.payment_sub_method ?? null, latest.id).run();
+    }
+  }
 
   await env.DB.prepare(`
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:updated')
@@ -1282,6 +1294,7 @@ async function listGallery(env) {
     FROM gallery g
     LEFT JOIN products p ON p.id = g.product_id
     WHERE g.active = 1
+      AND (p.show_online IS NULL OR p.show_online = 1)
     ORDER BY COALESCE(p.display_order, 9999) ASC, g.display_order ASC, g.created_at ASC
   `).all();
   return json({ photos: (results || []).map(mapGalleryRow) }, 200);
