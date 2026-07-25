@@ -101,6 +101,7 @@ export async function updateOrder(
     status?: string;
     payment_status?: string;
     payment_method?: string;
+    payment_sub_method?: string | null;
     notes?: string;
   }
 ): Promise<{ ok: boolean }> {

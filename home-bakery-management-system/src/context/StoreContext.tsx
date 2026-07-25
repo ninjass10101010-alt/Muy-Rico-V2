@@ -58,7 +58,7 @@ interface StoreContextValue {
   resetAllData: () => Promise<void>;
   refreshOrders: () => Promise<void>;
   apiCreateOrder: (order: Parameters<typeof apiCreateOrder>[0]) => Promise<{ id: number }>;
-  apiUpdateOrder: (id: number, patch: { status?: string; payment_status?: string; payment_method?: string }) => Promise<void>;
+  apiUpdateOrder: (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null }) => Promise<void>;
   apiCancelOrder: (id: number) => Promise<void>;
   apiDeleteOrder: (id: number) => Promise<void>;
 }
@@ -427,7 +427,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return result;
   }, [refreshOrders]);
 
-  const handleApiUpdateOrder = useCallback(async (id: number, patch: { status?: string; payment_status?: string }) => {
+  const handleApiUpdateOrder = useCallback(async (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null }) => {
     await apiUpdateOrder(id, patch);
     await refreshOrders();
   }, [refreshOrders]);
