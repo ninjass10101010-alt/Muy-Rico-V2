@@ -15,6 +15,7 @@ import type {
   LabelTemplate,
   Order,
   OrderSource,
+  PackSize,
   Payment,
   Product,
   Receipt,
@@ -122,6 +123,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (p.flavor_groups) {
       if (Array.isArray(p.flavor_groups)) flavor_groups = p.flavor_groups;
     }
+    let pack_sizes: PackSize[] = [];
+    if (p.pack_sizes) {
+      if (Array.isArray(p.pack_sizes)) pack_sizes = p.pack_sizes;
+      else {
+        try {
+          const parsed = JSON.parse(p.pack_sizes);
+          if (Array.isArray(parsed)) pack_sizes = parsed;
+        } catch { pack_sizes = []; }
+      }
+    }
     let recipe: Product["recipe"] = [];
     if (p.recipe) {
       try {
@@ -147,9 +158,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       description_es: p.description_es || undefined,
       image_url: p.image_url || undefined,
       flavor_groups: flavor_groups.length ? flavor_groups : undefined,
+      pack_sizes: pack_sizes.length ? pack_sizes : undefined,
       display_order: typeof p.display_order === "number" ? p.display_order : 0,
       auto_generate_label: !!p.auto_generate_label,
       featured: !!(p as any).featured,
+      show_online: p.show_online === undefined ? true : !!p.show_online,
     };
   }
 

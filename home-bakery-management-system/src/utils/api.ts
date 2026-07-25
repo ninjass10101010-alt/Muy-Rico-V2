@@ -1,4 +1,4 @@
-import type { BusinessProfile, FlavorGroup, PaymentMethod, RecipeLine } from "../types";
+import type { BusinessProfile, FlavorGroup, PackSize, PaymentMethod, RecipeLine } from "../types";
 
 const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE = isDev ? "http://localhost:8787" : "";
@@ -145,6 +145,7 @@ export interface ApiProduct {
   ingredients?: string | null;
   allergens?: string | null;
   flavor_groups?: FlavorGroup[];
+  pack_sizes?: PackSize[] | string;
   recipe?: string | RecipeLine[];
   display_order?: number;
   auto_generate_label?: number | boolean;
