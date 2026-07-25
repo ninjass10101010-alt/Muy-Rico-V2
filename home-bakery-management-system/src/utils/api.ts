@@ -148,6 +148,7 @@ export interface ApiProduct {
   display_order?: number;
   auto_generate_label?: number | boolean;
   featured?: number | boolean;
+  show_online?: number | boolean;
   created_at?: string;
   updated_at?: string | null;
 }
@@ -171,12 +172,13 @@ export interface ProductCreate {
   recipe?: Array<{ inventoryItemId: string; qtyPerUnit: number }>;
   display_order?: number;
   featured?: boolean;
+  show_online?: boolean;
 }
 
 export type ProductUpdate = Partial<ProductCreate>;
 
 export async function fetchProducts(): Promise<ApiProduct[]> {
-  const data = await apiFetch<{ products: ApiProduct[] }>("/api/products");
+  const data = await apiFetch<{ products: ApiProduct[] }>("/api/products?include_hidden=1");
   return data.products;
 }
 

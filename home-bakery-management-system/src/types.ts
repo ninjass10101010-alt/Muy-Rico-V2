@@ -50,6 +50,7 @@ export interface Product {
   display_order?: number;
   auto_generate_label?: boolean;
   featured?: boolean;
+  show_online?: boolean;
 }
 
 export interface GalleryPhoto {
