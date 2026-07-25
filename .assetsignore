@@ -2,6 +2,8 @@
 .assetsignore
 .git/
 .wrangler/
+.opencode/
+.superpowers/
 home-bakery-management-system/
 node_modules/
 orders/
@@ -9,3 +11,16 @@ workers/
 docs/
 package.json
 package-lock.json
+skills-lock.json
+
+# Unreferenced legacy assets (kept in repo, excluded from deploy)
+DSC_0095.jpg
+IMG_0264.webp
+Rebecca_Jeff.webp
+Monstera leaf.png
+Monstera v2.jpeg
+monstera_decor.webp
+qr_muy_rico.png
+qr_muy_rico.svg
+muy_rico_logo_email.png
+generate_svgs.py

@@ -31,7 +31,7 @@
   <header class="mobile-header" id="mobile-header" style="display:none;">
     <div class="mobile-brand">
       <a href="index.html" aria-label="Muy Rico Home">
-        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="110" height="40" loading="eager"/>
+        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
       </a>
     </div>
     <div class="mobile-actions">
@@ -67,7 +67,7 @@
     <!-- Masthead (desktop) -->
     <header class="masthead">
       <a href="index.html" class="masthead-brand" aria-label="Muy Rico Home">
-        <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="132" height="48" loading="eager"/>
+        <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
         <span data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
       </a>
       <nav class="masthead-nav" aria-label="Primary">
@@ -103,7 +103,7 @@
       </section>
 
       <footer class="site-footer">
-        <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="120" height="66" loading="lazy"/>
+        <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="lazy"/>
         <nav class="footer-nav" aria-label="Footer">
           <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
           <a href="order.html" data-es="Menú" data-en="Menu">Menu</a>
@@ -142,6 +142,21 @@
   </div>
 
   <script>
+    // Resilience: if the GSAP CDN failed, stub the animation API and reveal all content.
+    if (typeof window.gsap === 'undefined') {
+      const noop = () => {};
+      window.gsap = {
+        registerPlugin: noop, set: noop, from: noop,
+        to: (t, vars) => { if (vars && vars.onComplete) setTimeout(vars.onComplete, ((vars.delay || 0) * 1000) + 400); },
+        fromTo: noop,
+        getProperty: () => 0,
+        timeline: () => ({ from() { return this; }, to() { return this; }, fromTo() { return this; } }),
+        utils: { toArray: (s) => Array.from(document.querySelectorAll(s)) }
+      };
+      window.ScrollTrigger = window.ScrollTrigger || { getAll: () => [], create: noop };
+      document.documentElement.classList.add('no-gsap');
+    }
+
     gsap.registerPlugin(ScrollTrigger);
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

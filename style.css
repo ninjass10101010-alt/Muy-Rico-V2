@@ -673,6 +673,10 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 }
 .oven-card .frame-img {
   aspect-ratio: 4 / 5;
+  /* The frame clips; the image must not round itself a second time.
+     (Inherited 22px radius used to peek past the 13px frame, leaving
+     cream-deep slivers in the corners.) */
+  border-radius: 0;
   transition: transform 0.5s ease;
 }
 .oven-card:hover .frame-img { transform: scale(1.04); }
@@ -1486,6 +1490,20 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 
 .reveal { opacity: 0; transform: translateY(20px); }
 .lang-fade { transition: opacity 0.25s ease; }
+
+/* Resilience: if the GSAP CDN fails, animated content must never stay hidden.
+   The inline scripts add .no-gsap to <html> when window.gsap is missing. */
+.no-gsap .reveal,
+.no-gsap .hero-anim,
+.no-gsap .hero-ctas > * {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+.no-gsap .floating-cart.gsap-shown {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
 
 /* ==========================================================================
    RESPONSIVE

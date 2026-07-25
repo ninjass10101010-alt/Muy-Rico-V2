@@ -21,8 +21,8 @@
   <!-- Favicon: MR monogram -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
 
-  <!-- Preload LCP hero image -->
-  <link rel="preload" href="hero-conchas.webp" as="image" fetchpriority="high" />
+  <!-- Preload LCP hero image (must match the baked default in #hero-img) -->
+  <link rel="preload" href="hero-bolillos.webp" as="image" fetchpriority="high" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,6 +31,25 @@
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+  <!-- Structured data: local bakery -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Bakery",
+    "name": "Muy Rico",
+    "description": "Muy Rico is a family-run Mexican home bakery in Holland, Michigan — conchas, flour tortillas, cookies, and custom cakes baked to order with family love.",
+    "url": "https://muy-rico.com/",
+    "image": "https://muy-rico.com/hero-conchas.webp",
+    "telephone": "+1-616-218-3582",
+    "email": "bexgarcia0208@gmail.com",
+    "areaServed": { "@type": "City", "name": "Holland, Michigan" },
+    "sameAs": ["https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr"],
+    "paymentAccepted": "Credit Card, PayPal, Venmo, Cash App",
+    "currenciesAccepted": "USD",
+    "priceRange": "$"
+  }
+  </script>
 </head>
 <body>
 
@@ -38,7 +57,7 @@
   <header class="mobile-header" id="mobile-header" style="display:none;">
     <div class="mobile-brand">
       <a href="index.html" aria-label="Muy Rico Home">
-        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="104" height="38" loading="eager"/>
+        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
       </a>
     </div>
     <div class="mobile-actions">
@@ -73,7 +92,7 @@
   <!-- Masthead (desktop) -->
   <header class="masthead">
     <a href="index.html" class="masthead-brand" aria-label="Muy Rico Home">
-      <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="132" height="48" loading="eager"/>
+      <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
       <span data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
     </a>
     <nav class="masthead-nav" aria-label="Primary">
@@ -392,7 +411,7 @@
 
     <!-- ============ FOOTER ============ -->
     <footer class="site-footer">
-      <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="120" height="66" loading="lazy"/>
+      <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="lazy"/>
       <nav class="footer-nav" aria-label="Footer">
         <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
         <a href="order.html" data-es="Menú" data-en="Menu">Menu</a>
@@ -431,6 +450,21 @@
   </main>
 
   <script>
+    // Resilience: if the GSAP CDN failed, stub the animation API and reveal all content.
+    if (typeof window.gsap === 'undefined') {
+      const noop = () => {};
+      window.gsap = {
+        registerPlugin: noop, set: noop, from: noop,
+        to: (t, vars) => { if (vars && vars.onComplete) setTimeout(vars.onComplete, ((vars.delay || 0) * 1000) + 400); },
+        fromTo: noop,
+        getProperty: () => 0,
+        timeline: () => ({ from() { return this; }, to() { return this; }, fromTo() { return this; } }),
+        utils: { toArray: (s) => Array.from(document.querySelectorAll(s)) }
+      };
+      window.ScrollTrigger = window.ScrollTrigger || { getAll: () => [], create: noop };
+      document.documentElement.classList.add('no-gsap');
+    }
+
     gsap.registerPlugin(ScrollTrigger);
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
