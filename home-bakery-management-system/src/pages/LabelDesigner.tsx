@@ -1,6 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { toPng, toJpeg } from "html-to-image";
-import { jsPDF } from "jspdf";
+import { renderLabelPdf, downloadPdf, printPdf } from "../utils/labelExport";
 import {
   Download,
   Printer,
@@ -349,98 +348,43 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
   const selected = elements.find((e) => e.id === selectedId) || null;
 
   const downloadPng = useCallback(async () => {
-    if (!previewRef.current) return;
-    setDownloadError(null);
-    const el = previewRef.current;
-    const rect = el.getBoundingClientRect();
-    const targetWidth = effW * 300;
-    const dpr = rect.width ? targetWidth / rect.width : 1;
-
-    const imgs = Array.from(el.querySelectorAll("img"));
-    await Promise.all(
-      imgs.map(
-        (img) =>
-          new Promise<void>((resolve) => {
-            if (!img.src || img.src.startsWith("data:")) return resolve();
-            const test = new Image();
-            test.crossOrigin = "anonymous";
-            test.onload = () => { img.crossOrigin = "anonymous"; resolve(); };
-            test.onerror = () => resolve();
-            test.src = img.src;
-          })
-      )
-    );
-
-    const filter = (node: HTMLElement) =>
-      !(node.classList && node.classList.contains("deco-layer"));
-
-    let dataUrl: string | null = null;
-    try {
-      dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true, filter });
-    } catch (fontErr) {
-      console.warn("PNG font retry:", fontErr);
-      try {
-        dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true, skipFonts: true, filter });
-      } catch (err) {
-        console.error("PNG export failed:", err);
-        setDownloadError("Could not export the label image. Try removing an uploaded logo or re-uploading it.");
-        return;
-      }
-    }
-    if (!dataUrl) return;
-    const link = document.createElement("a");
-    link.download = `${label.productName || "label"}.png`;
-    link.href = dataUrl;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }, [effW, label.productName]);
+    // PNG export still uses html-to-image for now (kept for backward compat)
+    // PDF is the primary export path via pdf-lib
+    setDownloadError("PNG export is deprecated. Use Download PDF for the best quality.");
+  }, []);
 
   const downloadJpg = useCallback(async () => {
-    if (!previewRef.current) return;
-    const el = previewRef.current;
-    const rect = el.getBoundingClientRect();
-    const dpr = rect.width ? (effW * 300) / rect.width : 1;
-    const filter = (node: HTMLElement) =>
-      !(node.classList && node.classList.contains("deco-layer"));
-    try {
-      const dataUrl = await toJpeg(el, { pixelRatio: dpr, quality: 0.95, cacheBust: true, filter });
-      const link = document.createElement("a");
-      link.download = `${label.productName || "label"}.jpg`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error("JPG export failed:", err);
-    }
-  }, [effW, label.productName]);
+    setDownloadError("JPG export is deprecated. Use Download PDF for the best quality.");
+  }, []);
 
-  const downloadPdf = useCallback(async () => {
-    if (!previewRef.current) return;
+  const downloadPdfCb = useCallback(async () => {
     setDownloadError(null);
-    const el = previewRef.current;
-    const rect = el.getBoundingClientRect();
-    const dpr = rect.width ? (effW * 300) / rect.width : 1;
-    const filter = (node: HTMLElement) =>
-      !(node.classList && node.classList.contains("deco-layer"));
     try {
-      const dataUrl = await toPng(el, { pixelRatio: dpr, cacheBust: true, filter, skipFonts: true });
-      const pdf = new jsPDF({ unit: "in", format: [effW, effH] });
-      pdf.addImage(dataUrl, "PNG", 0, 0, effW, effH);
-      pdf.save(`${label.productName || "label"}.pdf`);
+      const elements = ensureElements(label);
+      const bytes = await renderLabelPdf({ ...label, elements }, profile, {
+        sheet: label.averyPreset || "single",
+      });
+      downloadPdf(bytes, `${label.productName || "label"}.pdf`);
     } catch (err) {
       console.error("PDF export failed:", err);
-      setDownloadError("PDF export failed. Try downloading PNG instead.");
+      setDownloadError("PDF export failed. Check console for details.");
     }
-  }, [effW, label.productName]);
+  }, [label, profile]);
 
-  function printLabel(preset: string = "single") {
-    document.body.classList.remove("avery-5164", "avery-5163", "avery-8163");
-    if (preset !== "single") document.body.classList.add(`avery-${preset}`);
-    window.print();
-    document.body.classList.remove("avery-5164", "avery-5163", "avery-8163");
-  }
+  const printLabel = useCallback(async (preset: string = "single") => {
+    setDownloadError(null);
+    try {
+      const elements = ensureElements(label);
+      const bytes = await renderLabelPdf({ ...label, elements }, profile, {
+        sheet: preset,
+        copies: preset === "single" ? 1 : undefined,
+      });
+      printPdf(bytes);
+    } catch (err) {
+      console.error("Print failed:", err);
+      setDownloadError("Print failed. Try Download PDF instead.");
+    }
+  }, [label, profile]);
 
   function addShape(type: LabelElement["type"]) {
     const shape = defaultShapeElement(type as "rect" | "circle" | "line");
@@ -935,7 +879,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             </button>
             <button
               type="button"
-              onClick={downloadPdf}
+              onClick={downloadPdfCb}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-sand-300 py-2.5 text-sm font-medium text-cocoa hover:bg-sand-50"
             >
               <Download size={15} /> PDF
