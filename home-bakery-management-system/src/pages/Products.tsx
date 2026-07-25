@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Pencil, Plus, Trash2, Tag as TagIcon, Sparkles } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
+import ProductIcon from "../components/ProductIcon";
 import { formatCurrency } from "../utils/format";
 import { composeLabelFromRecipe } from "../utils/label";
 import { uploadImage } from "../utils/api";
@@ -68,7 +69,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
   }
 
   function openEdit(p: Product) {
-    setDraft(p);
+    setDraft({ ...p, show_online: p.show_online !== false });
     setEditingId(p.id);
     setFlavorGroups(normalizeFlavors(p));
     setPackSizes(normalizePacks(p));
@@ -147,18 +148,25 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-coral-light/20 text-2xl">
-                  {p.emoji}
+                  <ProductIcon emoji={p.emoji} size={26} />
                 </div>
                 <div>
                   <p className="font-semibold text-cocoa">{p.name}</p>
                   <p className="text-xs text-cocoa-muted">{p.category} · {p.sku}</p>
                 </div>
               </div>
-              {!p.active && (
-                <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-medium text-cocoa-muted">
-                  Inactive
-                </span>
-              )}
+              <div className="flex gap-1">
+                {!p.active && (
+                  <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[10px] font-medium text-cocoa-muted">
+                    Inactive
+                  </span>
+                )}
+                {p.show_online === false && (
+                  <span className="rounded-full bg-sand-200 px-2 py-0.5 text-[10px] font-semibold text-cocoa-muted">
+                    Hidden
+                  </span>
+                )}
+              </div>
             </div>
             <p className="mt-3 line-clamp-2 text-sm text-cocoa-muted">{p.description}</p>
             <div className="mt-4 flex items-center justify-between text-sm">
@@ -539,6 +547,15 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                 onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
               />
               Active (shown for ordering)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-cocoa-muted">
+              <input
+                type="checkbox"
+                checked={draft.show_online !== false}
+                onChange={(e) => setDraft({ ...draft, show_online: e.target.checked })}
+              />
+              Show on website
+              <span className="text-xs text-cocoa-muted/70">(off = sellable in manual orders only)</span>
             </label>
             <label className="flex items-center gap-2 text-sm text-cocoa-muted">
               <input
