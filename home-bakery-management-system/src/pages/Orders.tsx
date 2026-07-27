@@ -254,19 +254,34 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 <Badge tone={selected.paymentStatus}>{selected.paymentStatus}</Badge>
               </div>
               {selected.paymentStatus === "paid" ? (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-cocoa">
-                    {selected.paymentMethod ? PAYMENT_METHOD_LABELS[selected.paymentMethod] : "Paid"}
-                    {selected.paymentSubMethod && formatPaymentSubMethod(selected.paymentSubMethod) && (
-                      <span className="ml-1 text-cocoa-muted/60">({formatPaymentSubMethod(selected.paymentSubMethod)})</span>
-                    )}
-                  </span>
-                  <button
-                    onClick={() => { setEditPayFor(selected); setEditPayMethod(selected.paymentMethod || "cash"); setEditPaySub(selected.paymentSubMethod || ""); }}
-                    className="text-xs font-semibold text-coral hover:underline"
-                  >
-                    Edit method
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-cocoa">
+                      {selected.paymentMethod ? PAYMENT_METHOD_LABELS[selected.paymentMethod] : "Paid"}
+                      {selected.paymentSubMethod && formatPaymentSubMethod(selected.paymentSubMethod) && (
+                        <span className="ml-1 text-cocoa-muted/60">({formatPaymentSubMethod(selected.paymentSubMethod)})</span>
+                      )}
+                    </span>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => { setEditPayFor(selected); setEditPayMethod(selected.paymentMethod || "cash"); setEditPaySub(selected.paymentSubMethod || ""); }}
+                        className="text-xs font-semibold text-coral hover:underline"
+                      >
+                        Edit method
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm("Mark this order as unpaid? The payment history will be kept for your records.")) return;
+                          await apiUpdateOrder(Number(selected.id), { payment_status: "unpaid" });
+                          await refreshOrders();
+                          setSelected(null);
+                        }}
+                        className="text-xs font-semibold text-hibiscus hover:underline"
+                      >
+                        Undo payment
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : selected.paymentStatus === "partial" ? (
                 <div className="space-y-2">
@@ -340,6 +355,17 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       <CheckCircle2 size={16} /> Collect Balance
                     </button>
                   )}
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm("Mark this order as unpaid? The payment history will be kept for your records.")) return;
+                      await apiUpdateOrder(Number(selected.id), { payment_status: "unpaid" });
+                      await refreshOrders();
+                      setSelected(null);
+                    }}
+                    className="text-xs font-semibold text-hibiscus hover:underline"
+                  >
+                    Undo payment
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-3">
