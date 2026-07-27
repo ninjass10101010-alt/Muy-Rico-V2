@@ -95,7 +95,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         <span className="ml-auto text-sm text-cocoa-muted">{filtered.length} orders</span>
       </div>
 
-      <div className="overflow-hidden rounded-[40px_12px_40px_12px] border border-sand-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
@@ -131,7 +131,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       value={o.status}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => updateStatus(o, e.target.value as OrderStatus)}
-                      className="rounded-lg border border-sand-200 bg-white px-2 py-1 text-xs capitalize outline-none focus:border-coral"
+                      className="rounded-lg border border-sand-200 bg-white px-2 py-1 text-xs capitalize outline-none focus:border-palm"
                     >
                       {STATUS_FLOW.map((s) => (
                         <option key={s} value={s}>
@@ -276,7 +276,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       <select
                         value={markPayMethod}
                         onChange={(e) => setMarkPayMethod(e.target.value as PaymentMethod)}
-                        className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                        className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
                       >
                         {enabledMethods.map((m) => (
                           <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
@@ -296,7 +296,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                             setSelected(null);
                             await refreshOrders();
                           }}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                         >
                           <CheckCircle2 size={16} /> Collect Balance
                         </button>
@@ -311,7 +311,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   ) : (
                     <button
                       onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); }}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                     >
                       <CheckCircle2 size={16} /> Collect Balance
                     </button>
@@ -325,7 +325,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       <select
                         value={markPayMethod}
                         onChange={(e) => setMarkPayMethod(e.target.value as PaymentMethod)}
-                        className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                        className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
                       >
                         {enabledMethods.map((m) => (
                           <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
@@ -341,7 +341,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                             setSelected(null);
                             await refreshOrders();
                           }}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                         >
                           <CheckCircle2 size={16} /> Confirm Payment
                         </button>
@@ -356,7 +356,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   ) : (
                     <button
                       onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); }}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                     >
                       <CheckCircle2 size={16} /> Mark as Paid
                     </button>
@@ -461,7 +461,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             <select
               value={payMethod}
               onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
             >
               {enabledMethods.map((m) => (
                 <option key={m} value={m}>
@@ -471,7 +471,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             </select>
             <button
               onClick={confirmPayment}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
             >
               <CheckCircle2 size={16} /> Mark as Paid
             </button>
@@ -488,7 +488,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             <select
               value={editPayMethod}
               onChange={(e) => setEditPayMethod(e.target.value as PaymentMethod)}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
             >
               {enabledMethods.map((m) => (
                 <option key={m} value={m}>
@@ -500,7 +500,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               value={editPaySub}
               onChange={(e) => setEditPaySub(e.target.value)}
               placeholder="Sub-method (optional, e.g. card brand or handle)"
-              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
             />
             <button
               onClick={async () => {
@@ -509,7 +509,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 setEditPayFor(null);
                 setSelected(null);
               }}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
             >
               <CheckCircle2 size={16} /> Save Payment Method
             </button>
@@ -536,7 +536,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-xl border border-sand-200 bg-white py-2 pl-3 pr-8 text-sm capitalize text-cocoa-muted outline-none focus:border-coral"
+        className="appearance-none rounded-xl border border-sand-200 bg-white py-2 pl-3 pr-8 text-sm capitalize text-cocoa-muted outline-none focus:border-palm"
       >
         {options.map((o) => (
           <option key={o} value={o}>

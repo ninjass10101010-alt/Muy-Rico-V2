@@ -92,7 +92,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
   return (
     <div className="space-y-6">
       {/* Welcome banner */}
-      <div className="overflow-hidden rounded-[40px_12px_40px_12px] bg-gradient-to-r from-coral via-hibiscus to-mid-green p-6 text-white shadow-lg">
+      <div className="overflow-hidden rounded-xl bg-gradient-to-r from-coral via-hibiscus to-mid-green p-6 text-white shadow-lg">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-medium text-white/80">Bienvenidos de vuelta</p>
@@ -120,7 +120,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm lg:col-span-2">
+        <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm lg:col-span-2">
           <h3 className="mb-4 font-serif text-sm font-semibold text-cocoa">Revenue — last 7 days</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={last7days}>
@@ -136,7 +136,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
           <h3 className="mb-4 font-serif text-sm font-semibold text-cocoa">Payment methods</h3>
           {paymentBreakdown.length === 0 ? (
             <p className="py-10 text-center text-sm text-cocoa-muted">No payments recorded yet.</p>
@@ -171,7 +171,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
 
       {/* Recent orders + Best sellers */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white shadow-sm lg:col-span-2">
+        <div className="rounded-xl border border-sand-200 bg-white shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between border-b border-sand-100 px-5 py-4">
             <h3 className="font-serif text-sm font-semibold text-cocoa">Recent orders</h3>
             <button onClick={() => setPage("orders")} className="text-xs font-medium text-coral hover:underline">
@@ -196,7 +196,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
           </div>
         </div>
 
-        <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white shadow-sm">
+        <div className="rounded-xl border border-sand-200 bg-white shadow-sm">
           <div className="border-b border-sand-100 px-5 py-4">
             <h3 className="font-serif text-sm font-semibold text-cocoa">Best sellers</h3>
           </div>
@@ -218,7 +218,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
 
       {/* Low stock alerts */}
       {stats.lowStock.length > 0 && (
-        <div className="rounded-[40px_12px_40px_12px] border border-hibiscus-light/30 bg-hibiscus-light/10 p-5">
+        <div className="rounded-xl border border-hibiscus-light/30 bg-hibiscus-light/10 p-5">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-hibiscus">
             <PackageX size={16} /> Low stock alerts
           </h3>

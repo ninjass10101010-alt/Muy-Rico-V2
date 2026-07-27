@@ -243,7 +243,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               <select
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
-                className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
               >
                 <option value="">Select a customer</option>
                 {customers.map((c) => (
@@ -258,19 +258,19 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Customer name"
-                  className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                  className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
                 />
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Phone number"
-                  className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                  className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
                 />
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email (for receipt)"
-                  className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                  className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
                 />
               </div>
             )}
@@ -282,7 +282,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
             />
           </div>
 
@@ -291,7 +291,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
             >
               {enabledMethods.map((m) => (
                 <option key={m} value={m}>
@@ -327,7 +327,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Special instructions, allergies, decorations..."
-              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
             />
           </div>
 
@@ -341,7 +341,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                 value={foodColoring}
                 onChange={(e) => setFoodColoring(e.target.value)}
                 placeholder='e.g. Wilton Red, Wilton Blue 1, Yellow 5 — or "none" if no added color'
-                className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
               />
               <p className="mt-1 text-[10px] text-cocoa-muted">Artificial colors will be auto-added to the generated label ingredients.</p>
             </div>
@@ -358,7 +358,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                 setFlavorSelections({});
                 setPackPick("");
               }}
-              className="flex-1 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+              className="flex-1 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
             >
               {activeProducts.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -403,7 +403,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                   key={g.name}
                   value={flavorSelections[g.name] || ""}
                   onChange={(e) => setFlavorSelections((s) => ({ ...s, [g.name]: e.target.value }))}
-                  className="rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                  className="rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
                 >
                   <option value="">{g.name}…</option>
                   {g.options.map((opt) => (
@@ -466,7 +466,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                 min={0}
                 value={discount}
                 onChange={(e) => setDiscount(Math.max(0, Number(e.target.value)))}
-                className="w-20 rounded-md border border-sand-200 px-2 py-0.5 text-right outline-none focus:border-coral"
+                className="w-20 rounded-md border border-sand-200 px-2 py-0.5 text-right outline-none focus:border-palm"
               />
             </div>
             <div className="mt-2 flex justify-between border-t border-sand-200 pt-2 text-base font-semibold text-cocoa">
@@ -503,7 +503,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
           <button
             onClick={handleSubmit}
             disabled={items.length === 0 || submitting}
-            className="w-full rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
           >
             {submitting ? "Creating..." : "Create Order"}
           </button>

@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── Color scales (full ramps for consistent usage) ── */
   --color-sand-50: #faf5ef;
   --color-sand-100: #f5edd8;
   --color-sand-200: #e8dbc4;
   --color-sand-300: #d4c1a5;
+  --color-sand-400: #c4a86c;
 
   --color-palm: #1e4636;
   --color-palm-light: #2a5c48;
+  --color-palm-50: #f0f5f2;
+  --color-palm-700: #16352a;
 
-  --color-coral: #f7a8a4;
+  --color-coral: #e88a86;
   --color-coral-light: #fbd3d1;
 
   --color-hibiscus: #d93d59;
@@ -21,16 +25,48 @@
   --color-cocoa: #2c2523;
   --color-cocoa-muted: #706561;
 
+  /* ── Typography ── */
   --font-serif: 'Cormorant Garamond', serif;
   --font-sans: 'Quicksand', sans-serif;
+
+  /* ── Shadows (warm-tinted) ── */
+  --shadow-card: 0 1px 2px rgba(44, 37, 35, 0.06);
+  --shadow-card-hover: 0 8px 24px rgba(44, 37, 35, 0.10);
+  --shadow-modal: 0 20px 60px rgba(44, 37, 35, 0.15);
 }
+
+/* ── Radius rule (one scale, documented) ── */
+/* sm=8px (rounded-lg): inputs, small chips, selects        */
+/* md=12px (rounded-xl): buttons, cards, standard containers */
+/* lg=16px (rounded-2xl): modals, large panels               */
+/* full: pills, badges                                       */
 
 @layer components {
   .input {
-    @apply w-full rounded-xl border border-sand-200 bg-white px-3 py-2 text-sm text-cocoa outline-none transition;
+    @apply w-full rounded-lg border border-sand-200 bg-white px-3 py-2 text-sm text-cocoa outline-none transition;
   }
   .input:focus {
-    @apply border-coral ring-2 ring-coral/20;
+    @apply border-palm ring-2 ring-palm/15;
+  }
+
+  /* Primary button: solid palm, no gradient */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-palm px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-palm-light hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  /* Secondary button: outlined */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-sand-200 bg-white px-4 py-2.5 text-sm font-medium text-cocoa transition hover:bg-sand-50;
+  }
+
+  /* Danger button */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-hibiscus px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-hibiscus-light;
+  }
+
+  /* Card: consistent radius + shadow */
+  .card {
+    @apply rounded-xl border border-sand-200 bg-white shadow-sm;
   }
 }
 

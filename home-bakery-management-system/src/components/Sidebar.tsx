@@ -42,7 +42,7 @@ export default function Sidebar({
   return (
     <div className="flex h-full w-64 flex-col bg-palm text-sand-100">
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-coral to-hibiscus text-white shadow-lg">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-coral text-white shadow-lg">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="12" r="3" fill="currentColor"/>
             <circle cx="12" cy="4.5" r="2.5" fill="currentColor" opacity="0.7"/>
@@ -68,9 +68,9 @@ export default function Sidebar({
                 onNavigate?.();
               }}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
                 active
-                  ? "bg-white/15 text-white shadow-inner"
+                  ? "bg-white/15 text-white"
                   : "text-sand-300 hover:bg-white/5 hover:text-sand-100",
               )}
             >

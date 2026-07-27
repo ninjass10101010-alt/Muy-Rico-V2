@@ -51,7 +51,7 @@ export default function Settings() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="space-y-4">
-        <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
           <h3 className="mb-4 font-serif text-sm font-semibold text-cocoa">Business profile</h3>
           <div className="space-y-3">
             <Field label="Business name">
@@ -102,7 +102,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="rounded-[40px_12px_40px_12px] border border-hibiscus-light/30 bg-hibiscus-light/10 p-5">
+        <div className="rounded-xl border border-hibiscus-light/30 bg-hibiscus-light/10 p-5">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-hibiscus">
             <RefreshCcw size={15} /> Data management
           </h3>
@@ -119,7 +119,7 @@ export default function Settings() {
           </button>
         </div>
 
-        <div className="rounded-[40px_12px_40px_12px] border border-palm/30 bg-palm/5 p-5">
+        <div className="rounded-xl border border-palm/30 bg-palm/5 p-5">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-palm">
             <RefreshCcw size={15} /> Label backfill
           </h3>
@@ -140,7 +140,7 @@ export default function Settings() {
       </div>
 
       <div className="space-y-4">
-        <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
           <h3 className="mb-4 font-serif text-sm font-semibold text-cocoa">Accepted payment methods</h3>
           <div className="space-y-3">
             {(Object.keys(draft.acceptedMethods) as PaymentMethod[]).map((m) => (
@@ -191,7 +191,7 @@ export default function Settings() {
 
         <button
           onClick={save}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-3 text-sm font-semibold text-white transition hover:shadow-md"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-3 text-sm font-semibold text-white transition hover:shadow-md"
         >
           {saved ? (
             <>

@@ -859,7 +859,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             <button
               type="button"
               onClick={saveTemplate}
-              className="col-span-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-medium text-white transition hover:shadow-md"
+              className="col-span-1 flex items-center justify-center gap-1.5 rounded-xl bg-palm py-2.5 text-sm font-medium text-white transition hover:shadow-md"
             >
               <Save size={15} /> Save
             </button>
@@ -1363,7 +1363,7 @@ function OnboardingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-palm/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-[40px_12px_40px_12px] bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
         <h2 className="mb-1 font-serif text-lg font-bold text-cocoa">{steps[step].title}</h2>
         <div className="mb-4">{steps[step].content}</div>
         <div className="flex items-center justify-between">
@@ -1379,7 +1379,7 @@ function OnboardingModal({
               if (step < steps.length - 1) setStep((s) => s + 1);
               else onSave(draft);
             }}
-            className="rounded-lg bg-gradient-to-r from-mid-green to-palm px-4 py-2 text-xs font-medium text-white"
+            className="rounded-lg bg-palm px-4 py-2 text-xs font-medium text-white"
           >
             {step < steps.length - 1 ? "Next" : "Start Designing"}
           </button>
@@ -1391,7 +1391,7 @@ function OnboardingModal({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-sand-200 bg-white p-4 shadow-sm">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cocoa-muted">{title}</p>
       {children}
     </div>

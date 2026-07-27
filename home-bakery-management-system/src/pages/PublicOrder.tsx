@@ -89,7 +89,7 @@ export default function PublicOrder() {
     return (
       <div className="min-h-screen bg-sand-50 px-4 py-12">
         <div className="mx-auto max-w-lg text-center">
-          <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-8 shadow-sm">
+          <div className="rounded-xl border border-sand-200 bg-white p-8 shadow-sm">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-mid-green-light/20">
               <CheckCircle size={32} className="text-mid-green" />
             </div>
@@ -102,7 +102,7 @@ export default function PublicOrder() {
             </p>
             <button
               onClick={() => { setSuccess(null); setName(""); setPhone(""); setCart([]); setNotes(""); }}
-              className="mt-6 rounded-xl bg-gradient-to-r from-mid-green to-palm px-6 py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+              className="mt-6 rounded-xl bg-palm px-6 py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
             >
               Place Another Order
             </button>
@@ -128,7 +128,7 @@ export default function PublicOrder() {
         )}
 
         {/* Customer Info */}
-        <div className="mb-4 rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 font-serif text-sm font-semibold text-cocoa">Your Info</h2>
           <div className="space-y-3">
             <input
@@ -168,7 +168,7 @@ export default function PublicOrder() {
         </div>
 
         {/* Products Grid */}
-        <div className="mb-4 rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 font-serif text-sm font-semibold text-cocoa">Our Menu</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {activeProducts.map((p) => {
@@ -199,7 +199,7 @@ export default function PublicOrder() {
 
         {/* Cart */}
         {cart.length > 0 && (
-          <div className="mb-4 rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
             <h2 className="mb-3 font-serif text-sm font-semibold text-cocoa">Your Order</h2>
             <div className="space-y-2">
               {cart.map((item) => (
@@ -242,7 +242,7 @@ export default function PublicOrder() {
         )}
 
         {/* Payment */}
-        <div className="mb-4 rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 font-serif text-sm font-semibold text-cocoa">Payment Method</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {enabledMethods.map((m) => (
@@ -262,7 +262,7 @@ export default function PublicOrder() {
         </div>
 
         {/* Notes */}
-        <div className="mb-6 rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+        <div className="mb-6 rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 font-serif text-sm font-semibold text-cocoa">Notes</h2>
           <textarea
             value={notes}
@@ -277,7 +277,7 @@ export default function PublicOrder() {
         <button
           onClick={handleSubmit}
           disabled={cart.length === 0 || submitting}
-          className="w-full rounded-xl bg-gradient-to-r from-mid-green to-palm py-3.5 text-base font-semibold text-white shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
+          className="w-full rounded-xl bg-palm py-3.5 text-base font-semibold text-white shadow-md transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
         >
           {submitting ? "Placing Order..." : `Place Order · $${total.toFixed(2)}`}
         </button>

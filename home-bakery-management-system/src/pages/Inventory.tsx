@@ -106,13 +106,13 @@ export default function Inventory({ search }: { search: string }) {
         </div>
         <button
           onClick={openNew}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-mid-green to-palm px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:shadow-md"
+          className="flex items-center gap-1.5 rounded-xl bg-palm px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:shadow-md"
         >
           <Plus size={16} /> Add Item
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-[40px_12px_40px_12px] border border-sand-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
@@ -275,7 +275,7 @@ export default function Inventory({ search }: { search: string }) {
             </div>
           </div>
 
-          <button onClick={save} className="w-full rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md">
+          <button onClick={save} className="w-full rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md">
             {editingId ? "Save Changes" : "Add Item"}
           </button>
         </div>

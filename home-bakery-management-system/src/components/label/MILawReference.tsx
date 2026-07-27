@@ -3,7 +3,7 @@ import * as Law from "../../utils/miLaw";
 
 export default function MILawReference() {
   return (
-    <details className="group rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-4 shadow-sm">
+    <details className="group rounded-xl border border-sand-200 bg-white p-4 shadow-sm">
       <summary className="flex cursor-pointer items-center gap-2 text-xs font-semibold uppercase tracking-wide text-cocoa-muted">
         <BookOpen size={14} />
         Michigan Cottage Food Law Reference

@@ -262,7 +262,7 @@ export default function LabelElementView({
       )}
       {selected && (
         <div
-          className="deco-layer pointer-events-none absolute inset-0 ring-2 ring-coral ring-offset-0"
+          className="deco-layer pointer-events-none absolute inset-0 ring-2 ring-palm ring-offset-0"
           style={{ borderRadius: 2 }}
         />
       )}

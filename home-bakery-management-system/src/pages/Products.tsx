@@ -136,7 +136,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
       <div className="flex justify-end">
         <button
           onClick={openNew}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-mid-green to-palm px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:shadow-md"
+          className="flex items-center gap-1.5 rounded-xl bg-palm px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:shadow-md"
         >
           <Plus size={16} /> Add Product
         </button>
@@ -144,7 +144,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((p) => (
-          <div key={p.id} className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+          <div key={p.id} className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-coral-light/20 text-2xl">
@@ -598,7 +598,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
             </div>
             <button
               onClick={save}
-              className="mt-4 w-full rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+              className="mt-4 w-full rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
             >
               {editingId ? "Save Changes" : "Add Product"}
             </button>

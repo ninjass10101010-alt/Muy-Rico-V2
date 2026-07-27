@@ -57,7 +57,7 @@ export default function Topbar({
         )}
         <button
           onClick={onNewOrder}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-mid-green to-palm px-3.5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:shadow-md sm:px-4"
+          className="btn-primary px-3.5 py-2.5 sm:px-4"
         >
           <Plus size={16} />
           <span className="hidden sm:inline">New Order</span>

@@ -35,7 +35,7 @@ export default function Payments({ search }: { search: string }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <div className="rounded-[40px_12px_40px_12px] border border-palm bg-palm p-4 text-white">
+        <div className="rounded-xl border border-palm bg-palm p-4 text-white">
           <p className="flex items-center gap-1 text-xs text-sand-300">
             <DollarSign size={13} /> Total collected
           </p>
@@ -45,7 +45,7 @@ export default function Payments({ search }: { search: string }) {
           <button
             key={m}
             onClick={() => setMethodFilter(methodFilter === m ? "all" : m)}
-            className={`rounded-[40px_12px_40px_12px] border p-4 text-left transition ${
+            className={`rounded-xl border p-4 text-left transition ${
               methodFilter === m ? "border-palm bg-sand-50" : "border-sand-200 bg-white hover:bg-sand-50"
             }`}
           >
@@ -57,7 +57,7 @@ export default function Payments({ search }: { search: string }) {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-[40px_12px_40px_12px] border border-sand-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
@@ -103,7 +103,7 @@ export default function Payments({ search }: { search: string }) {
         </div>
       </div>
 
-      <div className="rounded-[40px_12px_40px_12px] border border-sand-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-cocoa">
           <CreditCard size={16} /> Accepted payment methods
         </h3>

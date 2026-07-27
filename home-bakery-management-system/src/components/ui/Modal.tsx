@@ -18,7 +18,7 @@ export default function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-palm/40 p-4 backdrop-blur-sm sm:items-center">
       <div
-        className={`my-8 w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-[40px_12px_40px_12px] bg-white shadow-2xl ring-1 ring-black/5`}
+        className={`my-8 w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-xl bg-white shadow-2xl ring-1 ring-black/5`}
       >
         <div className="flex items-center justify-between border-b border-sand-100 px-6 py-4">
           <h3 className="font-serif text-lg font-semibold text-cocoa">{title}</h3>
