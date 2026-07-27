@@ -18,6 +18,7 @@ interface ApiOrderCreate {
   notes?: string | null;
   source?: string;
   food_coloring?: string | null;
+  language?: string;
 }
 
 interface ApiOrder {

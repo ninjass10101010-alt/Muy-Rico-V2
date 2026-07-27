@@ -28,6 +28,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [foodColoring, setFoodColoring] = useState("");
+  const [language, setLanguage] = useState<"es" | "en">("es");
 
   // Show food coloring field when order has cupcakes, cakepops, or custom cake
   const COLORABLE_PRODUCTS = ['prod_cupcakes', 'prod_cakepop', 'prod_custom_cake'];
@@ -101,6 +102,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
     setDiscount(0);
     setNotes("");
     setFoodColoring("");
+    setLanguage("es");
     setFlavorSelections({});
   }
 
@@ -169,6 +171,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
       notes: notes || null,
       source,
       food_coloring: foodColoring.trim() || null,
+      language,
     });
 
     // Record the deposit payment if collecting one
@@ -219,6 +222,24 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
                 className="flex-1 rounded-xl border border-palm bg-palm px-3 py-2 text-sm font-medium capitalize text-white opacity-90"
               >
                 in-person
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-cocoa-muted">Receipt language</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setLanguage("es")}
+                className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${language === "es" ? "border-palm bg-palm text-white" : "border-sand-200 text-cocoa-muted hover:border-sand-300"}`}
+              >
+                Español
+              </button>
+              <button
+                onClick={() => setLanguage("en")}
+                className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${language === "en" ? "border-palm bg-palm text-white" : "border-sand-200 text-cocoa-muted hover:border-sand-300"}`}
+              >
+                English
               </button>
             </div>
           </div>
