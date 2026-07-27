@@ -556,7 +556,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await generateReceiptApi(orderId);
       await refreshReceipts();
     } catch (err) {
-      console.warn("Failed to generate receipt:", err);
+      console.error("Failed to generate receipt:", err);
+      throw err;
     }
   }, [refreshReceipts]);
 

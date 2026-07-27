@@ -64,13 +64,23 @@ export default function Orders({ search, setPage, setLabelFilter }: {
     }
   }
 
+  const [receiptMsg, setReceiptMsg] = useState("");
+
   async function confirmPayment() {
     if (!payFor) return;
     const updated: Order = { ...payFor, paymentStatus: "paid", paymentMethod: payMethod };
     await apiUpdateOrder(Number(payFor.id), { payment_status: "paid", payment_method: payMethod });
     await recordPayment(updated);
-    generateReceipt(Number(payFor.id)).catch(() => {});
     setPayFor(null);
+    setReceiptMsg("");
+    try {
+      await generateReceipt(Number(payFor.id));
+      setReceiptMsg("Receipt created successfully.");
+    } catch (err) {
+      console.error("Receipt generation failed:", err);
+      setReceiptMsg("Receipt generation failed. Check console for details.");
+    }
+    await refreshOrders();
   }
 
   const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[]).filter(
@@ -94,6 +104,13 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         />
         <span className="ml-auto text-sm text-cocoa-muted">{filtered.length} orders</span>
       </div>
+
+      {receiptMsg && (
+        <div className={`rounded-xl p-3 text-sm ${receiptMsg.includes("failed") ? "bg-hibiscus-light/10 text-hibiscus" : "bg-mid-green-light/10 text-mid-green"}`}>
+          {receiptMsg}
+          <button onClick={() => setReceiptMsg("")} className="ml-2 text-xs underline">Dismiss</button>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -291,7 +308,14 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                             const remaining = Math.max(0, selected.total - totalPaid);
                             await apiUpdateOrder(Number(selected.id), { payment_status: "paid", payment_method: markPayMethod });
                             await recordPayment({ ...selected, paymentStatus: "paid", paymentMethod: markPayMethod, total: remaining } as Order);
-                            generateReceipt(Number(selected.id)).catch(() => {});
+                            setReceiptMsg("");
+                            try {
+                              await generateReceipt(Number(selected.id));
+                              setReceiptMsg("Receipt created successfully.");
+                            } catch (err) {
+                              console.error("Receipt generation failed:", err);
+                              setReceiptMsg("Receipt generation failed.");
+                            }
                             setMarkPayFor(null);
                             setSelected(null);
                             await refreshOrders();
@@ -336,7 +360,14 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                           onClick={async () => {
                             await apiUpdateOrder(Number(selected.id), { payment_status: "paid", payment_method: markPayMethod });
                             await recordPayment({ ...selected, paymentStatus: "paid", paymentMethod: markPayMethod });
-                            generateReceipt(Number(selected.id)).catch(() => {});
+                            setReceiptMsg("");
+                            try {
+                              await generateReceipt(Number(selected.id));
+                              setReceiptMsg("Receipt created successfully.");
+                            } catch (err) {
+                              console.error("Receipt generation failed:", err);
+                              setReceiptMsg("Receipt generation failed.");
+                            }
                             setMarkPayFor(null);
                             setSelected(null);
                             await refreshOrders();
