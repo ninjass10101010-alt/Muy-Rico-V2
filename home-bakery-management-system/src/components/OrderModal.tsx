@@ -3,6 +3,8 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import Modal from "./ui/Modal";
 import ProductIcon from "./ProductIcon";
 import { useStore } from "../context/StoreContext";
+import { createPayment } from "../utils/api";
+import { newId } from "../utils/format";
 import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../types";
 import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 
@@ -42,6 +44,10 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
 
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.qty * i.price, 0), [items]);
   const total = Math.max(0, +(subtotal - discount).toFixed(2));
+
+  const depositRequired = items.some((i) => i.productId.includes("cake")) || total >= 50;
+  const depositAmount = +(total * 0.10).toFixed(2);
+  const [collectDeposit, setCollectDeposit] = useState(true);
 
   function addItem() {
     const p = products.find((pr) => pr.id === productPick);
@@ -145,6 +151,11 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
       }
     }
 
+    // Determine effective payment status: deposit → partial
+    const effectiveStatus: PaymentStatus = depositRequired && collectDeposit && paymentStatus === "paid"
+      ? "partial"
+      : paymentStatus;
+
     const result = await apiCreateOrder({
       customer_name: finalCustomerName || "Walk-in Customer",
       customer_id: customerIdForOrder,
@@ -154,13 +165,30 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
       items_json: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId })),
       total_cents: Math.round(total * 100),
       payment_method: paymentMethod,
-      payment_status: paymentStatus,
+      payment_status: effectiveStatus,
       notes: notes || null,
       source,
       food_coloring: foodColoring.trim() || null,
     });
 
-    if (result?.id && paymentStatus === "paid") {
+    // Record the deposit payment if collecting one
+    if (result?.id && depositRequired && collectDeposit && paymentMethod) {
+      try {
+        await createPayment({
+          id: newId("pay"),
+          orderId: result.id,
+          orderNumber: null,
+          customerName: finalCustomerName || "Walk-in Customer",
+          amount: depositAmount,
+          method: paymentMethod,
+          date: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("Failed to record deposit payment:", err);
+      }
+    }
+
+    if (result?.id && effectiveStatus === "paid") {
       generateReceipt(result.id).catch(() => {});
     }
 
@@ -445,6 +473,25 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               <span>Total</span>
               <span>${total.toFixed(2)}</span>
             </div>
+            {depositRequired && (
+              <div className="mt-2 rounded-lg border border-coral/30 bg-coral-light/10 p-2.5 text-xs text-cocoa">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">10% deposit required</span>
+                  <span className="font-semibold text-coral">${depositAmount.toFixed(2)}</span>
+                </div>
+                <label className="mt-1.5 flex items-center gap-1.5 text-cocoa-muted">
+                  <input
+                    type="checkbox"
+                    checked={collectDeposit}
+                    onChange={(e) => setCollectDeposit(e.target.checked)}
+                  />
+                  Collect ${depositAmount.toFixed(2)} deposit now
+                </label>
+                {collectDeposit && paymentStatus === "paid" && (
+                  <p className="mt-1 text-[10px] text-cocoa-muted/70">Order will be created as "partial" (deposit paid, balance due at pickup: ${(total - depositAmount).toFixed(2)})</p>
+                )}
+              </div>
+            )}
           </div>
 
           {errorMsg && (

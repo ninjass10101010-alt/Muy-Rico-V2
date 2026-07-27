@@ -251,6 +251,72 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                     Edit method
                   </button>
                 </div>
+              ) : selected.paymentStatus === "partial" ? (
+                <div className="space-y-2">
+                  {(() => {
+                    const totalPaid = payments
+                      .filter((p) => p.orderId === selected.id)
+                      .reduce((sum, p) => sum + p.amount, 0);
+                    const remaining = Math.max(0, selected.total - totalPaid);
+                    return (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-cocoa-muted">Deposit paid</span>
+                          <span className="font-medium text-mid-green">{formatCurrency(totalPaid)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-cocoa-muted">Remaining balance</span>
+                          <span className="font-semibold text-cocoa">{formatCurrency(remaining)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                  {markPayFor?.id === selected.id ? (
+                    <div className="space-y-2">
+                      <select
+                        value={markPayMethod}
+                        onChange={(e) => setMarkPayMethod(e.target.value as PaymentMethod)}
+                        className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                      >
+                        {enabledMethods.map((m) => (
+                          <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
+                        ))}
+                      </select>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            const totalPaid = payments
+                              .filter((p) => p.orderId === selected.id)
+                              .reduce((sum, p) => sum + p.amount, 0);
+                            const remaining = Math.max(0, selected.total - totalPaid);
+                            await apiUpdateOrder(Number(selected.id), { payment_status: "paid", payment_method: markPayMethod });
+                            await recordPayment({ ...selected, paymentStatus: "paid", paymentMethod: markPayMethod, total: remaining } as Order);
+                            generateReceipt(Number(selected.id)).catch(() => {});
+                            setMarkPayFor(null);
+                            setSelected(null);
+                            await refreshOrders();
+                          }}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                        >
+                          <CheckCircle2 size={16} /> Collect Balance
+                        </button>
+                        <button
+                          onClick={() => setMarkPayFor(null)}
+                          className="rounded-xl border border-sand-200 px-4 py-2.5 text-sm text-cocoa-muted hover:bg-sand-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                    >
+                      <CheckCircle2 size={16} /> Collect Balance
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm text-cocoa-muted">This order is unpaid. Mark it as paid once you collect payment.</p>
