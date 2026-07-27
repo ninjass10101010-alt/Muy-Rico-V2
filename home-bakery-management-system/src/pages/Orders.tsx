@@ -15,12 +15,14 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, receipts, resendReceipt, generateReceipt } = useStore();
+  const { orders, payments, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, receipts, resendReceipt, generateReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
   const [payFor, setPayFor] = useState<Order | null>(null);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
+  const [markPayFor, setMarkPayFor] = useState<Order | null>(null);
+  const [markPayMethod, setMarkPayMethod] = useState<PaymentMethod>("cash");
   const [editPayFor, setEditPayFor] = useState<Order | null>(null);
   const [editPayMethod, setEditPayMethod] = useState<PaymentMethod>("cash");
   const [editPaySub, setEditPaySub] = useState("");
@@ -228,18 +230,87 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 <span>{selected.foodColoring}</span>
               </div>
             )}
-            <div className="rounded-xl bg-sand-50 p-3 text-sm">
-              <span className="text-cocoa-muted/60">Payment: </span>
-              {selected.paymentMethod ? PAYMENT_METHOD_LABELS[selected.paymentMethod] : "—"}
-              {selected.paymentSubMethod && formatPaymentSubMethod(selected.paymentSubMethod) && (
-                <span className="ml-1 text-cocoa-muted/60">({formatPaymentSubMethod(selected.paymentSubMethod)})</span>
+            {/* Payment panel */}
+            <div className="rounded-xl border border-sand-200 bg-white p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase text-cocoa-muted/60">Payment</span>
+                <Badge tone={selected.paymentStatus}>{selected.paymentStatus}</Badge>
+              </div>
+              {selected.paymentStatus === "paid" ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-cocoa">
+                    {selected.paymentMethod ? PAYMENT_METHOD_LABELS[selected.paymentMethod] : "Paid"}
+                    {selected.paymentSubMethod && formatPaymentSubMethod(selected.paymentSubMethod) && (
+                      <span className="ml-1 text-cocoa-muted/60">({formatPaymentSubMethod(selected.paymentSubMethod)})</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => { setEditPayFor(selected); setEditPayMethod(selected.paymentMethod || "cash"); setEditPaySub(selected.paymentSubMethod || ""); }}
+                    className="text-xs font-semibold text-coral hover:underline"
+                  >
+                    Edit method
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-cocoa-muted">This order is unpaid. Mark it as paid once you collect payment.</p>
+                  {markPayFor?.id === selected.id ? (
+                    <div className="space-y-2">
+                      <select
+                        value={markPayMethod}
+                        onChange={(e) => setMarkPayMethod(e.target.value as PaymentMethod)}
+                        className="w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-coral"
+                      >
+                        {enabledMethods.map((m) => (
+                          <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
+                        ))}
+                      </select>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            await apiUpdateOrder(Number(selected.id), { payment_status: "paid", payment_method: markPayMethod });
+                            await recordPayment({ ...selected, paymentStatus: "paid", paymentMethod: markPayMethod });
+                            generateReceipt(Number(selected.id)).catch(() => {});
+                            setMarkPayFor(null);
+                            setSelected(null);
+                            await refreshOrders();
+                          }}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                        >
+                          <CheckCircle2 size={16} /> Confirm Payment
+                        </button>
+                        <button
+                          onClick={() => setMarkPayFor(null)}
+                          className="rounded-xl border border-sand-200 px-4 py-2.5 text-sm text-cocoa-muted hover:bg-sand-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-mid-green to-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                    >
+                      <CheckCircle2 size={16} /> Mark as Paid
+                    </button>
+                  )}
+                </div>
               )}
-              <button
-                onClick={() => { setEditPayFor(selected); setEditPayMethod(selected.paymentMethod || "cash"); setEditPaySub(selected.paymentSubMethod || ""); }}
-                className="ml-2 text-xs font-semibold text-coral hover:underline"
-              >
-                Edit
-              </button>
+              {/* Payment history */}
+              {payments.filter((p) => p.orderId === selected.id).length > 0 && (
+                <div className="border-t border-sand-100 pt-2">
+                  <p className="mb-1 text-[10px] font-semibold uppercase text-cocoa-muted/50">Payment history</p>
+                  {payments
+                    .filter((p) => p.orderId === selected.id)
+                    .map((p) => (
+                      <div key={p.id} className="flex justify-between text-xs text-cocoa-muted">
+                        <span>{PAYMENT_METHOD_LABELS[p.method] || p.method}{p.methodDetails ? ` (${p.methodDetails})` : ""}</span>
+                        <span>{formatCurrency(p.amount)} &middot; {formatDate(p.date)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
             <div className="border-t border-sand-200 pt-3">
               <p className="mb-2 text-xs font-semibold uppercase text-cocoa-muted/60">Receipts</p>
