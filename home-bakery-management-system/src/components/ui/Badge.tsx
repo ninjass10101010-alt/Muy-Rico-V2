@@ -14,6 +14,10 @@ const STATUS_STYLES: Record<string, string> = {
   "in-person": "bg-orange-50 text-orange-700 ring-orange-200",
   low: "bg-hibiscus-light/20 text-hibiscus ring-hibiscus-light",
   ok: "bg-mid-green-light/20 text-palm ring-mid-green-light",
+  new: "bg-coral-light/30 text-coral ring-palm-light",
+  replied: "bg-mid-green-light/20 text-palm ring-mid-green-light",
+  converted: "bg-palm-50 text-palm ring-palm/30",
+  archived: "bg-sand-100 text-cocoa-muted ring-sand-200",
 };
 
 export default function Badge({ children, tone }: { children: ReactNode; tone?: string }) {

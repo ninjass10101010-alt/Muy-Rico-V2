@@ -701,3 +701,77 @@ export async function updateTestimonial(id: string, patch: TestimonialUpdate): P
 export async function deleteTestimonial(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/testimonials/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+// ─── Inventory deduction ────────────────────────────────────────────────────
+
+export async function deductInventory(orderId: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/orders/${orderId}/deduct`, { method: "POST" });
+}
+
+// ─── Gallery (alias) ────────────────────────────────────────────────────────
+
+export const fetchGalleryPhotos = fetchGalleryAdmin;
+
+// ─── Quotes ────────────────────────────────────────────────────────────────
+
+export interface ApiQuote {
+  id: number;
+  status: string;
+  customer_name: string;
+  email: string;
+  phone: string | null;
+  language: string;
+  occasion: string | null;
+  serving_size: string | null;
+  cake_flavor: string;
+  filling: string | null;
+  frosting: string | null;
+  toppings: string | null;
+  dietary: string | null;
+  reference_image_url: string | null;
+  comments: string | null;
+  desired_date: string | null;
+  budget: string | null;
+  quoted_price: number | null;
+  admin_notes: string | null;
+  converted_order_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchQuotes(): Promise<ApiQuote[]> {
+  const data = await apiFetch<{ quotes: ApiQuote[] }>("/api/quotes");
+  return data.quotes;
+}
+
+export async function updateQuote(
+  id: number,
+  patch: { quoted_price?: number | null; admin_notes?: string | null; status?: string }
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/quotes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function convertQuote(
+  id: number,
+  deposit_amount_cents: number,
+  payment_method: string
+): Promise<{ ok: boolean; order_id: number; payment_status: string }> {
+  return apiFetch(`/api/quotes/${id}/convert`, {
+    method: "POST",
+    body: JSON.stringify({ deposit_amount_cents, payment_method }),
+  });
+}
+
+export async function uploadQuoteImage(file: File): Promise<{ url: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_BASE}/api/quotes/upload-image`, { method: 'POST', body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Upload failed');
+  }
+  return res.json();
+}

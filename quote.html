@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitud de Cotización — Muy Rico | Holland, MI</title>
+  <meta name="description" content="Solicita una cotización personalizada para tu pastel. Muy Rico Bakery — Holland, MI." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Solicitud de Cotización — Muy Rico | Holland, MI" />
+  <meta property="og:description" content="Solicita una cotización personalizada para tu pastel." />
+  <meta property="og:image" content="hero-conchas.webp" />
+
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:title" content="Solicitud de Cotización — Muy Rico | Holland, MI" />
+  <meta property="twitter:description" content="Solicita una cotización personalizada para tu pastel." />
+  <meta property="twitter:image" content="hero-conchas.webp" />
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2">
+  <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
+</head>
+<body>
+
+  <header class="mobile-header" id="mobile-header" style="display:none;">
+    <div class="mobile-brand">
+      <a href="index.html" aria-label="Muy Rico Home">
+        <img class="mobile-brand-logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
+      </a>
+    </div>
+    <div class="mobile-actions">
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="mobile-nav-drawer" id="mobile-nav-drawer" role="navigation" aria-label="Mobile navigation" style="display:none;">
+    <div class="mobile-nav-links">
+      <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+      <a href="order.html" data-es="Ordenar" data-en="Order">Order</a>
+      <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+      <a href="quote.html" class="active" data-es="Cotizar" data-en="Quote">Quote</a>
+      <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+    </div>
+  </div>
+
+  <main id="quote-page">
+
+    <!-- Hero -->
+    <section class="hero quote-hero">
+      <div class="hero-overlay">
+        <nav class="desktop-nav" id="desktop-nav">
+          <a href="index.html" class="logo-link">
+            <img class="logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
+          </a>
+          <div class="nav-links">
+            <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+            <a href="order.html" data-es="Ordenar" data-en="Order">Order</a>
+            <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+            <a href="quote.html" class="active" data-es="Cotizar" data-en="Quote">Quote</a>
+            <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+            <button id="lang-toggle" class="lang-toggle" aria-label="Toggle language">EN</button>
+          </div>
+          <button id="lang-toggle-mobile" class="lang-toggle" aria-label="Toggle language">EN</button>
+        </nav>
+
+        <div class="hero-content">
+          <span class="eyebrow-text lang-fade" data-es="Pasteles Personalizados" data-en="Custom Cakes">Pasteles Personalizados</span>
+          <h1 class="hero-headline-top lang-fade" data-es="Solicita tu" data-en="Request Your">Solicita tu</h1>
+          <h1 class="hero-headline-bottom lang-fade" data-es="Cotización" data-en="Quote">Cotización</h1>
+          <p class="hero-description lang-fade"
+             data-es="Cuéntanos sobre el pastel de tus sueños y te enviaremos una cotización personalizada en 1-2 días hábiles."
+             data-en="Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.">
+             Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quote Form Section -->
+    <section id="quote-form-section" class="section-padding" style="background: var(--bg-primary);">
+      <div class="section-container" style="max-width: 720px; margin: 0 auto;">
+
+        <!-- Pricing disclaimer banner -->
+        <div class="quote-notice" style="
+          background: rgba(232, 138, 134, 0.12);
+          border: 1px solid var(--coral);
+          border-radius: 12px;
+          padding: 16px 20px;
+          margin-bottom: 32px;
+          font-size: 14px;
+          color: var(--cocoa);
+        ">
+          <p class="lang-fade"
+             data-es="Cada pastel se cotiza según el nivel de personalización. Te enviaremos una cotización personalizada después de revisar tu solicitud."
+             data-en="Each cake is priced based on the level of customization. We'll send you a personalized quote after reviewing your request.">
+             Each cake is priced based on the level of customization. We'll send you a personalized quote after reviewing your request.
+          </p>
+        </div>
+
+        <form id="quote-form" novalidate>
+          <!-- Customer info -->
+          <div class="form-section">
+            <h2 class="form-section-title lang-fade" data-es="Tu Información" data-en="Your Information">Your Information</h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="customer_name" class="form-label lang-fade" data-es="Nombre *" data-en="Name *">Name *</label>
+                <input type="text" id="customer_name" name="customer_name" required
+                       class="form-input"
+                       placeholder="e.g. María García">
+              </div>
+            </div>
+            <div class="form-row form-row-2">
+              <div class="form-group">
+                <label for="email" class="form-label lang-fade" data-es="Correo electrónico *" data-en="Email *">Email *</label>
+                <input type="email" id="email" name="email" required
+                       class="form-input"
+                       placeholder="maria@ejemplo.com">
+              </div>
+              <div class="form-group">
+                <label for="phone" class="form-label lang-fade" data-es="Teléfono" data-en="Phone">Phone</label>
+                <input type="tel" id="phone" name="phone"
+                       class="form-input"
+                       placeholder="(616) 555-0123">
+              </div>
+            </div>
+          </div>
+
+          <!-- Cake details -->
+          <div class="form-section">
+            <h2 class="form-section-title lang-fade" data-es="Detalles del Pastel" data-en="Cake Details">Cake Details</h2>
+
+            <div class="form-row form-row-2">
+              <div class="form-group">
+                <label for="occasion" class="form-label lang-fade" data-es="Ocasión" data-en="Occasion">Occasion</label>
+                <select id="occasion" name="occasion" class="form-input">
+                  <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+                  <option value="Birthday" data-es="Cumpleaños" data-en="Birthday">Birthday</option>
+                  <option value="Wedding" data-es="Boda" data-en="Wedding">Wedding</option>
+                  <option value="Anniversary" data-es="Aniversario" data-en="Anniversary">Anniversary</option>
+                  <option value="Baby Shower" data-es="Baby Shower" data-en="Baby Shower">Baby Shower</option>
+                  <option value="Quinceañera" data-es="Quinceañera" data-en="Quinceañera">Quinceañera</option>
+                  <option value="Other" data-es="Otro" data-en="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="serving_size" class="form-label lang-fade" data-es="Número de porciones" data-en="Serving size">Serving size</label>
+                <select id="serving_size" name="serving_size" class="form-input">
+                  <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+                  <option value="6-8">6-8</option>
+                  <option value="10-12">10-12</option>
+                  <option value="15-20">15-20</option>
+                  <option value="20-30">20-30</option>
+                  <option value="30+">30+</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row form-row-2">
+              <div class="form-group">
+                <label for="cake_flavor" class="form-label lang-fade" data-es="Sabor del pastel *" data-en="Cake flavor *">Cake flavor *</label>
+                <input type="text" id="cake_flavor" name="cake_flavor" required
+                       class="form-input"
+                       placeholder="e.g. Chocolate, Vainilla, Fresa">
+              </div>
+              <div class="form-group">
+                <label for="filling" class="form-label lang-fade" data-es="Relleno" data-en="Filling">Filling</label>
+                <input type="text" id="filling" name="filling"
+                       class="form-input"
+                       placeholder="e.g. Cream cheese, Fruta">
+              </div>
+            </div>
+
+            <div class="form-row form-row-2">
+              <div class="form-group">
+                <label for="frosting" class="form-label lang-fade" data-es="Betún" data-en="Frosting">Frosting</label>
+                <input type="text" id="frosting" name="frosting"
+                       class="form-input"
+                       placeholder="e.g. Buttercream, Fondant">
+              </div>
+              <div class="form-group">
+                <label for="desired_date" class="form-label lang-fade" data-es="Fecha deseada" data-en="Desired date">Desired date</label>
+                <input type="date" id="desired_date" name="desired_date"
+                       class="form-input">
+              </div>
+            </div>
+
+            <!-- Toppings -->
+            <div class="form-group">
+              <label class="form-label lang-fade" data-es="Decoraciones / Coberturas" data-en="Toppings / Decorations">Toppings / Decorations</label>
+              <div class="checkbox-grid">
+                <label class="checkbox-label">
+                  <input type="checkbox" name="toppings" value="Sprinkles">
+                  <span class="lang-fade" data-es="Chispas de Colores" data-en="Sprinkles">Sprinkles</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="toppings" value="Fresh Fruit">
+                  <span class="lang-fade" data-es="Fruta Fresca" data-en="Fresh Fruit">Fresh Fruit</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="toppings" value="Chocolate Ganache">
+                  <span class="lang-fade" data-es="Ganache de Chocolate" data-en="Chocolate Ganache">Chocolate Ganache</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="toppings" value="Caramel Drip">
+                  <span class="lang-fade" data-es="Baño de Caramelo" data-en="Caramel Drip">Caramel Drip</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="toppings" value="Edible Flowers">
+                  <span class="lang-fade" data-es="Flores Comestibles" data-en="Edible Flowers">Edible Flowers</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="toppings" value="Fondant Decorations">
+                  <span class="lang-fade" data-es="Decoraciones de Fondant" data-en="Fondant Decorations">Fondant Decorations</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Dietary restrictions -->
+            <div class="form-group">
+              <label class="form-label lang-fade" data-es="Restricciones dietéticas" data-en="Dietary restrictions">Dietary restrictions</label>
+              <div class="checkbox-grid">
+                <label class="checkbox-label">
+                  <input type="checkbox" name="dietary" value="Gluten-Free">
+                  <span class="lang-fade" data-es="Sin Gluten" data-en="Gluten-Free">Gluten-Free</span>
+                </label>
+                <p class="dietary-disclaimer lang-fade"
+                   data-es="La opción sin gluten es solo para preferencia dietética. No es apta para enfermedad celíaca ni sensibilidad severa al gluten."
+                   data-en="The gluten-free option is for dietary preference only. Not safe for celiac disease or severe gluten sensitivity.">
+                   The gluten-free option is for dietary preference only. Not safe for celiac disease or severe gluten sensitivity.
+                </p>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="dietary" value="Vegan">
+                  <span class="lang-fade" data-es="Vegano" data-en="Vegan">Vegan</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="dietary" value="Nut-Free">
+                  <span class="lang-fade" data-es="Sin Nueces" data-en="Nut-Free">Nut-Free</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="dietary" value="Dairy-Free">
+                  <span class="lang-fade" data-es="Sin Lácteos" data-en="Dairy-Free">Dairy-Free</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="dietary" value="Egg-Free">
+                  <span class="lang-fade" data-es="Sin Huevo" data-en="Egg-Free">Egg-Free</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" name="dietary" value="Sugar-Free">
+                  <span class="lang-fade" data-es="Sin Azúcar" data-en="Sugar-Free">Sugar-Free</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reference image -->
+          <div class="form-section">
+            <h2 class="form-section-title lang-fade" data-es="Imagen de Referencia" data-en="Reference Image">Reference Image</h2>
+            <p class="form-help lang-fade"
+               data-es="Opcional — sube una imagen de referencia (JPG/PNG/WEBP, máx. 5MB)"
+               data-en="Optional — upload a reference image (JPG/PNG/WEBP, max 5MB)">
+               Optional — upload a reference image (JPG/PNG/WEBP, max 5MB)
+            </p>
+            <div id="image-dropzone" class="dropzone" style="
+              border: 2px dashed var(--sand-300);
+              border-radius: 12px;
+              padding: 32px;
+              text-align: center;
+              cursor: pointer;
+              transition: border-color 0.2s;
+              background: var(--sand-50);
+            ">
+              <p class="dropzone-text lang-fade"
+                 data-es="Arrastra una imagen aquí o haz clic para seleccionar"
+                 data-en="Drag an image here or click to select">
+                 Drag an image here or click to select
+              </p>
+              <input type="file" id="reference_image" accept="image/jpeg,image/png,image/webp" style="display:none;">
+            </div>
+            <div id="image-preview" style="display:none; margin-top: 12px;">
+              <img id="preview-img" src="" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 12px; border: 1px solid var(--sand-200);">
+              <p id="preview-filename" class="form-help" style="margin-top: 4px;"></p>
+            </div>
+          </div>
+
+          <!-- Comments & budget -->
+          <div class="form-section">
+            <h2 class="form-section-title lang-fade" data-es="Comentarios" data-en="Comments">Comments</h2>
+            <div class="form-group">
+              <label for="comments" class="form-label lang-fade" data-es="Describe tu visión" data-en="Describe your vision">Describe your vision</label>
+              <textarea id="comments" name="comments" rows="4"
+                        class="form-input"
+                        placeholder="e.g. I'm imagining a two-tier cake with fresh flowers and a gold drip..."></textarea>
+            </div>
+            <div class="form-row form-row-2">
+              <div class="form-group">
+                <label for="budget" class="form-label lang-fade" data-es="Presupuesto estimado" data-en="Estimated budget">Estimated budget</label>
+                <input type="text" id="budget" name="budget"
+                       class="form-input"
+                       placeholder="e.g. $100-150">
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div class="form-section" style="text-align: center;">
+            <div id="form-error" style="display:none; background: rgba(217,61,89,0.1); border: 1px solid var(--hibiscus); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--hibiscus);"></div>
+            <div id="form-success" style="display:none; background: rgba(64,145,108,0.1); border: 1px solid var(--mid-green); border-radius: 12px; padding: 24px; margin-bottom: 16px;">
+              <p style="font-size: 18px; font-family: 'Playfair Display', serif; color: var(--palm); font-weight: 600; margin-bottom: 4px;" class="lang-fade"
+                 data-es="¡Solicitud Enviada!" data-en="Request Sent!">Request Sent!</p>
+              <p style="font-size: 14px; color: var(--cocoa-muted);" class="lang-fade"
+                 data-es="Gracias por tu solicitud. Te enviaremos una cotización en 1-2 días hábiles. Revisa tu correo electrónico."
+                 data-en="Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.">
+                 Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.
+              </p>
+            </div>
+            <button type="submit" id="submit-btn" class="btn btn-coral btn-lg lang-fade"
+                    data-es="Enviar Solicitud" data-en="Submit Quote Request">
+              Submit Quote Request
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="site-footer" style="background: var(--palm); color: var(--sand-200); padding: 32px 24px; text-align: center;">
+      <p style="font-size: 14px; font-style: italic;">
+        <span class="lang-fade" data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
+      </p>
+      <div style="margin-top: 12px; font-size: 13px; color: var(--sand-300);">
+        <a href="index.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+        <a href="order.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Menú" data-en="Menu">Menu</a>
+        <a href="gallery.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Galería" data-en="Gallery">Gallery</a>
+        <a href="quote.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Cotizar" data-en="Quote">Quote</a>
+        <a href="index.html#visit" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+      </div>
+    </footer>
+
+  </main>
+
+  <script>
+  // ─── Language toggle ──────────────────────────────────────────────────────
+  let currentLang = localStorage.getItem('lang') || 'es';
+  const htmlEl = document.documentElement;
+  htmlEl.lang = currentLang;
+
+  function applyLang(lang) {
+    currentLang = lang;
+    htmlEl.lang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-fade').forEach(el => {
+      const text = el.getAttribute('data-' + lang);
+      if (text !== null) {
+        el.textContent = text;
+        el.style.opacity = '0';
+        requestAnimationFrame(() => { el.style.opacity = '1'; });
+      }
+    });
+    document.querySelectorAll('.lang-toggle').forEach(btn => {
+      btn.textContent = lang === 'es' ? 'EN' : 'ES';
+    });
+  }
+
+  document.querySelectorAll('.lang-toggle').forEach(btn => {
+    btn.addEventListener('click', () => applyLang(currentLang === 'es' ? 'en' : 'es'));
+  });
+  applyLang(currentLang);
+
+  // ─── Mobile header / drawer ─────────────────────────────────────────────
+  const mobileHeader = document.getElementById('mobile-header');
+  const hamburgerBtn = document.getElementById('hamburger-btn');
+  const mobileDrawer = document.getElementById('mobile-nav-drawer');
+
+  function checkMobile() {
+    if (window.innerWidth <= 768) {
+      mobileHeader.style.display = 'flex';
+    } else {
+      mobileHeader.style.display = 'none';
+      mobileDrawer.style.display = 'none';
+    }
+  }
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+
+  hamburgerBtn.addEventListener('click', () => {
+    const expanded = hamburgerBtn.getAttribute('aria-expanded') === 'true';
+    hamburgerBtn.setAttribute('aria-expanded', !expanded);
+    mobileDrawer.style.display = expanded ? 'none' : 'flex';
+  });
+
+  // Close drawer on nav link click
+  mobileDrawer.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      mobileDrawer.style.display = 'none';
+      hamburgerBtn.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // ─── Image upload ──────────────────────────────────────────────────────
+  const dropzone = document.getElementById('image-dropzone');
+  const fileInput = document.getElementById('reference_image');
+  const previewDiv = document.getElementById('image-preview');
+  const previewImg = document.getElementById('preview-img');
+  const previewFilename = document.getElementById('preview-filename');
+  let uploadedImageUrl = null;
+
+  dropzone.addEventListener('click', () => fileInput.click());
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = 'var(--palm)';
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.style.borderColor = 'var(--sand-300)';
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = 'var(--sand-300)';
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) handleFile(fileInput.files[0]);
+  });
+
+  async function handleFile(file) {
+    if (file.size > 5 * 1024 * 1024) {
+      showError(currentLang === 'es' ? 'La imagen debe ser de 5 MB o menos.' : 'Image must be 5MB or smaller.');
+      return;
+    }
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      showError(currentLang === 'es' ? 'Solo se permiten imágenes JPG, PNG o WEBP.' : 'Only JPG, PNG, or WEBP images allowed.');
+      return;
+    }
+
+    // Preview locally
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewFilename.textContent = file.name;
+      previewDiv.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to server
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/quotes/upload-image', {
+        method: 'POST',
+        body: form,
+      });
+      const data = await res.json();
+      if (data.url) {
+        uploadedImageUrl = data.url;
+      } else {
+        showError(data.error || 'Upload failed');
+      }
+    } catch (err) {
+      showError('Upload failed. Try again.');
+    }
+  }
+
+  // ─── Form submission ────────────────────────────────────────────────────
+  const form = document.getElementById('quote-form');
+  const formError = document.getElementById('form-error');
+  const formSuccess = document.getElementById('form-success');
+  const submitBtn = document.getElementById('submit-btn');
+
+  function showError(msg) {
+    formError.textContent = msg;
+    formError.style.display = 'block';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    formError.style.display = 'none';
+    formSuccess.style.display = 'none';
+
+    const customerName = document.getElementById('customer_name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const cakeFlavor = document.getElementById('cake_flavor').value.trim();
+
+    if (!customerName || !email || !cakeFlavor) {
+      showError(currentLang === 'es' ? 'Completa los campos obligatorios: Nombre, Correo electrónico y Sabor del pastel.' : 'Please fill in: Name, Email, and Cake flavor.');
+      return;
+    }
+
+    // Collect toppings
+    const toppings = Array.from(document.querySelectorAll('input[name="toppings"]:checked')).map(cb => cb.value);
+    const dietary = Array.from(document.querySelectorAll('input[name="dietary"]:checked')).map(cb => cb.value);
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '...';
+
+    try {
+      const res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_name: customerName,
+          email,
+          phone: document.getElementById('phone').value.trim() || null,
+          language: currentLang,
+          occasion: document.getElementById('occasion').value || null,
+          serving_size: document.getElementById('serving_size').value || null,
+          cake_flavor: cakeFlavor,
+          filling: document.getElementById('filling').value.trim() || null,
+          frosting: document.getElementById('frosting').value.trim() || null,
+          toppings,
+          dietary,
+          reference_image_url: uploadedImageUrl,
+          comments: document.getElementById('comments').value.trim() || null,
+          desired_date: document.getElementById('desired_date').value || null,
+          budget: document.getElementById('budget').value.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        form.style.display = 'none';
+        formSuccess.style.display = 'block';
+      } else {
+        showError(data.error || 'Something went wrong. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = currentLang === 'es' ? 'Enviar Solicitud' : 'Submit Quote Request';
+      }
+    } catch (err) {
+      showError('Network error. Please check your connection and try again.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = currentLang === 'es' ? 'Enviar Solicitud' : 'Submit Quote Request';
+    }
+  });
+  </script>
+</body>
+</html>

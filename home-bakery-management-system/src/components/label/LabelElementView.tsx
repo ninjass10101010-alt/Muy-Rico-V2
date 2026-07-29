@@ -63,7 +63,7 @@ export default function LabelElementView({
       text = label.allergens;
       break;
     case "netWeight":
-      text = label.netWeight;
+      text = label.netWeightUS || label.netWeight;
       break;
     case "price":
       text = label.showPrice ? label.price : "";

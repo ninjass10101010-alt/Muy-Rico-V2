@@ -143,7 +143,7 @@ export default function LabelCanvas({
           className="w-full max-w-[340px] origin-top transition-transform"
           style={{
             aspectRatio: `${effW} / ${effH}`,
-            transform: `scale(${zoom})`,
+            transform: `scale(${zoom / 100})`,
           }}
         >
           <div

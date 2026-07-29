@@ -51,6 +51,7 @@ export interface Product {
   auto_generate_label?: boolean;
   featured?: boolean;
   show_online?: boolean;
+  flavor_deduction_map?: Record<string, Record<string, string[]>> | null;
 }
 
 export interface GalleryPhoto {
@@ -167,141 +168,109 @@ export type AveryPreset = "single" | "5164" | "5163" | "8163";
 
 export interface NfpData {
   servingSize: string;
-  servings: string;
-  calories: string;
-  totalFat: string;
-  satFat: string;
-  transFat: string;
-  cholesterol: string;
-  sodium: string;
-  totalCarb: string;
-  fiber: string;
-  sugars: string;
-  addedSugars: string;
-  protein: string;
-  vitD: string;
-  calcium: string;
-  iron: string;
-  potassium: string;
-  vitA: string;
-  vitC: string;
+
+  calories: number;
+  fat: number;
+  fatDaily: number;
+  satFat: number;
+  satFatDaily: number;
+  transFat: number;
+  cholesterol: number;
+  cholesterolDaily: number;
+  sodium: number;
+  sodiumDaily: number;
+  carbs: number;
+  carbsDaily: number;
+  fiber: number;
+  fiberDaily: number;
+  sugar: number;
+  protein: number;
+  vitaminD: number;
+  vitaminDDaily: number;
+  calcium: number;
+  calciumDaily: number;
+  iron: number;
+  ironDaily: number;
+  potassium: number;
+  potassiumDaily: number;
 }
 
 export interface LabelElement {
   id: string;
   type: LabelElementType;
-  field: LabelElementField;
+  field?: LabelElementField;
   x: number;
   y: number;
   w: number;
   h: number;
-  z: number;
-  rotation: number;
-  hidden: boolean;
-  lock?: boolean;
-  fontSizeOverride?: number;
-  fontFamilyOverride?: string;
-  colorOverride?: string;
-  alignOverride?: "left" | "center" | "right";
+  fontSize?: number;
+  fontWeight?: number;
+  color?: string;
   opacity?: number;
-  bold?: boolean;
-  italic?: boolean;
-  underline?: boolean;
-  qrErrorLevel?: "L" | "M" | "Q" | "H";
-  strokeColor?: string;
-  strokeWidth?: number;
-  fillColor?: string;
-  nfpData?: NfpData;
+  align?: "left" | "center" | "right";
+  text?: string;
+  rotation?: number;
+  qrValue?: string;
+  radius?: number;
+  nfp_data?: NfpData;
+  nfp_title?: string;
+  nfp_show_title?: boolean;
+  nfp_subtitle?: string;
+  nfp_show_subtitle?: boolean;
+  nfp_show_footer?: boolean;
+  nfp_layout?: "standard" | "vertical";
 }
 
 export interface LabelTemplate {
   id: string;
   name: string;
+  productId: string | null;
   shape: LabelShape;
-  bgColor: string;
-  accentColor: string;
-  textColor: string;
-  businessName: string;
-  productName: string;
-  details: string;
-  ingredients: string;
-  allergens: string;
-  netWeight: string;
-  netWeightUS: string;
-  netWeightMetric: string;
-  price: string;
-  showPrice: boolean;
-  showBestBy: boolean;
-  bestByDays: number;
-  logoEmoji: string;
-  logoImage?: string;
-  logoSize?: number;
-  font: string;
-  businessIdMode: BusinessIdMode;
-  address: string;
-  phoneNumber: string;
-  registrationNumber: string;
-  showDisclaimer: boolean;
-  labelWidth: number;
-  labelHeight: number;
   orientation: LabelOrientation;
-  websiteUrl: string;
+  width: number;
+  height: number;
   elements: LabelElement[];
-  disclaimerVariant: DisclaimerVariant;
-  productType: ProductType;
-  allergenTags: string[];
-  noAllergensConfirmed: boolean;
-  nutrientClaim: boolean;
-  bgImage?: string;
-  averyPreset: AveryPreset;
-  active?: boolean;
-}
-
-export interface BusinessProfile {
-  name: string;
-  tagline: string;
-  address: string;
-  phone: string;
-  email: string;
-  website: string;
-  registrationNumber: string;
-  businessType: BusinessType;
-  acceptedMethods: Record<PaymentMethod, boolean>;
-  cashtag: string;
-  venmoHandle: string;
-  applePayEnabled: boolean;
-  stripeConnected: boolean;
-}
-
-export interface ComplianceIssue {
-  id: string;
-  requirement: string;
-  severity: "error" | "warning";
-  fieldName: string;
-  current: string;
-  fix?: string;
-  elementId?: string;
-}
-
-export interface ComplianceResult {
-  score: number;
-  issues: ComplianceIssue[];
-  isCompliant: boolean;
-}
-
-export interface Receipt {
-  id: string;
-  orderId: string;
-  orderNumber: string;
-  customerName: string;
-  email: string | null;
-  itemsJson: string;
-  totalCents: number;
-  paymentMethod: string;
-  paymentSubMethod: string | null;
-  orderStatus: string;
-  status: "sent" | "failed" | "printed";
-  messageId: string | null;
-  sentAt: string;
+  globalFont: string;
+  globalFontSize: number;
+  primaryColor: string;
+  backgroundColor: string;
+  borderColor: string;
+  borderWidth: number;
+  borderRadius: number;
+  active: boolean;
   createdAt: string;
+  updatedAt: string;
+  showPrice?: boolean;
+  bestByDays?: number;
+  averyPreset?: AveryPreset;
+  padPct?: number;
+  productName?: string | null;
+  netWeight?: string | null;
+  netWeightUS?: string | null;
+  netWeightMetric?: string | null;
+}
+
+export interface Quote {
+  id: number;
+  status: "new" | "replied" | "converted" | "archived";
+  customerName: string;
+  email: string;
+  phone: string | null;
+  language: "es" | "en";
+  occasion: string | null;
+  servingSize: string | null;
+  cakeFlavor: string;
+  filling: string | null;
+  frosting: string | null;
+  toppings: string[];
+  dietary: string[];
+  referenceImageUrl: string | null;
+  comments: string | null;
+  desiredDate: string | null;
+  budget: string | null;
+  quotedPrice: number | null;
+  adminNotes: string | null;
+  convertedOrderId: number | null;
+  createdAt: string;
+  updatedAt: string;
 }

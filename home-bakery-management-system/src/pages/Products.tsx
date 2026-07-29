@@ -4,6 +4,7 @@ import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
 import ProductIcon from "../components/ProductIcon";
 import { formatCurrency } from "../utils/format";
+import { calcRecipeCost } from "../utils/cost";
 import { composeLabelFromRecipe } from "../utils/label";
 import { uploadImage } from "../utils/api";
 import type { FlavorGroup, PackSize, Product } from "../types";
@@ -171,7 +172,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
             <p className="mt-3 line-clamp-2 text-sm text-cocoa-muted">{p.description}</p>
             <div className="mt-4 flex items-center justify-between text-sm">
               <span className="font-semibold text-cocoa">{formatCurrency(p.price)}</span>
-              <span className="text-xs text-cocoa-muted">Cost {formatCurrency(p.cost)}</span>
+              <span className="text-xs text-cocoa-muted">Cost {formatCurrency(calcRecipeCost(p.recipe, inventory))}</span>
             </div>
             <div className="mt-4 flex items-center gap-2">
               <button
@@ -240,14 +241,10 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                   />
                 </Field>
               )}
-              <Field label="Cost to make ($)">
-                <input
-                  type="number"
-                  step="0.01"
-                  value={draft.cost}
-                  onChange={(e) => setDraft({ ...draft, cost: Number(e.target.value) })}
-                  className="input"
-                />
+              <Field label="Cost to make (computed)">
+                <p className="input flex items-center text-sm text-palm font-medium">
+                  {formatCurrency(calcRecipeCost(draft.recipe, inventory))}
+                </p>
               </Field>
             </div>
             <Field label="SKU">

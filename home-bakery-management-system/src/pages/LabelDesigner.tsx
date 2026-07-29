@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
+import { toPng, toJpeg } from "html-to-image";
 import { renderLabelPdf, downloadPdf, printPdf } from "../utils/labelExport";
 import {
   Download,
@@ -148,7 +149,7 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
 
   const [past, setPast] = useState<LabelTemplate[]>([]);
   const [future, setFuture] = useState<LabelTemplate[]>([]);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(100);
   const previewRef = useRef<HTMLDivElement>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -347,15 +348,76 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
   const elements = ensureElements(label);
   const selected = elements.find((e) => e.id === selectedId) || null;
 
+  const capturePreview = useCallback(async (format: "png" | "jpg"): Promise<string | null> => {
+    if (!previewRef.current) {
+      setDownloadError("No preview available. Try saving or refreshing the label.");
+      return null;
+    }
+    await document.fonts.ready;
+    const el = previewRef.current;
+    const targetWidth = effW * 300;
+    const rect = el.getBoundingClientRect();
+    const dpr = rect.width ? targetWidth / rect.width : 2;
+
+    // Pre-load cross-origin images to avoid canvas taint
+    const imgs = Array.from(el.querySelectorAll("img"));
+    await Promise.all(
+      imgs.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (!img.src || img.src.startsWith("data:")) return resolve();
+            const test = new Image();
+            test.crossOrigin = "anonymous";
+            test.onload = () => { img.crossOrigin = "anonymous"; resolve(); };
+            test.onerror = () => resolve();
+            test.src = img.src;
+          })
+      )
+    );
+
+    const filter = (node: HTMLElement) =>
+      !(node.classList && node.classList.contains("deco-layer"));
+    try {
+      return format === "png"
+        ? await toPng(el, { pixelRatio: dpr, cacheBust: true, filter })
+        : await toJpeg(el, { pixelRatio: dpr, quality: 0.95, cacheBust: true, filter });
+    } catch (err) {
+      console.warn(`${format} export failed, retrying without fonts:`, err);
+      try {
+        return format === "png"
+          ? await toPng(el, { pixelRatio: dpr, cacheBust: true, skipFonts: true, filter })
+          : await toJpeg(el, { pixelRatio: dpr, quality: 0.95, cacheBust: true, skipFonts: true, filter });
+      } catch (err2) {
+        console.error(`${format} export failed:`, err2);
+        setDownloadError(`Could not export ${format.toUpperCase()}. Try Download PDF instead.`);
+        return null;
+      }
+    }
+  }, [effW]);
+
   const downloadPng = useCallback(async () => {
-    // PNG export still uses html-to-image for now (kept for backward compat)
-    // PDF is the primary export path via pdf-lib
-    setDownloadError("PNG export is deprecated. Use Download PDF for the best quality.");
-  }, []);
+    setDownloadError(null);
+    const dataUrl = await capturePreview("png");
+    if (!dataUrl) return;
+    const link = document.createElement("a");
+    link.download = `${label.productName || "label"}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }, [capturePreview, label.productName]);
 
   const downloadJpg = useCallback(async () => {
-    setDownloadError("JPG export is deprecated. Use Download PDF for the best quality.");
-  }, []);
+    setDownloadError(null);
+    const dataUrl = await capturePreview("jpg");
+    if (!dataUrl) return;
+    const link = document.createElement("a");
+    link.download = `${label.productName || "label"}.jpg`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }, [capturePreview, label.productName]);
 
   const downloadPdfCb = useCallback(async () => {
     setDownloadError(null);

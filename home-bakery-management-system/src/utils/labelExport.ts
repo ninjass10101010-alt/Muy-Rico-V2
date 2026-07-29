@@ -51,9 +51,9 @@ function pickFont(el: LabelElement, label: LabelTemplate, fonts: any) {
   return fonts.helv;
 }
 
-function fontSizePt(el: LabelElement, pageW: number) {
+function fontSizePt(el: LabelElement, contentBoxW: number) {
   const cqw = el.fontSizeOverride ?? 4;
-  return (cqw / 100) * pageW;
+  return (cqw / 100) * contentBoxW;
 }
 
 function wrapText(text: string, font: any, size: number, maxW: number): string[] {
@@ -130,6 +130,14 @@ export async function renderLabelPdf(
   // Background
   const bg = (() => { try { return hexToRgb(label.bgColor); } catch { return rgb(1,1,1); } })();
 
+  // Match editor container: border-4 (3pt) + padding (3% non-curved, 6% curved)
+  const isCurved = shape === "circle" || shape === "oval";
+  const padPct = isCurved ? 0.06 : 0.03;
+  const BORDER_PT = 3;
+  const paddingBoxW = labelWPt - 2 * BORDER_PT;
+  const paddingBoxH = labelHPt - 2 * BORDER_PT;
+  const contentBoxW = labelWPt - 2 * BORDER_PT - 2 * (padPct * labelWPt);
+
   function renderLabelOnPage(page: PDFPage, ox: number, oy: number) {
     // Background
     page.drawRectangle({ x: ox, y: oy, width: labelWPt, height: labelHPt, color: bg });
@@ -137,31 +145,30 @@ export async function renderLabelPdf(
     const sorted = [...elements].sort((a, b) => (a.z || 0) - (b.z || 0));
     for (const el of sorted) {
       if (el.hidden) continue;
-      // Offset the element coordinates by the label's position on the page
-      const pageW = labelWPt;
-      const pageH = labelHPt;
-      // We render in a local coordinate space offset by (ox, oy)
-      // Temporarily set page origin by drawing at ox + localX
+      // Element positions are percentages of the padding box (inside border)
+      // PDF draws at the border edge, so offset by BORDER_PT
+      const elOx = ox + BORDER_PT;
+      const elOy = oy + BORDER_PT;
       if (el.type === "text" || ["businessName","businessId","productName","details","ingredients","allergens","netWeight","price","bestBy","disclaimer"].includes(el.field)) {
-        drawTextElementOffset(page, el, label, profile, fonts, pageW, pageH, ox, oy, bestByDateStr);
+        drawTextElementOffset(page, el, label, profile, fonts, paddingBoxW, paddingBoxH, elOx, elOy, bestByDateStr, contentBoxW);
       } else if (el.field === "qr" || el.type === "qr") {
-        drawQrElementOffset(page, el, doc, pageW, pageH, ox, oy);
+        drawQrElementOffset(page, el, doc, paddingBoxW, paddingBoxH, elOx, elOy);
       } else if (el.field === "logo" || el.type === "logo") {
-        drawLogoElementOffset(page, el, doc, pageW, pageH, ox, oy);
+        drawLogoElementOffset(page, el, doc, paddingBoxW, paddingBoxH, elOx, elOy);
       } else if (el.field === "nfp" || el.type === "nfp") {
-        drawNfpElementOffset(page, el, label, fonts, pageW, pageH, ox, oy);
+        drawNfpElementOffset(page, el, label, fonts, paddingBoxW, paddingBoxH, elOx, elOy);
       } else {
-        drawShapeElementOffset(page, el, label, pageW, pageH, ox, oy);
+        drawShapeElementOffset(page, el, label, paddingBoxW, paddingBoxH, elOx, elOy);
       }
     }
   }
 
   // Offset versions of draw functions
-  function drawTextElementOffset(page: PDFPage, el: LabelElement, label: LabelTemplate, profile: BusinessProfile, fonts: any, pageW: number, pageH: number, ox: number, oy: number, bestBy?: string | null) {
+  function drawTextElementOffset(page: PDFPage, el: LabelElement, label: LabelTemplate, profile: BusinessProfile, fonts: any, pageW: number, pageH: number, ox: number, oy: number, bestBy?: string | null, contentBoxW?: number) {
     const text = effectiveText(el, label, profile, bestBy);
     if (!text) return;
     const font = pickFont(el, label, fonts);
-    const size = fontSizePt(el, pageW);
+    const size = fontSizePt(el, contentBoxW ?? pageW);
     const color = colorOf(el, label);
     const w = el.w * pageW;
     const h = el.h * pageH;
@@ -169,7 +176,11 @@ export async function renderLabelPdf(
     const lineH = size * 1.2;
     const lines = wrapText(text, font, size, w);
     const totalH = lines.length * lineH;
-    const localStartY = pageH - (el.y * pageH) - (align === "center" ? (h + totalH) / 2 : totalH > h ? h - totalH : h / 2 - totalH / 2);
+    // PDF draws at the baseline; text extends upward by ~ascent.
+    // Editor positions text top-down (alignItems: flex-start).
+    // Subtract ascent so the top of the first glyph aligns with the element top.
+    const ascent = size * 0.75;
+    const localStartY = pageH - (el.y * pageH) - (align === "center" ? (h - totalH) / 2 : 0) - ascent;
     const actualY = localStartY + oy;
     lines.forEach((line, i) => {
       const lineY = actualY - i * lineH;

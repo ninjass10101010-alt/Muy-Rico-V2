@@ -10,6 +10,7 @@ import {
   Mail,
   Tag,
   Settings,
+  MessageSquareQuote,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import type { Page } from "../App";
@@ -18,6 +19,7 @@ import { useStore } from "../context/StoreContext";
 const NAV: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "orders", label: "Orders", icon: ClipboardList },
+  { id: "quotes", label: "Cake Quotes", icon: MessageSquareQuote },
   { id: "products", label: "Menu & Products", icon: Cookie },
   { id: "gallery", label: "Gallery", icon: Images },
   { id: "homepage", label: "Homepage", icon: Home },
@@ -38,7 +40,8 @@ export default function Sidebar({
   setPage: (p: Page) => void;
   onNavigate?: () => void;
 }) {
-  const { profile } = useStore();
+  const { profile, quotes } = useStore();
+  const pendingCount = quotes.filter((q) => q.status === "new").length;
   return (
     <div className="flex h-full w-64 flex-col bg-palm text-sand-100">
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
@@ -60,6 +63,7 @@ export default function Sidebar({
         {NAV.map((item) => {
           const Icon = item.icon;
           const active = page === item.id;
+          const badge = item.id === "quotes" && pendingCount > 0 ? pendingCount : 0;
           return (
             <button
               key={item.id}
@@ -75,7 +79,12 @@ export default function Sidebar({
               )}
             >
               <Icon size={18} className={active ? "text-coral" : ""} />
-              {item.label}
+              <span className="flex-1 text-left">{item.label}</span>
+              {badge > 0 && (
+                <span className="rounded-full bg-coral px-2 py-0.5 text-[10px] font-bold text-white">
+                  {badge}
+                </span>
+              )}
             </button>
           );
         })}

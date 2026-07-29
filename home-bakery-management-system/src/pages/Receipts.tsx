@@ -107,13 +107,23 @@ export default function Receipts({ search }: { search: string }) {
                   <td className="px-4 py-3 text-cocoa-muted">{formatDateTime(r.sentAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); window.open(receiptHtmlUrl(r.id)); }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-sand-200 px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50"
-                      >
-                        <Printer size={12} />
-                        Print
-                      </button>
+                      <div className="flex items-center gap-0.5 rounded-lg border border-sand-200 overflow-hidden">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.open(receiptHtmlUrl(r.id, 'en')); }}
+                          className="px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50 border-r border-sand-200"
+                        >EN</button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.open(receiptHtmlUrl(r.id, 'es')); }}
+                          className="px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50 border-r border-sand-200"
+                        >ES</button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.open(receiptHtmlUrl(r.id)); }}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50"
+                        >
+                          <Printer size={12} />
+                          Print
+                        </button>
+                      </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleResend(r); }}
                         disabled={resending === r.id}

@@ -4,6 +4,7 @@ import type { Page } from "../App";
 const TITLES: Record<Page, { title: string; subtitle: string }> = {
   dashboard: { title: "Dashboard", subtitle: "Your bakery at a glance" },
   orders: { title: "Orders", subtitle: "Track website & in-person orders" },
+  quotes: { title: "Cake Quotes", subtitle: "Custom cake quote requests" },
   products: { title: "Menu & Products", subtitle: "Manage what you sell" },
   gallery: { title: "Gallery", subtitle: "Portfolio photos & customer showcases" },
   homepage: { title: "Homepage", subtitle: "Photos, visit info & customer reviews on muy-rico.com" },

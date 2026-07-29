@@ -95,8 +95,13 @@ export default {
     // Public read-only payment status (browser polling after payment)
     const isPublicPaymentStatus =
       path.match(/^\/api\/orders\/\d+\/payment-status$/) && method === 'GET';
+    // Public quote submission endpoints (no auth required)
+    const isPublicQuotePost =
+      path === '/api/quotes' && method === 'POST';
+    const isPublicQuoteUpload =
+      path === '/api/quotes/upload-image' && method === 'POST';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -145,6 +150,11 @@ export default {
       const psm = path.match(/^\/api\/orders\/(\d+)\/payment-status$/);
       if (psm && method === 'GET') {
         return await getOrderPaymentStatus(Number(psm[1]), env);
+      }
+
+      const dm = path.match(/^\/api\/orders\/(\d+)\/deduct$/);
+      if (dm && method === 'POST') {
+        return await deductOrderInventory(Number(dm[1]), env, actorName);
       }
 
       // On-demand label generation for a single order
@@ -219,11 +229,25 @@ export default {
       if (path === '/api/payments' && method === 'GET') return await listPayments(env);
       if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
 
+      if (path === '/api/quotes' && method === 'POST') return await createQuote(request, env, ctx);
+      if (path === '/api/quotes' && method === 'GET')  return await listQuotes(env);
+      if (path === '/api/quotes/upload-image' && method === 'POST') return await uploadQuoteImage(request, env);
+
+      const qm = path.match(/^\/api\/quotes\/(\d+)$/);
+      if (qm) {
+        const id = Number(qm[1]);
+        if (method === 'GET')   return await getQuote(id, env);
+        if (method === 'PATCH') return await updateQuote(id, request, env, ctx, actorName);
+      }
+
+      const qcm = path.match(/^\/api\/quotes\/(\d+)\/convert$/);
+      if (qcm && method === 'POST') return await convertQuote(Number(qcm[1]), request, env, ctx, actorName);
+
       if (path === '/api/receipts' && method === 'GET') return await listReceipts(request, env);
       const rm = path.match(/^\/api\/receipts\/([^/]+)$/);
       if (rm && method === 'GET') return await getReceipt(rm[1], env);
       const rhm = path.match(/^\/api\/receipts\/([^/]+)\/html$/);
-      if (rhm && method === 'GET') return await getReceiptHtml(rhm[1], env);
+      if (rhm && method === 'GET') return await getReceiptHtml(rhm[1], env, url);
       const rsm = path.match(/^\/api\/receipts\/([^/]+)\/resend$/);
       if (rsm && method === 'POST') return await resendReceipt(rsm[1], request, env, ctx, actorName);
 
@@ -488,6 +512,11 @@ async function updateOrder(id, request, env, actor) {
   const r = await env.DB.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
 
+  // When marking unpaid, deactivate all payments so they don't inflate totals
+  if (body.payment_status === 'unpaid') {
+    await env.DB.prepare(`UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1`).bind(id).run();
+  }
+
   // Keep the latest recorded payment in sync when the method is corrected
   if (body.payment_method !== undefined) {
     const latest = await env.DB.prepare(
@@ -505,6 +534,62 @@ async function updateOrder(id, request, env, actor) {
   `).bind(id, actor).run();
 
   return json({ ok: true }, 200);
+}
+
+async function deductOrderInventory(orderId, env, actor) {
+  try {
+    const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
+    if (!order) return json({ error: 'Order not found' }, 404);
+    if (order.inventory_deducted) return json({ ok: true, already_deducted: true });
+
+    const items = safeJsonParse(order.items_json, []);
+    const { results: prods } = await env.DB.prepare('SELECT id, recipe, flavor_deduction_map FROM products').all();
+    const prodMap = Object.fromEntries(prods.map(p => [p.id, p]));
+
+    const { results: invRows } = await env.DB.prepare('SELECT id, quantity FROM inventory WHERE active = 1').all();
+    const invMap = Object.fromEntries(invRows.map(i => [i.id, { ...i }]));
+
+    for (const item of items) {
+      const prod = prodMap[item.productId];
+      if (!prod) continue;
+      const recipe = safeJsonParse(prod.recipe, []);
+      const deductionMap = prod.flavor_deduction_map ? safeJsonParse(prod.flavor_deduction_map, null) : null;
+      const flavorNote = item.flavorNote || '';
+
+      let deductIds = new Set();
+      if (deductionMap && flavorNote) {
+        for (const [groupName, options] of Object.entries(deductionMap)) {
+          for (const [optionName, invIds] of Object.entries(options)) {
+            if (flavorNote.includes(optionName)) {
+              invIds.forEach(id => deductIds.add(id));
+            }
+          }
+        }
+      }
+
+      for (const rec of recipe) {
+        if (deductIds.size > 0 && !deductIds.has(rec.inventoryItemId)) continue;
+        const inv = invMap[rec.inventoryItemId];
+        if (!inv) continue;
+        const used = rec.qtyPerUnit * item.qty;
+        const newQty = Math.max(0, +(inv.quantity - used).toFixed(2));
+        await env.DB.prepare('UPDATE inventory SET quantity = ? WHERE id = ?')
+          .bind(newQty, rec.inventoryItemId).run();
+        inv.quantity = newQty;
+      }
+    }
+
+    await env.DB.prepare('UPDATE orders SET inventory_deducted = 1 WHERE id = ?')
+      .bind(orderId).run();
+
+    await env.DB.prepare(
+      `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:inventory-deducted')`
+    ).bind(orderId, actor || 'system').run();
+
+    return json({ ok: true });
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
 }
 
 async function markOrderPaid(id, request, env, ctx) {
@@ -957,7 +1042,7 @@ async function getReceipt(id, env) {
   return json({ receipt: snakeToCamelObject(receipt) }, 200);
 }
 
-async function getReceiptHtml(id, env) {
+async function getReceiptHtml(id, env, url) {
   const receipt = await env.DB.prepare('SELECT * FROM receipts WHERE id = ?').bind(id).first();
   if (!receipt) return json({ error: 'Not found' }, 404);
   // Fetch the full order for pickup_date, pickup_time, language, created_at
@@ -981,8 +1066,23 @@ async function getReceiptHtml(id, env) {
       created_at: receipt.created_at,
     };
   }
+  // ?lang= query param overrides order language
+  const langParam = url?.searchParams?.get('lang');
+  if (langParam === 'en') isEn = true;
+  else if (langParam === 'es') isEn = false;
+
   const html = buildReceiptHtml(order, isEn);
-  const printable = html + '\n<script>window.print();</script>';
+  const togglePath = url?.pathname || `/api/receipts/${id}/html`;
+  const autoPrint = !url?.searchParams?.has('lang');
+
+  const toggleBar = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; padding: 8px 12px; text-align: center; border-bottom: 1px solid #e3dcd2;">
+  <span style="color: #8a8078; font-size: 12px; margin-right: 8px;">Language / Idioma:</span>
+  <a href="${togglePath}?lang=en" style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 4px; ${isEn ? 'background:#1e4636;color:#fff;' : 'background:#e3dcd2;color:#4a423d;'} margin: 0 2px;">EN</a>
+  <a href="${togglePath}?lang=es" style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 4px; ${!isEn ? 'background:#1e4636;color:#fff;' : 'background:#e3dcd2;color:#4a423d;'} margin: 0 2px;">ES</a>
+</div>`;
+
+  const printable = toggleBar + html + (autoPrint ? '\n<script>window.print();</script>' : '');
   return new Response(printable, {
     status: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8', ...CORS },
@@ -1056,7 +1156,13 @@ async function getStats(env, actor) {
       SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) AS paid
     FROM orders WHERE status != 'awaiting_payment'
   `).all();
-  return json(results[0] || {}, 200);
+  const stats = results[0] || {};
+  // Count pending cake quotes
+  const { results: quoteRows } = await env.DB.prepare(`
+    SELECT COUNT(*) AS cnt FROM cake_quotes WHERE status = 'new'
+  `).all();
+  stats.pending_quotes = (quoteRows && quoteRows[0] && quoteRows[0].cnt) || 0;
+  return json(stats, 200);
 }
 
 // ─── Products ────────────────────────────────────────────────────────────────
@@ -1137,8 +1243,11 @@ async function listProducts(env, includeHidden) {
   const where = includeHidden
     ? 'WHERE active = 1'
     : 'WHERE active = 1 AND show_online = 1';
+  const cols = includeHidden
+    ? '*'
+    : 'id, name, name_es, description, description_es, category, price, sku, emoji, image_url, active, show_online, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label, featured, flavor_deduction_map';
   const { results } = await env.DB.prepare(`
-    SELECT * FROM products
+    SELECT ${cols} FROM products
     ${where}
     ORDER BY display_order ASC, name ASC
   `).all();
@@ -1146,14 +1255,15 @@ async function listProducts(env, includeHidden) {
     const flavorGroups = migrateFlavorGroups(safeJsonParse(r.flavors, []));
     return {
       ...r,
-      flavor_groups: flavorGroups,  // canonical new name
-      flavors: flavorGroups,         // legacy alias for any old reader
+      flavor_groups: flavorGroups,
+      flavors: flavorGroups,
       pack_sizes: safeJsonParse(r.pack_sizes, []),
       recipe: safeJsonParse(r.recipe, []),
       active: Boolean(r.active),
       auto_generate_label: Boolean(r.auto_generate_label),
       featured: Boolean(r.featured),
       show_online: r.show_online === undefined ? true : Boolean(r.show_online),
+      flavor_deduction_map: r.flavor_deduction_map ? safeJsonParse(r.flavor_deduction_map, null) : null,
     };
   });
   return json({ products }, 200);
@@ -1173,6 +1283,7 @@ async function getProduct(id, env) {
     auto_generate_label: Boolean(row.auto_generate_label),
     featured: Boolean(row.featured),
     show_online: row.show_online === undefined ? true : Boolean(row.show_online),
+    flavor_deduction_map: row.flavor_deduction_map ? safeJsonParse(row.flavor_deduction_map, null) : null,
   };
   return json({ product }, 200);
 }
@@ -1182,7 +1293,7 @@ const PRODUCT_FIELDS = [
   'price', 'cost', 'sku', 'emoji', 'image_url',
   'active', 'ingredients', 'allergens',
   'flavors', 'pack_sizes', 'recipe', 'display_order', 'auto_generate_label',
-  'featured', 'show_online',
+  'featured', 'show_online', 'flavor_deduction_map',
 ];
 
 async function createProduct(request, env, actor) {
@@ -1197,8 +1308,8 @@ async function createProduct(request, env, actor) {
     await env.DB.prepare(`
       INSERT INTO products
         (id, name, name_es, description, description_es, category, price, cost,
-         sku, emoji, image_url, active, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label, featured, show_online)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         sku, emoji, image_url, active, ingredients, allergens, flavors, pack_sizes, recipe, display_order, auto_generate_label, featured, show_online, flavor_deduction_map)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.name,
@@ -1221,6 +1332,7 @@ async function createProduct(request, env, actor) {
       body.auto_generate_label === false ? 0 : 1,
       body.featured ? 1 : 0,
       body.show_online === false ? 0 : 1,
+      body.flavor_deduction_map ? (typeof body.flavor_deduction_map === 'string' ? body.flavor_deduction_map : JSON.stringify(body.flavor_deduction_map)) : null,
     ).run();
   } catch (err) {
     return json({ error: String(err) }, 400);
@@ -1242,6 +1354,7 @@ async function updateProduct(id, request, env, actor) {
     if (f === 'flavors') val = parseFlavors(body.flavor_groups || body.flavors || []);
     if (f === 'pack_sizes') val = parseFlavors(body.pack_sizes || []);
     if (f === 'recipe')  val = parseRecipe(val);
+    if (f === 'flavor_deduction_map') val = val ? (typeof val === 'string' ? val : JSON.stringify(val)) : null;
     if (f === 'price' || f === 'cost' || f === 'display_order') val = Number(val) || 0;
     sets.push(`${f} = ?`);
     binds.push(val);
@@ -1665,16 +1778,29 @@ async function createPayment(request, env, actor) {
   if (!ALLOWED_PAYMENT.includes(body.method)) {
     return json({ error: `Invalid method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
   }
+  const orderId = getBodyField(body, 'order_id');
+  const amount = Number(body.amount) || 0;
+
+  // Deactivate ALL existing active payments for this order before inserting.
+  // This prevents double-counting when toggling paid/unpaid/paid again.
+  // We use order_id alone (no amount match) because any prior active payment
+  // for the same order is stale once we record a new one.
+  if (orderId != null) {
+    await env.DB.prepare(`
+      UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1
+    `).bind(orderId).run();
+  }
+
   try {
     await env.DB.prepare(`
       INSERT INTO payments (id, order_id, order_number, customer_name, amount, method, date, created_at, active)
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
     `).bind(
       body.id,
-      getBodyField(body, 'order_id') ?? null,
+      orderId,
       getBodyField(body, 'order_number') || null,
       customerName,
-      Number(body.amount) || 0,
+      amount,
       body.method,
       body.date || null,
     ).run();
@@ -1970,6 +2096,429 @@ async function updateProfile(request, env, actor) {
     return json({ error: String(err) }, 500);
   }
   return json({ ok: true }, 200);
+}
+
+// ─── Cake Quotes ────────────────────────────────────────────────────────────
+
+const QUOTE_FIELDS = [
+  'id', 'status', 'customer_name', 'email', 'phone', 'language',
+  'occasion', 'serving_size', 'cake_flavor', 'filling', 'frosting',
+  'toppings', 'dietary', 'reference_image_url',
+  'comments', 'desired_date', 'budget',
+  'quoted_price', 'admin_notes', 'converted_order_id',
+  'created_at', 'updated_at',
+];
+
+function rowToQuote(r) {
+  return {
+    id: r.id,
+    status: r.status,
+    customer_name: r.customer_name,
+    email: r.email,
+    phone: r.phone,
+    language: r.language || 'es',
+    occasion: r.occasion,
+    serving_size: r.serving_size,
+    cake_flavor: r.cake_flavor,
+    filling: r.filling,
+    frosting: r.frosting,
+    toppings: r.toppings ? JSON.parse(r.toppings) : [],
+    dietary: r.dietary ? JSON.parse(r.dietary) : [],
+    reference_image_url: r.reference_image_url,
+    comments: r.comments,
+    desired_date: r.desired_date,
+    budget: r.budget,
+    quoted_price: r.quoted_price,
+    admin_notes: r.admin_notes,
+    converted_order_id: r.converted_order_id,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+async function createQuote(request, env, ctx) {
+  try {
+    const body = await request.json();
+    if (!body.customer_name || !body.email || !body.cake_flavor) {
+      return json({ error: 'Missing required fields: customer_name, email, cake_flavor' }, 400);
+    }
+
+    const toppings = Array.isArray(body.toppings) ? JSON.stringify(body.toppings) : '[]';
+    const dietary = Array.isArray(body.dietary) ? JSON.stringify(body.dietary) : '[]';
+
+    const result = await env.DB.prepare(`
+      INSERT INTO cake_quotes
+        (customer_name, email, phone, language, occasion, serving_size,
+         cake_flavor, filling, frosting, toppings, dietary,
+         reference_image_url, comments, desired_date, budget)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      body.customer_name.trim(),
+      body.email.trim().toLowerCase(),
+      body.phone || null,
+      body.language || 'es',
+      body.occasion || null,
+      body.serving_size || null,
+      body.cake_flavor,
+      body.filling || null,
+      body.frosting || null,
+      toppings,
+      dietary,
+      body.reference_image_url || null,
+      body.comments || null,
+      body.desired_date || null,
+      body.budget || null,
+    ).run();
+
+    const id = result.meta.last_row_id;
+
+    // Notify admin
+    ctx.waitUntil(notifyQuoteCreated(env, body, id));
+
+    // Send auto-reply to customer (ack, no price yet)
+    ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', id, false));
+
+    return json({ ok: true, id }, 201);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function uploadQuoteImage(request, env) {
+  try {
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file || typeof file === 'string') {
+      return json({ error: 'No file provided' }, 400);
+    }
+    if (!ALLOWED_IMG.includes(file.type)) {
+      return json({ error: 'Only JPG, PNG, or WEBP images allowed' }, 400);
+    }
+    if (file.size > MAX_IMG_BYTES) {
+      return json({ error: 'Image must be 5MB or smaller' }, 400);
+    }
+    const ext = (file.type.split('/')[1] || 'bin').replace('jpeg', 'jpg');
+    const key = `quotes/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    await env.IMAGES_BUCKET.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+    const url = `https://pub-${env.R2_PUBLIC_ID || '71c703c51efd43de8dde4439bd02a8af'}.r2.dev/${key}`;
+    return json({ url }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function listQuotes(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes ORDER BY created_at DESC`
+  ).all();
+  return json({ quotes: results.map(rowToQuote) }, 200);
+}
+
+async function getQuote(id, env) {
+  const row = await env.DB.prepare(
+    `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
+  ).bind(id).first();
+  if (!row) return json({ error: 'Not found' }, 404);
+  return json(rowToQuote(row), 200);
+}
+
+async function updateQuote(id, request, env, ctx, actor) {
+  try {
+    const body = await request.json();
+    const existing = await env.DB.prepare(
+      `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
+    ).bind(id).first();
+    if (!existing) return json({ error: 'Not found' }, 404);
+
+    const sets = [];
+    const binds = [];
+
+    if (body.quoted_price !== undefined) {
+      sets.push('quoted_price = ?');
+      binds.push(body.quoted_price);
+    }
+    if (body.admin_notes !== undefined) {
+      sets.push('admin_notes = ?');
+      binds.push(body.admin_notes);
+    }
+    if (body.status !== undefined) {
+      sets.push('status = ?');
+      binds.push(body.status);
+    }
+
+    if (sets.length === 0) return json({ ok: true }, 200);
+
+    sets.push("updated_at = datetime('now')");
+    binds.push(id);
+
+    await env.DB.prepare(
+      `UPDATE cake_quotes SET ${sets.join(', ')} WHERE id = ?`
+    ).bind(...binds).run();
+
+    // If quoted_price changed from null → set, auto-send quote reply with price
+    const oldPrice = existing.quoted_price;
+    const newPrice = body.quoted_price !== undefined ? body.quoted_price : oldPrice;
+    if (oldPrice == null && newPrice != null && existing.status === 'new') {
+      await env.DB.prepare(
+        "UPDATE cake_quotes SET status = 'replied', updated_at = datetime('now') WHERE id = ?"
+      ).bind(id).run();
+
+      ctx.waitUntil(sendQuoteAutoReply(env, existing.email, existing.language || 'es', id, true, newPrice));
+      ctx.waitUntil(notifyQuoteReplied(env, id, existing.customer_name, newPrice));
+    }
+
+    if (body.status === 'archived' || body.status === 'converted') {
+      // No auto-email when archiving
+    }
+
+    return json({ ok: true }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function convertQuote(id, request, env, ctx, actor) {
+  try {
+    const body = await request.json();
+    const quote = await env.DB.prepare(
+      `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
+    ).bind(id).first();
+    if (!quote) return json({ error: 'Quote not found' }, 404);
+
+    if (quote.status === 'converted') {
+      return json({ error: 'Quote already converted' }, 400);
+    }
+    if (quote.quoted_price == null) {
+      return json({ error: 'Set quoted_price before converting' }, 400);
+    }
+
+    const depositCents = Number(body.deposit_amount_cents) || 0;
+    const minDeposit = Math.ceil(quote.quoted_price * 0.5);
+    if (depositCents < minDeposit) {
+      return json({
+        error: `Deposit must be at least 50% of quoted price ($${(minDeposit / 100).toFixed(2)})`,
+      }, 400);
+    }
+
+    if (!ALLOWED_PAYMENT.includes(body.payment_method)) {
+      return json({
+        error: `Invalid payment_method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}`,
+      }, 400);
+    }
+
+    const isFullPayment = depositCents >= quote.quoted_price;
+    const paymentStatus = isFullPayment ? 'paid' : 'partial';
+
+    // Build flavor note from quote details
+    const flavorParts = [quote.cake_flavor];
+    if (quote.filling) flavorParts.push(`Filling: ${quote.filling}`);
+    if (quote.frosting) flavorParts.push(`Frosting: ${quote.frosting}`);
+    if (quote.toppings) {
+      try {
+        const tp = typeof quote.toppings === 'string' ? JSON.parse(quote.toppings) : quote.toppings;
+        if (Array.isArray(tp) && tp.length) flavorParts.push(`Toppings: ${tp.join(', ')}`);
+      } catch {}
+    }
+    const flavorNote = flavorParts.join(' | ');
+
+    // Build order notes — include quote reference + dietary + comments + image
+    const orderNotes = [
+      `From Quote #${id}`,
+      quote.dietary ? `Dietary: ${JSON.parse(typeof quote.dietary === 'string' ? quote.dietary : '[]').join(', ')}` : '',
+      quote.comments || '',
+      quote.reference_image_url ? `Ref image: ${quote.reference_image_url}` : '',
+    ].filter(Boolean).join('\n');
+
+    // Create the order
+    const itemsJson = JSON.stringify([{
+      productId: 'prod_custom_cake',
+      name: 'Custom Cake',
+      emoji: '🎂',
+      qty: 1,
+      price: quote.quoted_price / 100,
+      flavorNote,
+    }]);
+
+    const orderResult = await env.DB.prepare(`
+      INSERT INTO orders
+        (customer_name, phone, email, pickup_date, items_json,
+         total_cents, payment_method, payment_status, status, notes,
+         created_by, source, language)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?)
+    `).bind(
+      quote.customer_name,
+      quote.phone,
+      quote.email,
+      quote.desired_date || new Date().toISOString().slice(0, 10),
+      itemsJson,
+      quote.quoted_price,
+      body.payment_method,
+      paymentStatus,
+      orderNotes,
+      actor,
+      quote.language || 'es',
+    ).run();
+
+    const orderId = orderResult.meta.last_row_id;
+
+    // Record deposit payment
+    const payId = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await env.DB.prepare(`
+      UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1
+    `).bind(orderId).run();
+    await env.DB.prepare(`
+      INSERT INTO payments (id, order_id, customer_name, amount, method, date)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).bind(payId, orderId, quote.customer_name, depositCents, body.payment_method).run();
+
+    // Log event
+    await env.DB.prepare(`
+      INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
+    `).bind(orderId, actor).run();
+
+    // Update quote
+    await env.DB.prepare(`
+      UPDATE cake_quotes SET status = 'converted', converted_order_id = ?,
+        updated_at = datetime('now') WHERE id = ?
+    `).bind(orderId, id).run();
+
+    // Notify
+    ctx.waitUntil(notifyQuoteConverted(env, id, quote.customer_name, orderId, depositCents, quote.quoted_price, body.payment_method));
+
+    return json({ ok: true, order_id: orderId, payment_status: paymentStatus }, 201);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+// ─── Quote notifications ───────────────────────────────────────────────────
+
+async function notifyQuoteCreated(env, body, id) {
+  const itemsDetail = [
+    body.occasion && `🎉 ${body.occasion}`,
+    `🍰 ${body.cake_flavor}`,
+    body.filling && `🥮 ${body.filling}`,
+    body.frosting && `🍦 ${body.frosting}`,
+  ].filter(Boolean).join(' · ');
+
+  const msg = [
+    `💬 New Quote #${id}`,
+    `👤 ${body.customer_name}`,
+    `📧 ${body.email}` + (body.phone ? ` · ${body.phone}` : ''),
+    `📋 ${itemsDetail}`,
+    body.desired_date ? `📅 Wants by: ${body.desired_date}` : '',
+    body.comments ? `💭 "${body.comments.slice(0, 120)}"` : '',
+  ].filter(Boolean).join('\n');
+
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+  if (env.EMAIL_RECIPIENT && env.RESEND_API_KEY) {
+    const html = `<div style="font-family: sans-serif; max-width: 480px; padding: 16px;">
+  <h2 style="color: #333;">💬 New Quote #${id}</h2>
+  <table style="width: 100%; border-collapse: collapse;">
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Customer</strong></td><td style="padding: 6px 0;">${body.customer_name}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Email</strong></td><td style="padding: 6px 0;">${body.email}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Cake</strong></td><td style="padding: 6px 0;">${body.cake_flavor}</td></tr>
+    ${body.occasion ? `<tr><td style="padding: 6px 0; color: #555;"><strong>Occasion</strong></td><td style="padding: 6px 0;">${body.occasion}</td></tr>` : ''}
+    ${body.comments ? `<tr><td style="padding: 6px 0; color: #555;"><strong>Comments</strong></td><td style="padding: 6px 0;">${body.comments.slice(0, 200)}</td></tr>` : ''}
+  </table>
+  <p style="color: #999; font-size: 12px; margin-top: 16px;">Quote #${id} · Muy Rico Bakery</p>
+</div>`;
+    const emails = String(env.EMAIL_RECIPIENT).split(',').map(e => e.trim()).filter(Boolean);
+    await Promise.all(emails.map(email =>
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + env.RESEND_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: env.EMAIL_FROM || "orders@muy-rico.com",
+          to: email,
+          subject: `💬 New Cake Quote #${id} from ${body.customer_name}`,
+          html,
+        }),
+      }).catch(e => console.error('Resend quote notify failed:', e))
+    ));
+  }
+}
+
+async function notifyQuoteReplied(env, id, customerName, priceCents) {
+  const price = priceCents ? '$' + (priceCents / 100).toFixed(2) : '—';
+  const msg = `📨 Quote #${id} replied — ${customerName} quoted at ${price}`;
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+}
+
+async function notifyQuoteConverted(env, id, customerName, orderId, depositCents, quotedCents, method) {
+  const deposit = '$' + (depositCents / 100).toFixed(2);
+  const total = '$' + (quotedCents / 100).toFixed(2);
+  const methodLabel = method.charAt(0).toUpperCase() + method.slice(1);
+  const msg = `🔄 Quote #${id} converted → Order #${orderId} (${customerName})\n💰 Deposit: ${deposit} via ${methodLabel} of ${total}`;
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+}
+
+async function sendQuoteAutoReply(env, email, lang, quoteId, includePrice, priceCents) {
+  if (!email || !env.RESEND_API_KEY) return;
+
+  const esAck = `¡Gracias por tu solicitud! Hemos recibido tu cotización personalizada de pastel #${quoteId}. Revisaremos los detalles y te enviaremos una cotización en 1-2 días hábiles. Si tienes preguntas, responde a este correo.`;
+  const esPrice = `¡Tu cotización está lista! Hemos revisado tu solicitud de pastel personalizado #${quoteId} y nos encantaría hacerlo realidad.
+
+Precio cotizado: $${(priceCents / 100).toFixed(2)}
+
+Si deseas proceder, responde a este correo o haz tu pedido a través de nuestro sitio web. El precio puede variar según los detalles finales de personalización.
+
+Gracias por elegir Muy Rico Bakery — ¡Familia · Tradición · Sabor!`;
+
+  const enAck = `Thank you for your request! We've received your custom cake quote request #${quoteId}. We'll review the details and send you a quote within 1-2 business days. If you have questions, reply to this email.`;
+  const enPrice = `Your quote is ready! We've reviewed your custom cake request #${quoteId} and would love to make it happen.
+
+Quoted price: $${(priceCents / 100).toFixed(2)}
+
+If you'd like to proceed, reply to this email or place your order through our website. The price may vary based on final customization details.
+
+Thank you for choosing Muy Rico Bakery — Familia · Tradición · Sabor!`;
+
+  const subject = includePrice
+    ? (lang === 'es' ? `Cotización #${quoteId} — Muy Rico Bakery` : `Quote #${quoteId} — Muy Rico Bakery`)
+    : (lang === 'es' ? `Solicitud #${quoteId} recibida — Muy Rico Bakery` : `Request #${quoteId} received — Muy Rico Bakery`);
+
+  const body = includePrice ? (lang === 'es' ? esPrice : enPrice) : (lang === 'es' ? esAck : enAck);
+  const html = body.replace(/\n/g, '<br>');
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + env.RESEND_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || "orders@muy-rico.com",
+        to: email,
+        subject,
+        html: `<div style="font-family: sans-serif; max-width: 520px; padding: 24px; color: #2c2523; line-height: 1.6;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" style="max-width: 160px;">
+  </div>
+  <div>${html}</div>
+  <hr style="border: none; border-top: 1px solid #e8dbc4; margin: 24px 0;">
+  <p style="color: #706561; font-size: 12px; text-align: center;">
+    Muy Rico Bakery · Holland, MI<br>
+    ${lang === 'es' ? 'Famila · Tradición · Sabor' : 'Family · Tradition · Flavor'}
+  </p>
+</div>`,
+      }),
+    });
+  } catch (e) {
+    console.error('sendQuoteAutoReply failed:', e);
+  }
 }
 
 // ─── Seed reset (re-runs INSERT OR IGNORE for the profile only) ──────────────

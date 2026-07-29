@@ -5,6 +5,7 @@ import {
   PackageX,
   TrendingUp,
   ArrowUpRight,
+  MessageSquareQuote,
 } from "lucide-react";
 import {
   Bar,
@@ -25,7 +26,7 @@ import { formatCurrency, formatDate, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABEL
 import type { Page } from "../App";
 
 export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
-  const { orders, inventory, payments, products, loading } = useStore();
+  const { orders, inventory, payments, products, loading, quotes } = useStore();
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -35,8 +36,9 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
     const pendingOrders = orders.filter((o) => o.status === "pending" || o.status === "in-progress");
     const lowStock = inventory.filter((i) => i.quantity <= i.reorderLevel);
     const avgOrder = orders.length ? orders.reduce((s, o) => s + o.total, 0) / orders.length : 0;
-    return { revenueMonth, pendingOrders, lowStock, avgOrder };
-  }, [orders, inventory, payments]);
+    const pendingQuotes = quotes.filter((q) => q.status === "new").length;
+    return { revenueMonth, pendingOrders, lowStock, avgOrder, pendingQuotes };
+  }, [orders, inventory, payments, quotes]);
 
   const paymentBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
@@ -111,11 +113,12 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Revenue this month" value={formatCurrency(stats.revenueMonth)} icon={DollarSign} tone="mid-green" />
         <StatCard label="Orders in progress" value={String(stats.pendingOrders.length)} icon={ClipboardList} tone="palm" />
         <StatCard label="Low stock items" value={String(stats.lowStock.length)} icon={PackageX} tone="hibiscus" />
         <StatCard label="Avg order value" value={formatCurrency(stats.avgOrder)} icon={TrendingUp} tone="coral" />
+        <StatCard label="Cake Quotes pending" value={String(stats.pendingQuotes)} icon={MessageSquareQuote} tone="coral" />
       </div>
 
       {/* Charts row */}

@@ -18,10 +18,11 @@ import type {
   PackSize,
   Payment,
   Product,
+  Quote,
   Receipt,
 } from "../types";
 import { newId } from "../utils/format";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt } from "../utils/api";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt, type ApiQuote } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -43,6 +44,7 @@ interface StoreContextValue {
   orders: Order[];
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   payments: Payment[];
+  refreshPayments: () => Promise<void>;
   receipts: Receipt[];
   refreshReceipts: () => Promise<void>;
   resendReceipt: (id: string) => Promise<void>;
@@ -55,13 +57,17 @@ interface StoreContextValue {
   handleUpdateProfile: (draft: BusinessProfile) => Promise<void>;
   recordPayment: (order: Order) => Promise<void>;
   loading: boolean;
-  deductInventoryForOrder: (order: Order) => void;
+  apiDeductInventory: (orderId: number) => Promise<void>;
   resetAllData: () => Promise<void>;
   refreshOrders: () => Promise<void>;
   apiCreateOrder: (order: Parameters<typeof apiCreateOrder>[0]) => Promise<{ id: number }>;
   apiUpdateOrder: (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null }) => Promise<void>;
   apiCancelOrder: (id: number) => Promise<void>;
   apiDeleteOrder: (id: number) => Promise<void>;
+  quotes: Quote[];
+  refreshQuotes: () => Promise<void>;
+  handleUpdateQuote: (id: number, patch: { quoted_price?: number | null; admin_notes?: string | null; status?: string }) => Promise<void>;
+  handleConvertQuote: (id: number, depositAmountCents: number, paymentMethod: string) => Promise<{ orderId: number; paymentStatus: string }>;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -75,6 +81,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [labelTemplates, setLabelTemplates] = useState<LabelTemplate[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [profile, setProfile] = useState<BusinessProfile>(seedProfile);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshOrders = useCallback(async () => {
@@ -102,7 +109,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           dueDate: r.pickup_date,
           createdAt: r.created_at,
           notes: r.notes || "",
-          inventoryDeducted: r.status === "done" || r.status === "completed",
+          inventoryDeducted: r.inventory_deducted === 1 || r.inventory_deducted === true,
           foodColoring: r.food_coloring || null,
         };
       });
@@ -163,6 +170,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       auto_generate_label: !!p.auto_generate_label,
       featured: !!(p as any).featured,
       show_online: p.show_online === undefined ? true : !!p.show_online,
+      flavor_deduction_map: p.flavor_deduction_map || null,
     };
   }
 
@@ -295,6 +303,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ─── Quotes ────────────────────────────────────────────────────────────
+
+  function apiToQuote(row: ApiQuote): Quote {
+    return {
+      id: row.id,
+      status: row.status as Quote["status"],
+      customerName: row.customer_name,
+      email: row.email,
+      phone: row.phone,
+      language: (row.language || "es") as Quote["language"],
+      occasion: row.occasion,
+      servingSize: row.serving_size,
+      cakeFlavor: row.cake_flavor,
+      filling: row.filling,
+      frosting: row.frosting,
+      toppings: Array.isArray(row.toppings) ? row.toppings : [],
+      dietary: Array.isArray(row.dietary) ? row.dietary : [],
+      referenceImageUrl: row.reference_image_url,
+      comments: row.comments,
+      desiredDate: row.desired_date,
+      budget: row.budget,
+      quotedPrice: row.quoted_price,
+      adminNotes: row.admin_notes,
+      convertedOrderId: row.converted_order_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  const refreshQuotes = useCallback(async () => {
+    try {
+      const rows = await fetchQuotes();
+      setQuotes(rows.map(apiToQuote));
+    } catch (err) {
+      console.warn("Failed to fetch quotes from API:", err);
+      setQuotes([]);
+    }
+  }, []);
+
   // ─── Label templates ──────────────────────────────────────────────────────
 
   function apiToLabelTemplate(row: ApiLabelTemplate): LabelTemplate {
@@ -415,8 +462,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refreshReceipts(),
       refreshLabelTemplates(),
       refreshProfile(),
+      refreshQuotes(),
     ]);
-  }, [refreshOrders, refreshProducts, refreshInventory, refreshCustomers, refreshPayments, refreshReceipts, refreshLabelTemplates, refreshProfile]);
+  }, [refreshOrders, refreshProducts, refreshInventory, refreshCustomers, refreshPayments, refreshReceipts, refreshLabelTemplates, refreshProfile, refreshQuotes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -570,26 +618,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await refreshAll();
   }, [refreshAll]);
 
-  const deductInventoryForOrder = (order: Order) => {
-    setInventory((prevInv) => {
-      const updated = [...prevInv];
-      for (const item of order.items) {
-        const product = products.find((p) => p.id === item.productId);
-        if (!product) continue;
-        for (const rec of product.recipe) {
-          const idx = updated.findIndex((i) => i.id === rec.inventoryItemId);
-          if (idx >= 0) {
-            const used = rec.qtyPerUnit * item.qty;
-            updated[idx] = {
-              ...updated[idx],
-              quantity: Math.max(0, +(updated[idx].quantity - used).toFixed(2)),
-            };
-          }
-        }
-      }
-      return updated;
-    });
-  };
+  const apiDeductInventory = useCallback(async (orderId: number) => {
+    await deductInventoryFromApi(orderId);
+    await refreshInventory();
+    await refreshOrders();
+  }, [refreshInventory, refreshOrders]);
+
+  const handleUpdateQuote = useCallback(async (id: number, patch: { quoted_price?: number | null; admin_notes?: string | null; status?: string }) => {
+    await apiUpdateQuote(id, patch);
+    await refreshQuotes();
+  }, [refreshQuotes]);
+
+  const handleConvertQuote = useCallback(async (id: number, depositAmountCents: number, paymentMethod: string) => {
+    const result = await apiConvertQuote(id, depositAmountCents, paymentMethod);
+    await Promise.all([refreshQuotes(), refreshOrders()]);
+    return { orderId: result.order_id, paymentStatus: result.payment_status };
+  }, [refreshQuotes, refreshOrders]);
 
   const value = useMemo(
     () => ({
@@ -612,6 +656,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       orders,
       setOrders,
       payments,
+      refreshPayments,
       receipts,
       refreshReceipts,
       resendReceipt,
@@ -624,15 +669,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       handleUpdateProfile,
       recordPayment,
       loading,
-      deductInventoryForOrder,
+      apiDeductInventory,
       resetAllData,
       refreshOrders,
       apiCreateOrder: handleApiCreateOrder,
       apiUpdateOrder: handleApiUpdateOrder,
       apiCancelOrder: handleApiCancelOrder,
       apiDeleteOrder: handleApiDeleteOrder,
+      quotes,
+      refreshQuotes,
+      handleUpdateQuote,
+      handleConvertQuote,
     }),
-    [products, inventory, customers, orders, payments, receipts, labelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt],
+    [products, inventory, customers, orders, payments, receipts, labelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, apiDeductInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt, quotes, refreshQuotes, handleUpdateQuote, handleConvertQuote],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

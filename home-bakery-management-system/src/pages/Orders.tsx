@@ -15,7 +15,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, payments, deductInventoryForOrder, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, receipts, resendReceipt, generateReceipt } = useStore();
+  const { orders, payments, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, refreshPayments, receipts, resendReceipt, generateReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -46,7 +46,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
     try {
       await apiUpdateOrder(Number(order.id), { status });
       if (status === "completed" && !order.inventoryDeducted) {
-        deductInventoryForOrder(order);
+        await apiDeductInventory(Number(order.id));
       }
     } catch (err) {
       console.error("Failed to update order:", err);
@@ -269,11 +269,11 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       >
                         Edit method
                       </button>
-                      <button
+                       <button
                         onClick={async () => {
                           if (!window.confirm("Mark this order as unpaid? The payment history will be kept for your records.")) return;
                           await apiUpdateOrder(Number(selected.id), { payment_status: "unpaid" });
-                          await refreshOrders();
+                          await Promise.all([refreshOrders(), refreshPayments()]);
                           setSelected(null);
                         }}
                         className="text-xs font-semibold text-hibiscus hover:underline"
@@ -359,7 +359,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                     onClick={async () => {
                       if (!window.confirm("Mark this order as unpaid? The payment history will be kept for your records.")) return;
                       await apiUpdateOrder(Number(selected.id), { payment_status: "unpaid" });
-                      await refreshOrders();
+                      await Promise.all([refreshOrders(), refreshPayments()]);
                       setSelected(null);
                     }}
                     className="text-xs font-semibold text-hibiscus hover:underline"

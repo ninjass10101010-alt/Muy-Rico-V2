@@ -15,10 +15,12 @@ import Receipts from "./pages/Receipts";
 import LabelDesigner from "./pages/LabelDesigner";
 import Settings from "./pages/Settings";
 import PublicOrder from "./pages/PublicOrder";
+import Quotes from "./pages/Quotes";
 
 export type Page =
   | "dashboard"
   | "orders"
+  | "quotes"
   | "products"
   | "gallery"
   | "homepage"
@@ -60,6 +62,7 @@ function AdminApp() {
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           {page === "dashboard" && <Dashboard setPage={setPage} />}
           {page === "orders" && <Orders search={search} setPage={setPage} setLabelFilter={setLabelFilter} />}
+          {page === "quotes" && <Quotes search={search} setPage={setPage} />}
           {page === "products" && <Products search={search} goTo={setPage} />}
           {page === "gallery" && <Gallery />}
           {page === "homepage" && <Homepage />}
