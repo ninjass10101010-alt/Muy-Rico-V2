@@ -204,6 +204,12 @@
       <a href="quote.html" class="active" data-es="Cotizar" data-en="Quote">Quote</a>
       <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
     </div>
+    <div class="mobile-nav-bottom">
+      <div class="mobile-lang-switch" role="tablist" aria-label="Select language">
+        <button onclick="setLang('es')" role="tab" aria-selected="true" id="mobile-btn-es">ES</button>
+        <button onclick="setLang('en')" role="tab" aria-selected="false" id="mobile-btn-en">EN</button>
+      </div>
+    </div>
   </div>
 
   <main id="quote-page">
@@ -221,9 +227,11 @@
             <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
             <a href="quote.html" class="active" data-es="Cotizar" data-en="Quote">Quote</a>
             <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
-            <button id="lang-toggle" class="lang-toggle" aria-label="Toggle language">EN</button>
+            <div class="lang-switch" role="tablist" aria-label="Select language">
+              <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
+              <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
+            </div>
           </div>
-          <button id="lang-toggle-mobile" class="lang-toggle" aria-label="Toggle language">EN</button>
         </nav>
 
         <div class="hero-content">
@@ -502,15 +510,21 @@
   </main>
 
   <script>
-  // ─── Language toggle ──────────────────────────────────────────────────────
-  let currentLang = localStorage.getItem('lang') || 'es';
-  const htmlEl = document.documentElement;
-  htmlEl.lang = currentLang;
+  // ─── Language toggle (matches index.html / order.html / gallery.html pattern) ──
+  let currentLang = (function () {
+    try { return localStorage.getItem('lang') || 'es'; } catch (e) { return 'es'; }
+  })();
+  document.documentElement.lang = currentLang;
 
-  function applyLang(lang) {
-    currentLang = lang;
-    htmlEl.lang = lang;
-    localStorage.setItem('lang', lang);
+  function applyLangToDOM(lang) {
+    const btnEs = document.getElementById('btn-es');
+    const btnEn = document.getElementById('btn-en');
+    if (btnEs) { btnEs.classList.toggle('active', lang === 'es'); btnEs.setAttribute('aria-selected', lang === 'es'); }
+    if (btnEn) { btnEn.classList.toggle('active', lang === 'en'); btnEn.setAttribute('aria-selected', lang === 'en'); }
+    const mEs = document.getElementById('mobile-btn-es');
+    const mEn = document.getElementById('mobile-btn-en');
+    if (mEs) { mEs.classList.toggle('active', lang === 'es'); mEs.setAttribute('aria-selected', lang === 'es'); }
+    if (mEn) { mEn.classList.toggle('active', lang === 'en'); mEn.setAttribute('aria-selected', lang === 'en'); }
     document.querySelectorAll('.lang-fade').forEach(el => {
       const text = el.getAttribute('data-' + lang);
       if (text !== null) {
@@ -519,15 +533,15 @@
         requestAnimationFrame(() => { el.style.opacity = '1'; });
       }
     });
-    document.querySelectorAll('.lang-toggle').forEach(btn => {
-      btn.textContent = lang === 'es' ? 'EN' : 'ES';
-    });
   }
-
-  document.querySelectorAll('.lang-toggle').forEach(btn => {
-    btn.addEventListener('click', () => applyLang(currentLang === 'es' ? 'en' : 'es'));
-  });
-  applyLang(currentLang);
+  function setLang(lang) {
+    if (lang === currentLang) return;
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    try { localStorage.setItem('lang', lang); } catch (e) {}
+    applyLangToDOM(lang);
+  }
+  applyLangToDOM(currentLang);
 
   // ─── Mobile header / drawer ─────────────────────────────────────────────
   const mobileHeader = document.getElementById('mobile-header');
