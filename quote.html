@@ -23,6 +23,163 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=2">
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
+
+  <style>
+    /* ── Quote form styles (match editorial panadería design system) ── */
+    .section-padding { padding: var(--section-pad) var(--gutter); }
+    .section-container { width: 100%; }
+
+    .form-section { margin-bottom: 2.5rem; }
+    .form-section:last-child { margin-bottom: 0; }
+    .form-section-title {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--forest);
+      margin: 0 0 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .form-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--hairline);
+    }
+
+    .form-row { display: flex; flex-direction: column; gap: 1rem; }
+    .form-row-2 { flex-direction: row; }
+    @media (max-width: 640px) { .form-row-2 { flex-direction: column; } }
+    .form-group { flex: 1; }
+
+    .form-label {
+      display: block;
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--forest-soft);
+      margin-bottom: 0.45rem;
+    }
+
+    .form-help {
+      font-size: 0.82rem;
+      color: var(--color-text-muted);
+      margin: 0 0 1rem;
+      line-height: 1.5;
+    }
+
+    /* ── Inputs, textareas, AND selects share the same base ── */
+    .form-input {
+      width: 100%;
+      padding: 0.78rem 1rem;
+      border-radius: 14px;
+      border: 1px solid var(--hairline);
+      background: var(--cream);
+      font-family: var(--font-sans);
+      font-size: 0.92rem;
+      color: var(--color-text-cocoa);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .form-input:focus {
+      border-color: var(--forest);
+      box-shadow: 0 0 0 3px rgba(30, 70, 54, 0.10);
+    }
+    .form-input::placeholder { color: var(--color-text-muted); opacity: 0.7; }
+    textarea.form-input { min-height: 110px; resize: vertical; line-height: 1.5; }
+
+    /* ── Custom select dropdown ── */
+    select.form-input {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      cursor: pointer;
+      padding-right: 2.75rem;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 256 256' fill='none' stroke='%2343685A' stroke-width='28' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M208 96 L128 176 L48 96'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1.1rem center;
+      background-size: 13px;
+    }
+    select.form-input:hover { border-color: var(--hairline-strong); }
+
+    /* Style the options themselves (works in modern Chrome/Edge/Firefox) */
+    select.form-input option {
+      background: var(--paper);
+      color: var(--color-text-cocoa);
+      padding: 0.5rem 0.8rem;
+      border-radius: 8px;
+    }
+    select.form-input option:checked {
+      background: var(--forest);
+      color: var(--cream);
+    }
+
+    /* ── Dietary checkboxes ── */
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      margin-top: 0.6rem;
+    }
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--hairline);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: var(--color-text-cocoa);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .checkbox-label:hover { border-color: var(--hairline-strong); }
+    .checkbox-label input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 1.5px solid var(--hairline-strong);
+      border-radius: 5px;
+      background: var(--cream);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .checkbox-label input[type="checkbox"]:checked {
+      background: var(--forest);
+      border-color: var(--forest);
+    }
+    .checkbox-label input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 2px;
+      width: 5px;
+      height: 9px;
+      border: solid var(--cream);
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .checkbox-label input[type="checkbox"]:checked + span {
+      color: var(--forest);
+      font-weight: 600;
+    }
+
+    /* ── Dropzone polish ── */
+    .dropzone:hover { border-color: var(--forest-soft) !important; }
+    .dropzone-text {
+      font-family: var(--font-sans);
+      font-size: 0.92rem;
+      color: var(--forest-soft);
+      margin: 0;
+    }
+  </style>
 </head>
 <body>
 
@@ -83,18 +240,18 @@
     </section>
 
     <!-- Quote Form Section -->
-    <section id="quote-form-section" class="section-padding" style="background: var(--bg-primary);">
+    <section id="quote-form-section" class="section-padding" style="background: var(--cream);">
       <div class="section-container" style="max-width: 720px; margin: 0 auto;">
 
         <!-- Pricing disclaimer banner -->
         <div class="quote-notice" style="
-          background: rgba(232, 138, 134, 0.12);
-          border: 1px solid var(--coral);
-          border-radius: 12px;
+          background: rgba(188, 85, 72, 0.08);
+          border: 1px solid var(--clay);
+          border-radius: 14px;
           padding: 16px 20px;
           margin-bottom: 32px;
           font-size: 14px;
-          color: var(--cocoa);
+          color: var(--color-text-cocoa);
         ">
           <p class="lang-fade"
              data-es="Cada pastel se cotiza según el nivel de personalización. Te enviaremos una cotización personalizada después de revisar tu solicitud."
@@ -267,13 +424,13 @@
                Optional — upload a reference image (JPG/PNG/WEBP, max 5MB)
             </p>
             <div id="image-dropzone" class="dropzone" style="
-              border: 2px dashed var(--sand-300);
-              border-radius: 12px;
+              border: 2px dashed var(--hairline-strong);
+              border-radius: 14px;
               padding: 32px;
               text-align: center;
               cursor: pointer;
               transition: border-color 0.2s;
-              background: var(--sand-50);
+              background: var(--cream-deep);
             ">
               <p class="dropzone-text lang-fade"
                  data-es="Arrastra una imagen aquí o haz clic para seleccionar"
@@ -283,7 +440,7 @@
               <input type="file" id="reference_image" accept="image/jpeg,image/png,image/webp" style="display:none;">
             </div>
             <div id="image-preview" style="display:none; margin-top: 12px;">
-              <img id="preview-img" src="" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 12px; border: 1px solid var(--sand-200);">
+              <img id="preview-img" src="" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 12px; border: 1px solid var(--hairline);">
               <p id="preview-filename" class="form-help" style="margin-top: 4px;"></p>
             </div>
           </div>
@@ -309,11 +466,11 @@
 
           <!-- Submit -->
           <div class="form-section" style="text-align: center;">
-            <div id="form-error" style="display:none; background: rgba(217,61,89,0.1); border: 1px solid var(--hibiscus); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--hibiscus);"></div>
-            <div id="form-success" style="display:none; background: rgba(64,145,108,0.1); border: 1px solid var(--mid-green); border-radius: 12px; padding: 24px; margin-bottom: 16px;">
-              <p style="font-size: 18px; font-family: 'Playfair Display', serif; color: var(--palm); font-weight: 600; margin-bottom: 4px;" class="lang-fade"
+            <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--clay-deep);"></div>
+            <div id="form-success" style="display:none; background: rgba(30,70,54,0.06); border: 1px solid var(--forest-soft); border-radius: 12px; padding: 24px; margin-bottom: 16px;">
+              <p style="font-size: 18px; font-family: 'Playfair Display', serif; color: var(--forest); font-weight: 600; margin-bottom: 4px;" class="lang-fade"
                  data-es="¡Solicitud Enviada!" data-en="Request Sent!">Request Sent!</p>
-              <p style="font-size: 14px; color: var(--cocoa-muted);" class="lang-fade"
+              <p style="font-size: 14px; color: var(--color-text-muted);" class="lang-fade"
                  data-es="Gracias por tu solicitud. Te enviaremos una cotización en 1-2 días hábiles. Revisa tu correo electrónico."
                  data-en="Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.">
                  Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.
@@ -329,16 +486,16 @@
     </section>
 
     <!-- Footer -->
-    <footer class="site-footer" style="background: var(--palm); color: var(--sand-200); padding: 32px 24px; text-align: center;">
+    <footer class="site-footer" style="background: var(--forest); color: var(--cream); padding: 32px 24px; text-align: center;">
       <p style="font-size: 14px; font-style: italic;">
         <span class="lang-fade" data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
       </p>
-      <div style="margin-top: 12px; font-size: 13px; color: var(--sand-300);">
-        <a href="index.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
-        <a href="order.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Menú" data-en="Menu">Menu</a>
-        <a href="gallery.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Galería" data-en="Gallery">Gallery</a>
-        <a href="quote.html" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Cotizar" data-en="Quote">Quote</a>
-        <a href="index.html#visit" style="color: var(--coral); text-decoration: none; margin: 0 8px;" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+      <div style="margin-top: 12px; font-size: 13px;">
+        <a href="index.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+        <a href="order.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Menú" data-en="Menu">Menu</a>
+        <a href="gallery.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Galería" data-en="Gallery">Gallery</a>
+        <a href="quote.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Cotizar" data-en="Quote">Quote</a>
+        <a href="index.html#visit" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
       </div>
     </footer>
 
@@ -414,7 +571,7 @@
 
   dropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dropzone.style.borderColor = 'var(--palm)';
+    dropzone.style.borderColor = 'var(--forest)';
   });
   dropzone.addEventListener('dragleave', () => {
     dropzone.style.borderColor = 'var(--sand-300)';
