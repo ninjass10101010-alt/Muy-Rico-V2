@@ -179,6 +179,26 @@
       color: var(--forest-soft);
       margin: 0;
     }
+
+    /* ── Item card styles ── */
+    .item-card {
+      background: var(--cream-deep);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .item-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .item-icon { font-size: 20px; }
+    .item-label { font-weight: 600; color: var(--color-text); }
+    .item-card-body { display: flex; flex-direction: column; gap: 12px; }
+    .remove-item-btn:hover { color: var(--clay) !important; }
   </style>
 </head>
 <body>
@@ -296,9 +316,9 @@
             </div>
           </div>
 
-          <!-- Cake details -->
+          <!-- Order-level details -->
           <div class="form-section">
-            <h2 class="form-section-title lang-fade" data-es="Detalles del Pastel" data-en="Cake Details">Cake Details</h2>
+            <h2 class="form-section-title lang-fade" data-es="Detalles del Pedido" data-en="Order Details">Order Details</h2>
 
             <div class="form-row form-row-2">
               <div class="form-group">
@@ -314,75 +334,8 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="serving_size" class="form-label lang-fade" data-es="Número de porciones" data-en="Serving size">Serving size</label>
-                <select id="serving_size" name="serving_size" class="form-input">
-                  <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
-                  <option value="6-8">6-8</option>
-                  <option value="10-12">10-12</option>
-                  <option value="15-20">15-20</option>
-                  <option value="20-30">20-30</option>
-                  <option value="30+">30+</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row form-row-2">
-              <div class="form-group">
-                <label for="cake_flavor" class="form-label lang-fade" data-es="Sabor del pastel *" data-en="Cake flavor *">Cake flavor *</label>
-                <input type="text" id="cake_flavor" name="cake_flavor" required
-                       class="form-input"
-                       placeholder="e.g. Chocolate, Vainilla, Fresa">
-              </div>
-              <div class="form-group">
-                <label for="filling" class="form-label lang-fade" data-es="Relleno" data-en="Filling">Filling</label>
-                <input type="text" id="filling" name="filling"
-                       class="form-input"
-                       placeholder="e.g. Cream cheese, Fruta">
-              </div>
-            </div>
-
-            <div class="form-row form-row-2">
-              <div class="form-group">
-                <label for="frosting" class="form-label lang-fade" data-es="Betún" data-en="Frosting">Frosting</label>
-                <input type="text" id="frosting" name="frosting"
-                       class="form-input"
-                       placeholder="e.g. Buttercream, Fondant">
-              </div>
-              <div class="form-group">
                 <label for="desired_date" class="form-label lang-fade" data-es="Fecha deseada" data-en="Desired date">Desired date</label>
-                <input type="date" id="desired_date" name="desired_date"
-                       class="form-input">
-              </div>
-            </div>
-
-            <!-- Toppings -->
-            <div class="form-group">
-              <label class="form-label lang-fade" data-es="Decoraciones / Coberturas" data-en="Toppings / Decorations">Toppings / Decorations</label>
-              <div class="checkbox-grid">
-                <label class="checkbox-label">
-                  <input type="checkbox" name="toppings" value="Sprinkles">
-                  <span class="lang-fade" data-es="Chispas de Colores" data-en="Sprinkles">Sprinkles</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="toppings" value="Fresh Fruit">
-                  <span class="lang-fade" data-es="Fruta Fresca" data-en="Fresh Fruit">Fresh Fruit</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="toppings" value="Chocolate Ganache">
-                  <span class="lang-fade" data-es="Ganache de Chocolate" data-en="Chocolate Ganache">Chocolate Ganache</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="toppings" value="Caramel Drip">
-                  <span class="lang-fade" data-es="Baño de Caramelo" data-en="Caramel Drip">Caramel Drip</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="toppings" value="Edible Flowers">
-                  <span class="lang-fade" data-es="Flores Comestibles" data-en="Edible Flowers">Edible Flowers</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="toppings" value="Fondant Decorations">
-                  <span class="lang-fade" data-es="Decoraciones de Fondant" data-en="Fondant Decorations">Fondant Decorations</span>
-                </label>
+                <input type="date" id="desired_date" name="desired_date" class="form-input">
               </div>
             </div>
 
@@ -420,6 +373,40 @@
                   <span class="lang-fade" data-es="Sin Azúcar" data-en="Sugar-Free">Sugar-Free</span>
                 </label>
               </div>
+            </div>
+          </div>
+
+          <!-- Items Section -->
+          <div class="form-section">
+            <h2 class="form-section-title lang-fade" data-es="Tus Artículos" data-en="Your Items">Your Items</h2>
+            <div id="items-container" class="space-y-6">
+              <!-- Item cards will be inserted here dynamically -->
+            </div>
+            <button type="button" id="add-item-btn" class="btn btn-ghost btn-sm" style="margin-top: 1rem;">
+              <span class="lang-fade" data-es="+ Agregar otro artículo" data-en="+ Add another item">+ Add another item</button>
+            </button>
+          </div>
+
+          <!-- Item Type Picker (hidden by default) -->
+          <div id="item-type-picker" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 50;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--cream); border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);">
+              <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--color-text);">
+                <span class="lang-fade" data-es="Seleccionar tipo de artículo" data-en="Select item type">Select item type</span>
+              </h3>
+              <div style="display: flex; gap: 12px;">
+                <button type="button" class="btn btn-ghost item-type-btn" data-type="cake">
+                  🎂 <span class="lang-fade" data-es="Pastel" data-en="Cake">Cake</span>
+                </button>
+                <button type="button" class="btn btn-ghost item-type-btn" data-type="cakepops">
+                  🍭 <span class="lang-fade" data-es="Cakepops" data-en="Cakepops">Cakepops</span>
+                </button>
+                <button type="button" class="btn btn-ghost item-type-btn" data-type="cupcakes">
+                  🧁 <span class="lang-fade" data-es="Pastelitos" data-en="Cupcakes">Cupcakes</span>
+                </button>
+              </div>
+              <button type="button" id="close-picker-btn" class="btn btn-ghost btn-sm" style="margin-top: 16px; width: 100%;">
+                <span class="lang-fade" data-es="Cancelar" data-en="Cancel">Cancel</span>
+              </button>
             </div>
           </div>
 
@@ -639,6 +626,214 @@
     }
   }
 
+  // ─── Multi-item quote form logic ──
+  const itemTypeTemplates = {
+    cake: `
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Sabor del pastel *" data-en="Cake flavor *">Cake flavor *</label>
+        <input type="text" name="cake_flavor" required class="form-input" placeholder="e.g. Chocolate, Vainilla, Fresa">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label lang-fade" data-es="Relleno" data-en="Filling">Filling</label>
+          <input type="text" name="filling" class="form-input" placeholder="e.g. Cream cheese, Fruta">
+        </div>
+        <div class="form-group">
+          <label class="form-label lang-fade" data-es="Betún" data-en="Frosting">Frosting</label>
+          <input type="text" name="frosting" class="form-input" placeholder="e.g. Buttercream, Fondant">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Número de porciones" data-en="Serving size">Serving size</label>
+        <select name="serving_size" class="form-input">
+          <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+          <option value="6-8">6-8</option>
+          <option value="10-12">10-12</option>
+          <option value="15-20">15-20</option>
+          <option value="20-30">20-30</option>
+          <option value="30+">30+</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Decoraciones / Coberturas" data-en="Toppings / Decorations">Toppings / Decorations</label>
+        <div class="checkbox-grid">
+          <label class="checkbox-label"><input type="checkbox" name="toppings" value="Sprinkles"><span class="lang-fade" data-es="Chispas de Colores" data-en="Sprinkles">Sprinkles</span></label>
+          <label class="checkbox-label"><input type="checkbox" name="toppings" value="Fresh Fruit"><span class="lang-fade" data-es="Fruta Fresca" data-en="Fresh Fruit">Fresh Fruit</span></label>
+          <label class="checkbox-label"><input type="checkbox" name="toppings" value="Chocolate Ganache"><span class="lang-fade" data-es="Ganache de Chocolate" data-en="Chocolate Ganache">Chocolate Ganache</span></label>
+          <label class="checkbox-label"><input type="checkbox" name="toppings" value="Caramel Drip"><span class="lang-fade" data-es="Baño de Caramelo" data-en="Caramel Drip">Caramel Drip</span></label>
+          <label class="checkbox-label"><input type="checkbox" name="toppings" value="Edible Flowers"><span class="lang-fade" data-es="Flores Comestibles" data-en="Edible Flowers">Edible Flowers</span></label>
+          <label class="checkbox-label"><input type="checkbox" name="toppings" value="Fondant Decorations"><span class="lang-fade" data-es="Decoraciones de Fondant" data-en="Fondant Decorations">Fondant Decorations</span></label>
+        </div>
+      </div>
+    `,
+    cakepops: `
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Sabor del pastel *" data-en="Cake flavor *">Cake flavor *</label>
+        <select name="cake_flavor" required class="form-input">
+          <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+          <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
+          <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
+        </select>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label lang-fade" data-es="Baño de chocolate" data-en="Chocolate dip">Chocolate dip</label>
+          <select name="chocolate_dip" class="form-input">
+            <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+            <option value="Milk Chocolate" data-es="Chocolate con Leche" data-en="Milk Chocolate">Milk Chocolate</option>
+            <option value="White Chocolate" data-es="Chocolate Blanco" data-en="White Chocolate">White Chocolate</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label lang-fade" data-es="Estilo de decoración" data-en="Topping style">Topping style</label>
+          <select name="topping_style" class="form-input">
+            <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+            <option value="Marble" data-es="Marmoleado" data-en="Marble">Marble</option>
+            <option value="Sprinkles" data-es="Chispas de Colores" data-en="Sprinkles">Sprinkles</option>
+            <option value="Chocolate Drizzle" data-es="Baño de Chocolate" data-en="Chocolate Drizzle">Chocolate Drizzle</option>
+            <option value="Chocolate Accessories" data-es="Accesorios de Chocolate" data-en="Chocolate Accessories">Chocolate Accessories</option>
+            <option value="Fondant Accessories" data-es="Accesorios de Fondant" data-en="Fondant Accessories">Fondant Accessories</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Cantidad" data-en="Quantity">Quantity</label>
+        <select name="quantity" class="form-input">
+          <option value="6">6</option>
+          <option value="12">12</option>
+          <option value="24">24</option>
+          <option value="custom" data-es="Otra..." data-en="Custom...">Custom...</option>
+        </select>
+      </div>
+      <div class="form-group custom-qty-group" style="display: none;">
+        <label class="form-label lang-fade" data-es="Cantidad personalizada" data-en="Custom quantity">Custom quantity</label>
+        <input type="number" name="custom_quantity" class="form-input" placeholder="e.g. 36" min="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Tema de diseño" data-en="Design theme">Design theme</label>
+        <input type="text" name="design_theme" class="form-input" placeholder="e.g. Birthday sprinkles in pink/gold">
+      </div>
+    `,
+    cupcakes: `
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Sabor del pastel *" data-en="Cake flavor *">Cake flavor *</label>
+        <select name="cake_flavor" required class="form-input">
+          <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+          <option value="Chocolate" data-es="Chocolate" data-en="Chocolate">Chocolate</option>
+          <option value="Vanilla" data-es="Vainilla" data-en="Vanilla">Vanilla</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Betún *" data-en="Frosting *">Frosting *</label>
+        <select name="frosting" required class="form-input">
+          <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
+          <option value="Vanilla Buttercream" data-es="Betún de Vainilla" data-en="Vanilla Buttercream">Vanilla Buttercream</option>
+          <option value="Chocolate Buttercream" data-es="Betún de Chocolate" data-en="Chocolate Buttercream">Chocolate Buttercream</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Cantidad" data-en="Quantity">Quantity</label>
+        <select name="quantity" class="form-input">
+          <option value="6">6</option>
+          <option value="12">12</option>
+          <option value="24">24</option>
+          <option value="custom" data-es="Otra..." data-en="Custom...">Custom...</option>
+        </select>
+      </div>
+      <div class="form-group custom-qty-group" style="display: none;">
+        <label class="form-label lang-fade" data-es="Cantidad personalizada" data-en="Custom quantity">Custom quantity</label>
+        <input type="number" name="custom_quantity" class="form-input" placeholder="e.g. 36" min="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Diseño de topper" data-en="Topper design">Topper design</label>
+        <input type="text" name="topper_design" class="form-input" placeholder="e.g. Floral with gold leaf">
+      </div>
+    `,
+  };
+
+  const itemIcons = { cake: '🎂', cakepops: '🍭', cupcakes: '🧁' };
+  const itemLabels = {
+    cake: { es: 'Pastel', en: 'Cake' },
+    cakepops: { es: 'Cakepops', en: 'Cakepops' },
+    cupcakes: { es: 'Pastelitos', en: 'Cupcakes' },
+  };
+
+  let itemCounter = 0;
+
+  function createItemCard(type, data = {}) {
+    itemCounter++;
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.dataset.type = type;
+    card.dataset.itemId = `item-${itemCounter}`;
+    card.innerHTML = `
+      <div class="item-card-header">
+        <span class="item-icon">${itemIcons[type]}</span>
+        <span class="item-label lang-fade" data-es="${itemLabels[type].es}" data-en="${itemLabels[type].en}">${itemLabels[type].en}</span>
+        <button type="button" class="remove-item-btn" onclick="removeItem('${card.dataset.itemId}')" style="margin-left: auto; background: none; border: none; cursor: pointer; color: var(--clay);">✕</button>
+      </div>
+      <div class="item-card-body">
+        ${itemTypeTemplates[type]}
+      </div>
+    `;
+    return card;
+  }
+
+  function removeItem(itemId) {
+    const card = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (card) card.remove();
+    updateAddButtonVisibility();
+  }
+
+  function updateAddButtonVisibility() {
+    const container = document.getElementById('items-container');
+    const addBtn = document.getElementById('add-item-btn');
+    addBtn.style.display = container.children.length >= 3 ? 'none' : 'flex';
+  }
+
+  document.getElementById('add-item-btn').addEventListener('click', () => {
+    document.getElementById('item-type-picker').style.display = 'block';
+  });
+
+  document.getElementById('close-picker-btn').addEventListener('click', () => {
+    document.getElementById('item-type-picker').style.display = 'none';
+  });
+
+  document.querySelectorAll('.item-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      const container = document.getElementById('items-container');
+      const card = createItemCard(type);
+      container.appendChild(card);
+      document.getElementById('item-type-picker').style.display = 'none';
+      updateAddButtonVisibility();
+      initCustomQtyToggles();
+      updateLangElements(document.documentElement.lang);
+    });
+  });
+
+  function initCustomQtyToggles() {
+    document.querySelectorAll('select[name="quantity"]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const card = sel.closest('.item-card');
+        const customGroup = card.querySelector('.custom-qty-group');
+        if (customGroup) {
+          customGroup.style.display = sel.value === 'custom' ? 'block' : 'none';
+        }
+      });
+    });
+  }
+
+  function initializeQuoteForm() {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get('type') || 'cake';
+    const container = document.getElementById('items-container');
+    const card = createItemCard(type);
+    container.appendChild(card);
+    updateAddButtonVisibility();
+    initCustomQtyToggles();
+  }
+
   // ─── Form submission ────────────────────────────────────────────────────
   const form = document.getElementById('quote-form');
   const formError = document.getElementById('form-error');
@@ -657,15 +852,39 @@
 
     const customerName = document.getElementById('customer_name').value.trim();
     const email = document.getElementById('email').value.trim();
-    const cakeFlavor = document.getElementById('cake_flavor').value.trim();
 
-    if (!customerName || !email || !cakeFlavor) {
-      showError(currentLang === 'es' ? 'Completa los campos obligatorios: Nombre, Correo electrónico y Sabor del pastel.' : 'Please fill in: Name, Email, and Cake flavor.');
+    if (!customerName || !email) {
+      showError(currentLang === 'es' ? 'Completa los campos obligatorios: Nombre y Correo electrónico.' : 'Please fill in: Name and Email.');
       return;
     }
 
-    // Collect toppings
-    const toppings = Array.from(document.querySelectorAll('input[name="toppings"]:checked')).map(cb => cb.value);
+    // Collect items
+    const items = [];
+    document.querySelectorAll('.item-card').forEach(card => {
+      const type = card.dataset.type;
+      const details = {};
+      card.querySelectorAll('input, select').forEach(el => {
+        if (el.name) {
+          if (el.type === 'checkbox') {
+            if (!details[el.name]) details[el.name] = [];
+            if (el.checked) details[el.name].push(el.value);
+          } else if (el.name === 'quantity' && el.value === 'custom') {
+            const customInput = card.querySelector('input[name="custom_quantity"]');
+            details.quantity = customInput ? customInput.value : '';
+          } else {
+            details[el.name] = el.value;
+          }
+        }
+      });
+      items.push({ product_type: type, details });
+    });
+
+    if (items.length === 0) {
+      showError(currentLang === 'es' ? 'Agrega al menos un artículo.' : 'Please add at least one item.');
+      return;
+    }
+
+    // Collect form-level fields
     const dietary = Array.from(document.querySelectorAll('input[name="dietary"]:checked')).map(cb => cb.value);
 
     submitBtn.disabled = true;
@@ -681,16 +900,11 @@
           phone: document.getElementById('phone').value.trim() || null,
           language: currentLang,
           occasion: document.getElementById('occasion').value || null,
-          serving_size: document.getElementById('serving_size').value || null,
-          cake_flavor: cakeFlavor,
-          filling: document.getElementById('filling').value.trim() || null,
-          frosting: document.getElementById('frosting').value.trim() || null,
-          toppings,
           dietary,
-          reference_image_url: uploadedImageUrl,
           comments: document.getElementById('comments').value.trim() || null,
           desired_date: document.getElementById('desired_date').value || null,
           budget: document.getElementById('budget').value.trim() || null,
+          items,
         }),
       });
       const data = await res.json();
@@ -707,6 +921,11 @@
       submitBtn.disabled = false;
       submitBtn.textContent = currentLang === 'es' ? 'Enviar Solicitud' : 'Submit Quote Request';
     }
+  });
+
+  // Initialize form on DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeQuoteForm();
   });
   </script>
 </body>
