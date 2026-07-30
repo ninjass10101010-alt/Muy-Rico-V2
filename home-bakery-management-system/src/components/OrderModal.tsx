@@ -446,7 +446,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-cocoa">
-                    <ProductIcon emoji={item.emoji} size={18} /> {item.name}
+                    <ProductIcon emoji={item.emoji} imageUrl={products.find(p => p.id === item.productId)?.image_url} size={18} /> {item.name}
                   </p>
                   <p className="text-xs text-cocoa-muted">${item.price.toFixed(2)} each</p>
                 </div>

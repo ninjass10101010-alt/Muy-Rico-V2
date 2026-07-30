@@ -22,6 +22,7 @@ import {
 import { useStore } from "../context/StoreContext";
 import StatCard from "../components/ui/StatCard";
 import Badge from "../components/ui/Badge";
+import ProductIcon from "../components/ProductIcon";
 import { formatCurrency, formatDate, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABELS } from "../utils/format";
 import type { Page } from "../App";
 
@@ -207,7 +208,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
             {bestSellers.map(({ product, qty }) => (
               <div key={product!.id} className="flex items-center justify-between px-5 py-3">
                 <span className="flex items-center gap-2 text-sm text-cocoa">
-                  <span className="text-lg">{product!.emoji}</span> {product!.name}
+                  <ProductIcon emoji={product!.emoji} imageUrl={product!.image_url} size={28} /> {product!.name}
                 </span>
                 <span className="text-xs font-semibold text-cocoa-muted">{qty} sold</span>
               </div>

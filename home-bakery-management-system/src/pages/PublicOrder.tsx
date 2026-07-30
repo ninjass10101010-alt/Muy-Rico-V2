@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Minus, Plus, Trash2, CheckCircle } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import { createOrder as apiCreateOrder } from "../utils/api";
+import ProductIcon from "../components/ProductIcon";
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
 import type { PaymentMethod } from "../types";
 
@@ -183,7 +184,7 @@ export default function PublicOrder() {
                       : "border-sand-200 bg-white hover:border-coral hover:shadow-sm"
                   }`}
                 >
-                  <span className="text-2xl">{p.emoji}</span>
+                  <ProductIcon emoji={p.emoji} imageUrl={p.image_url} size={28} />
                   <span className="text-xs font-semibold text-cocoa leading-tight">{p.name}</span>
                   <span className="text-xs text-cocoa-muted">${p.price.toFixed(2)}</span>
                   {inCart && (
@@ -206,7 +207,7 @@ export default function PublicOrder() {
                 <div key={item.productId} className="flex items-center justify-between gap-2 rounded-lg bg-sand-50 px-3 py-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-cocoa">
-                      {item.emoji} {item.name}
+                      <ProductIcon emoji={item.emoji} size={16} /> {item.name}
                     </p>
                     <p className="text-xs text-cocoa-muted">${item.price.toFixed(2)} each</p>
                   </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Tag, Trash2, Wallet } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
+import ProductIcon from "../components/ProductIcon";
 import Modal from "../components/ui/Modal";
 import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod } from "../utils/format";
 import { generateOrderLabels, receiptHtmlUrl } from "../utils/api";
@@ -15,7 +16,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, payments, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, refreshPayments, receipts, resendReceipt, generateReceipt } = useStore();
+  const { orders, products, payments, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, refreshPayments, receipts, resendReceipt, generateReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -213,14 +214,17 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               </div>
             </div>
             <div className="divide-y divide-sand-100 rounded-xl border border-sand-100">
-              {selected.items.map((i) => (
+              {selected.items.map((i) => {
+                const img = products.find((p) => p.id === i.productId)?.image_url;
+                return (
                 <div key={i.productId} className="flex items-center justify-between px-3 py-2 text-sm">
-                  <span>
-                    {i.emoji} {i.name} × {i.qty}
+                  <span className="flex items-center gap-1.5">
+                    <ProductIcon emoji={i.emoji} imageUrl={img} size={18} /> {i.name} × {i.qty}
                   </span>
                   <span className="font-medium">{formatCurrency(i.qty * i.price)}</span>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="space-y-1 rounded-xl bg-sand-50 p-3 text-sm">
               <div className="flex justify-between text-cocoa-muted">
