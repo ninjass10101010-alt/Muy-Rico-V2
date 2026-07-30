@@ -1293,6 +1293,10 @@
       const albumLink = galleryProductIds.has(p.id)
         ? `<a class="tile-album-link lang-fade" href="gallery.html#album-${escapeHtml(p.id)}" data-es="Ver álbum" data-en="View album">View album</a>`
         : '';
+      const quoteType = { Cakepops: 'cakepops', Cupcakes: 'cupcakes', Cakes: 'cake' }[p.category];
+      const quoteLink = quoteType
+        ? `<a href="quote.html?type=${quoteType}" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>`
+        : '';
       return `
         <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''} ${hasPacks ? 'has-packs' : ''}"
           id="tile-${p.id}"
@@ -1324,6 +1328,7 @@
                 <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
               </div>
               <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
+              ${quoteLink}
             </div>
           </div>
         </article>`;
@@ -1429,6 +1434,23 @@
             galleryProductIds = new Set((gData.photos || []).map(ph => ph.product_id));
           }
         } catch (_) { /* ignore */ }
+        if (!allProducts.some(p => p.id === 'prod_custom_cake' || p.category === 'Cakes')) {
+          allProducts.push({
+            id: 'prod_custom_cake',
+            name: 'Custom Cake',
+            name_es: 'Pastel Personalizado',
+            description: '8-inch, 2-layer cake made fresh to order. Choose your cake flavor and frosting to create your perfect combination.',
+            description_es: 'Pastel de 8 pulgadas, 2 capas, hecho al momento. Elige el sabor del pastel y el betún.',
+            image_url: 'menu-cake.webp',
+            price: 35.00,
+            category: 'Cakes',
+            emoji: 'cake.svg',
+            flavor_groups: [
+              { name: 'Cake', name_es: 'Pastel', options: ['Chocolate', 'Vanilla'] },
+              { name: 'Frosting', name_es: 'Betún', options: ['Vanilla Buttercream', 'Chocolate Buttercream'] }
+            ]
+          });
+        }
         renderProducts(allProducts);
       } catch (err) {
         console.warn('Could not load live products, showing fallback menu:', err);

@@ -520,6 +520,14 @@
         requestAnimationFrame(() => { el.style.opacity = '1'; });
       }
     });
+    document.querySelectorAll('option[data-es][data-en]').forEach(el => {
+      const text = el.getAttribute('data-' + lang);
+      if (text !== null) el.textContent = text;
+    });
+    document.querySelectorAll('[data-es-placeholder][data-en-placeholder]').forEach(el => {
+      const ph = el.getAttribute('data-' + lang + '-placeholder');
+      if (ph !== null) el.setAttribute('placeholder', ph);
+    });
   }
   function setLang(lang) {
     if (lang === currentLang) return;
@@ -631,16 +639,16 @@
     cake: `
       <div class="form-group">
         <label class="form-label lang-fade" data-es="Sabor del pastel *" data-en="Cake flavor *">Cake flavor *</label>
-        <input type="text" name="cake_flavor" required class="form-input" placeholder="e.g. Chocolate, Vainilla, Fresa">
+        <input type="text" name="cake_flavor" required class="form-input" data-es-placeholder="ej. Chocolate, Vainilla, Fresa" data-en-placeholder="e.g. Chocolate, Vanilla, Strawberry">
       </div>
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label lang-fade" data-es="Relleno" data-en="Filling">Filling</label>
-          <input type="text" name="filling" class="form-input" placeholder="e.g. Cream cheese, Fruta">
+          <input type="text" name="filling" class="form-input" data-es-placeholder="ej. Cream cheese, Fruta" data-en-placeholder="e.g. Cream cheese, Fruit">
         </div>
         <div class="form-group">
           <label class="form-label lang-fade" data-es="Betún" data-en="Frosting">Frosting</label>
-          <input type="text" name="frosting" class="form-input" placeholder="e.g. Buttercream, Fondant">
+          <input type="text" name="frosting" class="form-input" data-es-placeholder="ej. Buttercream, Fondant" data-en-placeholder="e.g. Buttercream, Fondant">
         </div>
       </div>
       <div class="form-group">
@@ -711,7 +719,7 @@
       </div>
       <div class="form-group">
         <label class="form-label lang-fade" data-es="Tema de diseño" data-en="Design theme">Design theme</label>
-        <input type="text" name="design_theme" class="form-input" placeholder="e.g. Birthday sprinkles in pink/gold">
+        <input type="text" name="design_theme" class="form-input" data-es-placeholder="ej. Chispas de cumpleaños en rosa/dorado" data-en-placeholder="e.g. Birthday sprinkles in pink/gold">
       </div>
     `,
     cupcakes: `
@@ -746,7 +754,7 @@
       </div>
       <div class="form-group">
         <label class="form-label lang-fade" data-es="Diseño de topper" data-en="Topper design">Topper design</label>
-        <input type="text" name="topper_design" class="form-input" placeholder="e.g. Floral with gold leaf">
+        <input type="text" name="topper_design" class="form-input" data-es-placeholder="ej. Floral con hoja de oro" data-en-placeholder="e.g. Floral with gold leaf">
       </div>
     `,
   };
@@ -808,7 +816,7 @@
       document.getElementById('item-type-picker').style.display = 'none';
       updateAddButtonVisibility();
       initCustomQtyToggles();
-      updateLangElements(document.documentElement.lang);
+      applyLangToDOM(currentLang);
     });
   });
 
@@ -832,6 +840,7 @@
     container.appendChild(card);
     updateAddButtonVisibility();
     initCustomQtyToggles();
+    applyLangToDOM(currentLang);
   }
 
   // ─── Form submission ────────────────────────────────────────────────────
