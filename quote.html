@@ -499,7 +499,11 @@
   <script>
   // ─── Language toggle (matches index.html / order.html / gallery.html pattern) ──
   let currentLang = (function () {
-    try { return localStorage.getItem('lang') || 'es'; } catch (e) { return 'es'; }
+    try {
+      const saved = localStorage.getItem('lang');
+      if (saved === 'es' || saved === 'en') return saved;
+      return (navigator.language || 'en').startsWith('es') ? 'es' : 'en';
+    } catch (e) { return 'en'; }
   })();
   document.documentElement.lang = currentLang;
 
