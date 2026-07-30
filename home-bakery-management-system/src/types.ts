@@ -250,6 +250,13 @@ export interface LabelTemplate {
   netWeightMetric?: string | null;
 }
 
+export interface QuoteItem {
+  id: number;
+  product_type: 'cake' | 'cakepops' | 'cupcakes';
+  details: Record<string, any>;
+  reference_image_url?: string | null;
+}
+
 export interface Quote {
   id: number;
   status: "new" | "replied" | "converted" | "archived";
@@ -271,6 +278,7 @@ export interface Quote {
   quotedPrice: number | null;
   adminNotes: string | null;
   convertedOrderId: number | null;
+  items: QuoteItem[];
   createdAt: string;
   updatedAt: string;
 }

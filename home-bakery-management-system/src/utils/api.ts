@@ -714,6 +714,13 @@ export const fetchGalleryPhotos = fetchGalleryAdmin;
 
 // ─── Quotes ────────────────────────────────────────────────────────────────
 
+export interface ApiQuoteItem {
+  id: number;
+  product_type: 'cake' | 'cakepops' | 'cupcakes';
+  details: Record<string, any>;
+  reference_image_url?: string | null;
+}
+
 export interface ApiQuote {
   id: number;
   status: string;
@@ -735,6 +742,7 @@ export interface ApiQuote {
   quoted_price: number | null;
   admin_notes: string | null;
   converted_order_id: number | null;
+  items?: ApiQuoteItem[];
   created_at: string;
   updated_at: string;
 }
