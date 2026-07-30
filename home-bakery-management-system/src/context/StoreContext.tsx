@@ -327,6 +327,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       quotedPrice: row.quoted_price,
       adminNotes: row.admin_notes,
       convertedOrderId: row.converted_order_id,
+      items: Array.isArray(row.items) ? row.items : [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
