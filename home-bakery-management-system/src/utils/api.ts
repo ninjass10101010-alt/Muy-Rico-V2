@@ -726,8 +726,8 @@ export interface ApiQuote {
   cake_flavor: string;
   filling: string | null;
   frosting: string | null;
-  toppings: string | null;
-  dietary: string | null;
+  toppings?: string[];
+  dietary?: string[];
   reference_image_url: string | null;
   comments: string | null;
   desired_date: string | null;

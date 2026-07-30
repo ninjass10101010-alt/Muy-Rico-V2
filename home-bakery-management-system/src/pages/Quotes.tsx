@@ -9,7 +9,7 @@ import type { Quote } from "../types";
 import type { Page } from "../App";
 
 export default function Quotes({ search, setPage }: { search: string; setPage: (p: Page) => void }) {
-  const { quotes, handleUpdateQuote } = useStore();
+  const { quotes, handleUpdateQuote, loading } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Quote | null>(null);
   const [quotedPrice, setQuotedPrice] = useState("");
@@ -17,6 +17,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
   const [saving, setSaving] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [archivedFrom, setArchivedFrom] = useState<Record<number, Quote["status"]>>({});
 
   const filtered = useMemo(() => {
     return quotes
@@ -57,10 +58,14 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
 
   async function archiveQuote() {
     if (!selected) return;
+    const prev = selected.status;
     try {
+      setArchivedFrom((m) => ({ ...m, [selected.id]: prev }));
       await handleUpdateQuote(selected.id, { status: "archived" });
       setSelected(null);
-    } catch {}
+    } catch (err) {
+      setSaveMsg("Failed to archive. Try again.");
+    }
   }
 
   return (
@@ -100,18 +105,24 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                     <Badge tone={q.status}>{q.status}</Badge>
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-cocoa">
-                    {q.quotedPrice != null ? formatCurrency(q.quotedPrice) : "—"}
+                    {q.quotedPrice != null ? formatCurrency(q.quotedPrice / 100) : "—"}
                   </td>
                   <td className="px-4 py-3 text-cocoa-muted">{formatDate(q.createdAt)}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {loading && quotes.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center">
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-palm border-t-transparent" />
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-cocoa-muted">
                     No quotes match these filters.
                   </td>
                 </tr>
-              )}
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -124,7 +135,12 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
             {/* Customer info */}
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-semibold text-cocoa">{selected.customerName}</p>
+                <p className="font-semibold text-cocoa">
+                  {selected.customerName}
+                  <span className="ml-2 inline-block rounded-full bg-sand-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cocoa-muted">
+                    {selected.language}
+                  </span>
+                </p>
                 <p className="text-xs text-cocoa-muted">{selected.email}</p>
                 {selected.phone && <p className="text-xs text-cocoa-muted">{selected.phone}</p>}
               </div>
@@ -154,15 +170,33 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                 <span className="font-medium text-cocoa">{selected.servingSize || "—"}</span>
               </div>
               {selected.toppings.length > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-cocoa-muted">Toppings</span>
-                  <span className="font-medium text-cocoa">{selected.toppings.join(", ")}</span>
+                <div>
+                  <p className="text-cocoa-muted">Toppings</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {selected.toppings.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-coral-light/20 px-2 py-0.5 text-xs font-medium text-coral ring-1 ring-coral-light"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
               {selected.dietary.length > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-cocoa-muted">Dietary</span>
-                  <span className="font-medium text-cocoa">{selected.dietary.join(", ")}</span>
+                <div>
+                  <p className="text-cocoa-muted">Dietary</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {selected.dietary.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-mid-green-light/20 px-2 py-0.5 text-xs font-medium text-palm ring-1 ring-mid-green-light"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="flex justify-between">
@@ -237,11 +271,14 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                   <button onClick={saveQuote} disabled={saving} className="btn-primary flex-1">
                     {saving ? "Saving..." : "Save & Email Quote"}
                   </button>
-                  {selected.quotedPrice != null && (
-                    <button onClick={() => setConvertOpen(true)} className="btn-secondary">
-                      Convert to Order
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setConvertOpen(true)}
+                    disabled={selected.quotedPrice == null}
+                    className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={selected.quotedPrice == null ? "Save a quoted price first" : undefined}
+                  >
+                    Convert to Order
+                  </button>
                 </div>
               )}
 
@@ -261,7 +298,13 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               )}
 
               {selected.status !== "converted" && selected.status !== "archived" && (
-                <button onClick={archiveQuote} className="text-xs text-cocoa-muted hover:text-hibiscus">
+                <button
+                  onClick={async () => {
+                    if (!window.confirm("Archive this quote? You can unarchive it later.")) return;
+                    await archiveQuote();
+                  }}
+                  className="text-xs text-cocoa-muted hover:text-hibiscus"
+                >
                   Archive quote
                 </button>
               )}
@@ -269,7 +312,8 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               {selected.status === "archived" && (
                 <button
                   onClick={async () => {
-                    await handleUpdateQuote(selected.id, { status: "new" });
+                    const restoreTo = archivedFrom[selected.id] || "new";
+                    await handleUpdateQuote(selected.id, { status: restoreTo });
                     setSelected(null);
                   }}
                   className="text-xs text-coral hover:underline"
