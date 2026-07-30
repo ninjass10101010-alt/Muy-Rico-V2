@@ -247,6 +247,23 @@
       transform: scale(0.97);
     }
 
+    /* Ghost button for quote links */
+    .btn.btn-ghost.btn-sm {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--hairline-strong);
+      color: var(--color-text-muted);
+      background: transparent;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn.btn-ghost.btn-sm:hover {
+      border-color: var(--coral);
+      color: var(--coral);
+      background: rgba(188, 85, 72, 0.06);
+    }
+
     /* Cart panel (inline, inside order panel) */
     .cart-panel-header {
       display: flex;
@@ -853,6 +870,7 @@
                   <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
                 </div>
                 <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
+                <a href="quote.html?type=cakepops" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>
               </div>
             </div>
           </article>
@@ -887,6 +905,7 @@
                   <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
                 </div>
                 <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
+                <a href="quote.html?type=cake" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>
               </div>
             </div>
           </article>
@@ -920,6 +939,7 @@
                   <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
                 </div>
                 <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
+                <a href="quote.html?type=cupcakes" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>
               </div>
             </div>
           </article>
