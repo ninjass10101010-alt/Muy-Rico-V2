@@ -2210,11 +2210,35 @@ async function uploadQuoteImage(request, env) {
   }
 }
 
+async function getQuoteItems(env, quoteIds) {
+  if (!quoteIds.length) return {};
+  const placeholders = quoteIds.map(() => '?').join(',');
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM cake_quote_items WHERE quote_id IN (${placeholders}) ORDER BY sort_order ASC`
+  ).bind(...quoteIds).all();
+  const itemsByQuote = {};
+  for (const row of results) {
+    if (!itemsByQuote[row.quote_id]) itemsByQuote[row.quote_id] = [];
+    itemsByQuote[row.quote_id].push({
+      id: row.id,
+      product_type: row.product_type,
+      details: JSON.parse(row.details),
+      reference_image_url: row.reference_image_url,
+    });
+  }
+  return itemsByQuote;
+}
+
 async function listQuotes(env) {
   const { results } = await env.DB.prepare(
     `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes ORDER BY created_at DESC`
   ).all();
-  return json({ quotes: results.map(rowToQuote) }, 200);
+  const quotes = results.map(rowToQuote);
+  const itemsByQuote = await getQuoteItems(env, quotes.map(q => q.id));
+  for (const q of quotes) {
+    q.items = itemsByQuote[q.id] || [];
+  }
+  return json({ quotes }, 200);
 }
 
 async function getQuote(id, env) {
@@ -2222,7 +2246,10 @@ async function getQuote(id, env) {
     `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
   ).bind(id).first();
   if (!row) return json({ error: 'Not found' }, 404);
-  return json(rowToQuote(row), 200);
+  const quote = rowToQuote(row);
+  const itemsByQuote = await getQuoteItems(env, [quote.id]);
+  quote.items = itemsByQuote[quote.id] || [];
+  return json(quote, 200);
 }
 
 async function updateQuote(id, request, env, ctx, actor) {
