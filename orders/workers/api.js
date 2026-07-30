@@ -2133,6 +2133,7 @@ function rowToQuote(r) {
     converted_order_id: r.converted_order_id,
     created_at: r.created_at,
     updated_at: r.updated_at,
+    items: [], // placeholder, populated by getQuoteItems()
   };
 }
 
