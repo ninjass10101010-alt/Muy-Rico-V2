@@ -5,6 +5,20 @@ import { useStore } from "../context/StoreContext";
 import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 import type { Quote, PaymentMethod } from "../types";
 
+const itemToLineItem = (item: Quote["items"][0]) => {
+  const d = item.details;
+  switch (item.product_type) {
+    case "cake":
+      return { name: `Custom Cake — ${d.cake_flavor || ""}`, quantity: 1 };
+    case "cakepops":
+      return { name: `Cakepops (${d.chocolate_dip || ""}, ${d.topping_style || ""})`, quantity: Number(d.quantity) || 6 };
+    case "cupcakes":
+      return { name: `Cupcakes (${d.frosting || ""})`, quantity: Number(d.quantity) || 6 };
+    default:
+      return { name: item.product_type, quantity: 1 };
+  }
+};
+
 export default function QuoteConvertModal({
   quote,
   open,
@@ -31,6 +45,12 @@ export default function QuoteConvertModal({
     (m) => profile.acceptedMethods[m] && !ONLINE_ONLY.includes(m),
   );
 
+  // Build line items from quote items
+  const items = quote.items.length > 0
+    ? quote.items
+    : [{ id: 0, product_type: "cake" as const, details: { cake_flavor: quote.cakeFlavor } }];
+  const lineItems = items.map(itemToLineItem);
+
   async function handleConvert() {
     if (!valid || submitting) return;
     setSubmitting(true);
@@ -50,17 +70,20 @@ export default function QuoteConvertModal({
       {!done ? (
         <div className="space-y-4">
           {/* Quote summary */}
-          <div className="rounded-xl border border-sand-100 bg-sand-50 p-4 space-y-1 text-sm">
+          <div className="rounded-xl border border-sand-100 bg-sand-50 p-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-cocoa-muted">Customer</span>
               <span className="font-medium text-cocoa">{quote.customerName}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-cocoa-muted">Cake flavor</span>
-              <span className="font-medium text-cocoa">{quote.cakeFlavor}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-cocoa-muted">Quoted price</span>
+            {/* Line items */}
+            {lineItems.map((li, idx) => (
+              <div key={idx} className="flex justify-between">
+                <span className="text-cocoa-muted">{li.name}</span>
+                <span className="font-medium text-cocoa">×{li.quantity}</span>
+              </div>
+            ))}
+            <div className="flex justify-between border-t border-sand-200 pt-2">
+              <span className="font-semibold text-cocoa">Quoted price</span>
               <span className="font-semibold text-coral">{(quotedCents / 100).toFixed(2)}</span>
             </div>
           </div>
