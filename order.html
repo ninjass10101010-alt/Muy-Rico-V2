@@ -1262,17 +1262,35 @@
       const hero = p.image_url
         ? `<div class="tile-hero">${cartBadge}<img class="tile-hero-img" src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" loading="lazy" /></div>`
         : `${cartBadge}`;
-      // Flavor groups (bilingual group name)
+      // Flavor groups (bilingual group name + option labels)
+      const FLAVOR_ES_TO_EN = {
+        'Pastel': 'Cake', 'Betún': 'Frosting', 'Baño de Chocolate': 'Chocolate dip',
+        'Cobertura': 'Topping style',
+        'Vainilla': 'Vanilla', 'Fresa': 'Strawberry', 'Marmoleado': 'Marble',
+        'Limón': 'Lemon', 'Chocolate con Leche': 'Milk Chocolate',
+        'Chocolate Blanco': 'White Chocolate', 'Chispas de Colores': 'Sprinkles',
+        'Baño de Chocolate': 'Chocolate Drizzle',
+        'Accesorios de Chocolate': 'Chocolate Accessories',
+        'Accesorios de Fondant': 'Fondant Accessories',
+        'Betún de Vainilla': 'Vanilla Buttercream',
+        'Betún de Chocolate': 'Chocolate Buttercream',
+      };
       const flavorGroups = (p.flavor_groups && p.flavor_groups.length) ? p.flavor_groups : [];
       const flavorHTML = flavorGroups.length
-        ? `<div class="flavor-selects">` + flavorGroups.map(g => `
+        ? `<div class="flavor-selects">` + flavorGroups.map(g => {
+            const gEn = FLAVOR_ES_TO_EN[g.name] || g.name;
+            return `
             <div class="flavor-group">
-              <label class="flavor-label lang-fade" data-es="${escapeHtml(g.name_es || g.name)}" data-en="${escapeHtml(g.name)}">${escapeHtml(g.name)}</label>
+              <label class="flavor-label lang-fade" data-es="${escapeHtml(g.name_es || g.name)}" data-en="${escapeHtml(gEn)}">${escapeHtml(currentLang === 'es' ? (g.name_es || g.name) : gEn)}</label>
               <select class="flavor-select" data-group="${escapeHtml(g.name)}">
                 <option value="" class="lang-fade" data-es="— Seleccionar —" data-en="— Select —">— Select —</option>
-                ${g.options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}
+                ${g.options.map(o => {
+                  const oEn = FLAVOR_ES_TO_EN[o] || o;
+                  return `<option value="${escapeHtml(o)}" data-es="${escapeHtml(o)}" data-en="${escapeHtml(oEn)}">${escapeHtml(currentLang === 'es' ? o : oEn)}</option>`;
+                }).join('')}
               </select>
-            </div>`).join('') + `</div>`
+            </div>`;
+          }).join('') + `</div>`
         : '';
       // Pack sizes (bulk pricing) — first pack is the default selection
       const packSizes = (p.pack_sizes && p.pack_sizes.length) ? p.pack_sizes : [];
