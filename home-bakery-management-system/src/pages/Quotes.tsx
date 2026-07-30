@@ -4,6 +4,7 @@ import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import QuoteConvertModal from "../components/QuoteConvertModal";
+import ProductIcon from "../components/ProductIcon";
 import { formatCurrency, formatDate } from "../utils/format";
 import type { Quote } from "../types";
 import type { Page } from "../App";
@@ -147,41 +148,20 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               <Badge tone={selected.status}>{selected.status}</Badge>
             </div>
 
-            {/* Cake details */}
+            {/* Order-level details */}
             <div className="rounded-xl border border-sand-100 bg-sand-50 p-4 space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-cocoa-muted">Occasion</span>
                 <span className="font-medium text-cocoa">{selected.occasion || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-cocoa-muted">Cake flavor</span>
-                <span className="font-medium text-cocoa">{selected.cakeFlavor}</span>
+                <span className="text-cocoa-muted">Desired date</span>
+                <span className="font-medium text-cocoa">{selected.desiredDate || "—"}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-cocoa-muted">Filling</span>
-                <span className="font-medium text-cocoa">{selected.filling || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-cocoa-muted">Frosting</span>
-                <span className="font-medium text-cocoa">{selected.frosting || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-cocoa-muted">Serving size</span>
-                <span className="font-medium text-cocoa">{selected.servingSize || "—"}</span>
-              </div>
-              {selected.toppings.length > 0 && (
-                <div>
-                  <p className="text-cocoa-muted">Toppings</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {selected.toppings.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded-full bg-coral-light/20 px-2 py-0.5 text-xs font-medium text-coral ring-1 ring-coral-light"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
+              {selected.budget && (
+                <div className="flex justify-between">
+                  <span className="text-cocoa-muted">Budget</span>
+                  <span className="font-medium text-cocoa">{selected.budget}</span>
                 </div>
               )}
               {selected.dietary.length > 0 && (
@@ -199,16 +179,58 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                   </div>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-cocoa-muted">Desired date</span>
-                <span className="font-medium text-cocoa">{selected.desiredDate || "—"}</span>
-              </div>
-              {selected.budget && (
-                <div className="flex justify-between">
-                  <span className="text-cocoa-muted">Budget</span>
-                  <span className="font-medium text-cocoa">{selected.budget}</span>
+            </div>
+
+            {/* Items Section */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-cocoa-muted">
+                {selected.items.length} {selected.items.length === 1 ? 'Item' : 'Items'}
+              </h3>
+              {selected.items.map((item, idx) => (
+                <div key={item.id} className="rounded-xl bg-cream-deep/50 p-4 space-y-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ProductIcon
+                      type={item.product_type === 'cake' ? 'custom_cake' : item.product_type}
+                      size={28}
+                      imageUrl={item.reference_image_url}
+                    />
+                    <div>
+                      <span className="font-semibold text-cocoa capitalize">
+                        {item.product_type === 'cake' ? 'Custom Cake' : item.product_type === 'cakepops' ? 'Cakepops' : 'Cupcakes'}
+                      </span>
+                      {selected.items.length > 1 && (
+                        <span className="ml-2 text-xs text-cocoa-muted">#{idx + 1}</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Render type-specific details */}
+                  {Object.entries(item.details).map(([key, value]) => {
+                    if (key === 'toppings' && Array.isArray(value)) {
+                      return (
+                        <div key={key}>
+                          <p className="text-cocoa-muted">{key.replace(/_/g, ' ')}</p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {value.map((t: string) => (
+                              <span key={t} className="rounded-full bg-coral-light/20 px-2 py-0.5 text-xs font-medium text-coral ring-1 ring-coral-light">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (value && String(value).trim()) {
+                      return (
+                        <div key={key} className="flex justify-between">
+                          <span className="text-cocoa-muted">{key.replace(/_/g, ' ')}</span>
+                          <span className="font-medium text-cocoa">{String(value)}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Comments */}
