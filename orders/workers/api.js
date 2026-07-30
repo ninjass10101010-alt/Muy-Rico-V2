@@ -2140,9 +2140,27 @@ function rowToQuote(r) {
 async function createQuote(request, env, ctx) {
   try {
     const body = await request.json();
-    if (!body.customer_name || !body.email || !body.cake_flavor) {
-      return json({ error: 'Missing required fields: customer_name, email, cake_flavor' }, 400);
+    if (!body.customer_name || !body.email) {
+      return json({ error: 'Missing required fields: customer_name, email' }, 400);
     }
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+      return json({ error: 'At least one item is required' }, 400);
+    }
+
+    // Validate product types
+    const validTypes = ['cake', 'cakepops', 'cupcakes'];
+    for (const item of body.items) {
+      if (!item.product_type || !validTypes.includes(item.product_type)) {
+        return json({ error: `Invalid product_type: ${item.product_type}. Must be cake, cakepops, or cupcakes` }, 400);
+      }
+      if (!item.details || typeof item.details !== 'object') {
+        return json({ error: 'Item details must be an object' }, 400);
+      }
+    }
+
+    // Extract cake_flavor from first item for back-compat
+    const firstItemDetails = body.items[0].details;
+    const cakeFlavor = firstItemDetails.cake_flavor || firstItemDetails.flavor || '';
 
     const toppings = Array.isArray(body.toppings) ? JSON.stringify(body.toppings) : '[]';
     const dietary = Array.isArray(body.dietary) ? JSON.stringify(body.dietary) : '[]';
@@ -2160,7 +2178,7 @@ async function createQuote(request, env, ctx) {
       body.language || 'es',
       body.occasion || null,
       body.serving_size || null,
-      body.cake_flavor,
+      cakeFlavor,
       body.filling || null,
       body.frosting || null,
       toppings,
@@ -2171,15 +2189,30 @@ async function createQuote(request, env, ctx) {
       body.budget || null,
     ).run();
 
-    const id = result.meta.last_row_id;
+    const quoteId = result.meta.last_row_id;
+
+    // Insert items into cake_quote_items
+    for (let i = 0; i < body.items.length; i++) {
+      const item = body.items[i];
+      await env.DB.prepare(`
+        INSERT INTO cake_quote_items (quote_id, product_type, sort_order, details, reference_image_url)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(
+        quoteId,
+        item.product_type,
+        i,
+        JSON.stringify(item.details),
+        item.reference_image_url || null,
+      ).run();
+    }
 
     // Notify admin
-    ctx.waitUntil(notifyQuoteCreated(env, body, id));
+    ctx.waitUntil(notifyQuoteCreated(env, body, quoteId));
 
     // Send auto-reply to customer (ack, no price yet)
-    ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', id, false));
+    ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', quoteId, false));
 
-    return json({ ok: true, id }, 201);
+    return json({ ok: true, id: quoteId }, 201);
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
