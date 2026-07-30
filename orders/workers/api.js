@@ -771,20 +771,22 @@ function buildReceiptHtml(order, isEn) {
   const statusLabel = order.status ? formatStatusLabel(order.status, isEn) : '—';
 
   // Itemized receipt rows: name, qty × unit, line total (right-aligned like a paper receipt)
-  let itemRows = '';
+  const itemRows = (function () {
   try {
     const items = JSON.parse(order.items_json);
-    itemRows = items.map(i => {
+    return items.map(i => {
       const line = (i.qty * i.price).toFixed(2);
+      const itemName = isEn ? (i.name_en || i.name) : (i.name_es || i.name);
       return `<tr>
-        <td style="padding: 10px 0; border-bottom: 1px dashed #e3dcd2; color: #4a423d; font-size: 14px;">${i.name}</td>
+        <td style="padding: 10px 0; border-bottom: 1px dashed #e3dcd2; color: #4a423d; font-size: 14px;">${itemName}</td>
         <td style="padding: 10px 0; border-bottom: 1px dashed #e3dcd2; color: #8a8078; font-size: 13px; text-align: center; white-space: nowrap;">${i.qty} × $${Number(i.price).toFixed(2)}</td>
         <td style="padding: 10px 0; border-bottom: 1px dashed #e3dcd2; color: #4a423d; font-size: 14px; text-align: right; font-weight: 600;">$${line}</td>
       </tr>`;
     }).join('');
   } catch {
-    itemRows = `<tr><td style="padding: 10px 0; color: #4a423d; font-size: 14px;">${order.items_json}</td><td></td><td></td></tr>`;
+    return `<tr><td style="padding: 10px 0; color: #4a423d; font-size: 14px;">${order.items_json}</td><td></td><td></td></tr>`;
   }
+})();
 
   const L = isEn ? {
     receipt: 'RECEIPT',
@@ -924,7 +926,7 @@ async function sendCustomerConfirmation(env, order) {
   let textItems = '';
   try {
     const items = JSON.parse(order.items_json);
-    textItems = items.map(i => `${i.qty} x ${i.name} — $${(i.qty * i.price).toFixed(2)}`).join('\n');
+    textItems = items.map(i => `${i.qty} x ${isEn ? (i.name_en || i.name) : (i.name_es || i.name)} — $${(i.qty * i.price).toFixed(2)}`).join('\n');
   } catch { textItems = order.items_json; }
   const text = [
     `Muy Rico Bakery — ${L.receipt}`,
@@ -984,8 +986,8 @@ async function logReceiptWithId(env, order, emailResult, orderId, receiptId) {
   const messageId = (emailResult && emailResult.messageId) || null;
   try {
     await env.DB.prepare(`
-      INSERT INTO receipts (id, order_id, order_number, customer_name, email, items_json, total_cents, payment_method, payment_sub_method, order_status, status, message_id, sent_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      INSERT INTO receipts (id, order_id, order_number, customer_name, email, items_json, total_cents, payment_method, payment_sub_method, order_status, status, message_id, language, sent_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `).bind(
       receiptId,
       orderId,
@@ -999,6 +1001,7 @@ async function logReceiptWithId(env, order, emailResult, orderId, receiptId) {
       order.status || 'pending',
       status,
       messageId,
+      order.language || 'es',
     ).run();
     const eventLabel = status === 'sent' ? 'receipt:sent' : status === 'printed' ? 'receipt:printed' : 'receipt:failed';
     await env.DB.prepare(`
@@ -1048,8 +1051,12 @@ async function getReceiptHtml(id, env, url) {
   // Fetch the full order for pickup_date, pickup_time, language, created_at
   let order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(receipt.order_id).first();
   let isEn = true;
+  // Prefer the receipt's stored language; fall back to order.language
+  const storedLang = receipt.language || (order && order.language) || 'es';
+  isEn = storedLang === 'en';
   if (order) {
-    isEn = order.language === 'en';
+    // Override order.language so buildReceiptHtml picks the correct item names
+    order = { ...order, language: storedLang };
   } else {
     // Order deleted — fall back to receipt snapshot (no pickup date/time)
     order = {
@@ -1064,12 +1071,14 @@ async function getReceiptHtml(id, env, url) {
       pickup_date: null,
       pickup_time: null,
       created_at: receipt.created_at,
+      language: storedLang,
     };
   }
-  // ?lang= query param overrides order language
+  // ?lang= query param overrides stored language
   const langParam = url?.searchParams?.get('lang');
   if (langParam === 'en') isEn = true;
   else if (langParam === 'es') isEn = false;
+  if (order) order = { ...order, language: isEn ? 'en' : 'es' };
 
   const html = buildReceiptHtml(order, isEn);
   const togglePath = url?.pathname || `/api/receipts/${id}/html`;
@@ -1095,8 +1104,10 @@ async function resendReceipt(id, request, env, ctx, actor) {
   // Fetch the current order to send a fresh receipt
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(receipt.order_id).first();
   if (!order) return json({ error: 'Order not found' }, 404);
-  const result = await sendCustomerConfirmation(env, order);
-  await logReceipt(env, order, result, receipt.order_id);
+  // Use the receipt's stored language so resend reproduces the original language
+  const orderForSend = { ...order, language: receipt.language || order.language };
+  const result = await sendCustomerConfirmation(env, orderForSend);
+  await logReceipt(env, orderForSend, result, receipt.order_id);
   return json({ ok: true, status: result.ok ? 'sent' : 'failed', messageId: result.messageId || null }, 200);
 }
 

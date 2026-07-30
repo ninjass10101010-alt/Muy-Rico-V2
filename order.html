@@ -1175,7 +1175,7 @@
     gsap.registerPlugin(ScrollTrigger);
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let currentLang = 'es';
+    let currentLang = 'en';
 
     const CHECKOUT_WORKER = 'https://muy-rico-checkout.bexgarcia0208.workers.dev';
     // Orders API — auto-detect local dev vs production
@@ -1487,6 +1487,7 @@
     (function initLangEarly() {
       const saved = (() => { try { return localStorage.getItem('lang'); } catch(e) { return null; } })();
       if (saved === 'es' || saved === 'en') currentLang = saved;
+      else currentLang = (navigator.language || 'en').startsWith('es') ? 'es' : 'en';
     })();
 
       if (!prefersReduced) {
@@ -1885,6 +1886,41 @@
       applyLangToDOM(currentLang);
     }
 
+    function buildDisplayNameForLang(tile, baseName, lang) {
+      let display = baseName;
+      // Pack label
+      if (tile.getAttribute('data-has-packs') === '1') {
+        const selOpt = tile.querySelector('.pack-option.selected') || tile.querySelector('.pack-option');
+        if (selOpt) {
+          const lbl = lang === 'es' ? (selOpt.dataset.packLabelEs || selOpt.dataset.packLabel) : selOpt.dataset.packLabel;
+          display += ' (' + lbl + ')';
+        }
+      }
+      // Flavor note
+      const selects = tile.querySelectorAll('.flavor-select');
+      const parts = [];
+      selects.forEach(sel => {
+        if (!sel.value) return;
+        const opt = sel.selectedOptions[0] || sel.querySelector('option[value="' + sel.value + '"]');
+        const label = sel.closest('.flavor-group')?.querySelector('.flavor-label');
+        const groupName = label
+          ? (lang === 'es' ? (label.dataset.es || label.dataset.en || sel.dataset.group) : (label.dataset.en || label.dataset.es || sel.dataset.group))
+          : sel.dataset.group;
+        const optLabel = opt
+          ? (lang === 'es' ? (opt.dataset.es || opt.value) : (opt.dataset.en || opt.value))
+          : sel.value;
+        parts.push(groupName + ': ' + optLabel);
+      });
+      if (parts.length) display += ' (' + parts.join(', ') + ')';
+      // Design note
+      const designReq = (tile.getAttribute('data-design') || '').replace(/[<>]/g, '');
+      if (designReq) {
+        const dl = lang === 'es' ? 'Diseño' : 'Design';
+        display += ' — ' + dl + ': ' + designReq;
+      }
+      return display;
+    }
+
     function addToCart(btn) {
       const tile = btn.closest('.product-tile');
       const name = tile.getAttribute('data-name');
@@ -1921,6 +1957,8 @@
         flavorNote = (flavorNote || '') + ' — ' + designLabel + ': ' + designReq;
       }
       displayName = displayName + packLabel + flavorNote;
+      const displayNameEs = buildDisplayNameForLang(tile, name, 'es');
+      const displayNameEn = buildDisplayNameForLang(tile, nameEn || name, 'en');
 
       if (qty === 0) {
         // UX Improvement: Default to 1 if user just clicks Add directly
@@ -1928,12 +1966,14 @@
       }
 
       const existing = cart.find(item => item.name === name && (item.packId || '') === packId && (item.flavorNote || '') === flavorNote);
-      if (existing) { existing.qty += qty; existing.displayName = displayName; }
+      if (existing) { existing.qty += qty; existing.displayName = displayName; existing.displayNameEs = displayNameEs; existing.displayNameEn = displayNameEn; }
       else {
         cart.push({
           name,
           nameEn,
           displayName,
+          displayNameEs,
+          displayNameEn,
           price,
           qty,
           icon,
@@ -2056,7 +2096,7 @@
           <div class="cart-item-left">
             <span class="cart-item-icon">${iconHtml}</span>
             <div>
-              <div class="cart-item-name">${escapeHtml(item.displayName || item.name)}</div>
+              <div class="cart-item-name">${escapeHtml(currentLang === 'en' ? (item.displayNameEn || item.displayName || item.name) : (item.displayNameEs || item.displayName || item.name))}</div>
               <div class="cart-item-qty">× ${item.qty}</div>
             </div>
           </div>
@@ -2103,7 +2143,14 @@
         email: document.getElementById('email').value.trim(),
         phone: document.getElementById('phone').value || null,
         pickup_date: document.getElementById('date').value,
-        items_json: cart.map(c => ({ name: c.displayName || c.name, qty: c.qty, price: c.price, emoji: c.toastEmoji || '🍞' })),
+        items_json: cart.map(c => ({
+          name: currentLang === 'en' ? (c.displayNameEn || c.displayName || c.name) : (c.displayNameEs || c.displayName || c.name),
+          name_es: c.displayNameEs || c.displayName || c.name,
+          name_en: c.displayNameEn || c.displayName || c.nameEn || c.name,
+          qty: c.qty,
+          price: c.price,
+          emoji: c.toastEmoji || '🍞'
+        })),
         total_cents: submittedTotalCents,
         payment_method: 'stripe',
         payment_status: 'unpaid',
