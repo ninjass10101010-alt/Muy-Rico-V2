@@ -112,8 +112,8 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
         />
         <div className="relative flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sand-50/95 px-2 shadow-md">
-              <img src={muyRicoLogo} alt="Muy Rico" className="h-9 w-auto object-contain" />
+            <div className="flex shrink-0 items-center justify-center bg-sand-50/95 px-3 py-2 shadow-md" style={{ borderRadius: 8 }}>
+              <img src={muyRicoLogo} alt="Muy Rico" className="h-11 w-auto max-w-[140px] object-contain" />
             </div>
             <div>
               <p className="text-sm font-medium text-sand-50/80">Bienvenidos de vuelta</p>
