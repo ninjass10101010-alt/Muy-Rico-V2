@@ -15,6 +15,7 @@ import {
 import { cn } from "../utils/cn";
 import type { Page } from "../App";
 import { useStore } from "../context/StoreContext";
+import muyRicoLogo from "../assets/muy_rico_logo_transparent.webp";
 
 const NAV: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -44,15 +45,13 @@ export default function Sidebar({
   const pendingCount = quotes.filter((q) => q.status === "new").length;
   return (
     <div className="flex h-full w-64 flex-col bg-palm text-sand-100">
-      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-coral text-white shadow-lg">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="3" fill="currentColor"/>
-            <circle cx="12" cy="4.5" r="2.5" fill="currentColor" opacity="0.7"/>
-            <circle cx="12" cy="19.5" r="2.5" fill="currentColor" opacity="0.7"/>
-            <circle cx="4.5" cy="12" r="2.5" fill="currentColor" opacity="0.7"/>
-            <circle cx="19.5" cy="12" r="2.5" fill="currentColor" opacity="0.7"/>
-          </svg>
+      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+        <div className="flex h-10 items-center justify-center rounded-xl bg-sand-50/95 px-2 py-1 shadow-md shrink-0">
+          <img
+            src={muyRicoLogo}
+            alt="Muy Rico"
+            className="h-7 w-auto object-contain"
+          />
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-white font-serif">{profile.name}</p>
