@@ -555,7 +555,13 @@
       if (!content) return;
       if (content.hero_image && content.hero_image.image_url) {
         const img = document.getElementById('hero-img');
-        if (img) { img.src = content.hero_image.image_url; }
+        if (img && img.src !== content.hero_image.image_url) {
+          const newSrc = content.hero_image.image_url;
+          const preloader = new Image();
+          preloader.onload = () => { img.src = newSrc; };
+          preloader.onerror = () => { /* keep default */ };
+          preloader.src = newSrc;
+        }
       }
       if (content.story_image && content.story_image.image_url) {
         const img = document.getElementById('story-img');
