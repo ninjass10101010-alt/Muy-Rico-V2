@@ -41,21 +41,17 @@ export default function Sidebar({
   setPage: (p: Page) => void;
   onNavigate?: () => void;
 }) {
-  const { profile, quotes } = useStore();
+  const { quotes } = useStore();
   const pendingCount = quotes.filter((q) => q.status === "new").length;
   return (
     <div className="flex h-full w-64 flex-col bg-palm text-sand-100">
-      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-        <div className="flex h-10 items-center justify-center rounded-xl bg-sand-50/95 px-2 py-1 shadow-md shrink-0">
+      <div className="border-b border-white/10">
+        <div className="flex items-center justify-center bg-sand-50/95 px-4 py-3 shadow-md">
           <img
             src={muyRicoLogo}
             alt="Muy Rico"
-            className="h-7 w-auto object-contain"
+            className="h-12 w-full max-w-[180px] object-contain"
           />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-white font-serif">{profile.name}</p>
-          <p className="truncate text-xs text-sand-300">Kitchen Dashboard</p>
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
