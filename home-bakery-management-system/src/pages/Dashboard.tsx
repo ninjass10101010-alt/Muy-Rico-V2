@@ -25,6 +25,7 @@ import Badge from "../components/ui/Badge";
 import ProductIcon from "../components/ProductIcon";
 import { formatCurrency, formatDate, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABELS } from "../utils/format";
 import type { Page } from "../App";
+import muyRicoLogo from "../assets/muy_rico_logo_transparent.webp";
 
 export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
   const { orders, inventory, payments, products, loading, quotes } = useStore();
@@ -94,19 +95,38 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
 
   return (
     <div className="space-y-6">
-      {/* Welcome banner */}
-      <div className="overflow-hidden rounded-xl bg-gradient-to-r from-coral via-hibiscus to-mid-green p-6 text-white shadow-lg">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-sm font-medium text-white/80">Bienvenidos de vuelta</p>
-            <h2 className="mt-1 font-serif text-2xl font-semibold">Here's how your bakery is doing</h2>
-            <p className="mt-1 text-sm text-white/80">
-              {stats.pendingOrders.length} orders need attention · {stats.lowStock.length} items low on stock
-            </p>
+      {/* Welcome banner — solid bakery warmth */}
+      <div
+        className="relative overflow-hidden rounded-xl bg-palm p-6 shadow-lg"
+        style={{
+          background: "linear-gradient(135deg, #1e4636 0%, #16352a 100%)",
+        }}
+      >
+        {/* Flour-dust texture */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #faf5ef 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+        <div className="relative flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sand-50/95 px-2 shadow-md">
+              <img src={muyRicoLogo} alt="Muy Rico" className="h-9 w-auto object-contain" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-sand-50/80">Bienvenidos de vuelta</p>
+              <h2 className="mt-0.5 font-serif text-2xl font-semibold text-sand-50">Here's how your bakery is doing</h2>
+              <p className="mt-1 flex items-center gap-1.5 text-sm text-sand-50/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-coral" />
+                {stats.pendingOrders.length} orders need attention · {stats.lowStock.length} items low on stock
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setPage("orders")}
-            className="flex items-center gap-1.5 self-start rounded-xl bg-white/20 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/30"
+            className="flex items-center gap-1.5 self-start rounded-xl bg-sand-50 px-4 py-2 text-sm font-semibold text-palm shadow-sm transition hover:bg-sand-100"
           >
             View Orders <ArrowUpRight size={16} />
           </button>

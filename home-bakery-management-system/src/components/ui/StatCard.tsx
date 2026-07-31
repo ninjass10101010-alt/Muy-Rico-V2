@@ -14,23 +14,29 @@ export default function StatCard({
   tone?: "coral" | "hibiscus" | "mid-green" | "palm" | "sand";
   sub?: string;
 }) {
-  const tones: Record<string, string> = {
-    coral: "bg-coral-light/30 text-coral",
-    hibiscus: "bg-hibiscus-light/20 text-hibiscus",
-    "mid-green": "bg-mid-green-light/20 text-palm",
-    palm: "bg-palm/10 text-palm",
-    sand: "bg-sand-200 text-cocoa-muted",
+  const barColors: Record<string, string> = {
+    coral: "bg-coral",
+    hibiscus: "bg-hibiscus",
+    "mid-green": "bg-mid-green",
+    palm: "bg-palm",
+    sand: "bg-sand-400",
+  };
+  const iconColors: Record<string, string> = {
+    coral: "text-coral",
+    hibiscus: "text-hibiscus",
+    "mid-green": "text-palm",
+    palm: "text-palm",
+    sand: "text-cocoa-muted",
   };
   return (
-    <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="group relative overflow-hidden rounded-xl border border-sand-200 bg-sand-50 p-5 shadow-sm transition hover:shadow-md hover:-translate-y-0.5">
+      <div className={cn("absolute left-0 top-0 h-full w-1", barColors[tone])} />
+      <div className="flex items-center gap-2 pl-1">
+        <Icon size={14} className={iconColors[tone]} />
         <p className="text-sm font-medium text-cocoa-muted">{label}</p>
-        <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl", tones[tone])}>
-          <Icon size={18} />
-        </div>
       </div>
-      <p className="mt-3 font-serif text-2xl font-semibold tracking-tight text-cocoa">{value}</p>
-      {sub && <p className="mt-1 text-xs text-cocoa-muted">{sub}</p>}
+      <p className="mt-3 pl-1 font-serif text-2xl font-semibold tracking-tight text-cocoa">{value}</p>
+      {sub && <p className="mt-1 pl-1 text-xs text-cocoa-muted">{sub}</p>}
     </div>
   );
 }
