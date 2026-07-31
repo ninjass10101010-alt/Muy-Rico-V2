@@ -1974,6 +1974,7 @@
           displayName,
           displayNameEs,
           displayNameEn,
+          productId: tile.getAttribute('data-product-id') || tile.id.replace(/^tile-/, ''),
           price,
           qty,
           icon,
@@ -2147,6 +2148,7 @@
           name: currentLang === 'en' ? (c.displayNameEn || c.displayName || c.name) : (c.displayNameEs || c.displayName || c.name),
           name_es: c.displayNameEs || c.displayName || c.name,
           name_en: c.displayNameEn || c.displayName || c.nameEn || c.name,
+          productId: c.productId || '',
           qty: c.qty,
           price: c.price,
           emoji: c.toastEmoji || '🍞'

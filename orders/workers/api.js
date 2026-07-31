@@ -1864,16 +1864,17 @@ async function generateLabelsForOrder(env, orderId, body) {
   const { results: allProducts } = await env.DB.prepare('SELECT * FROM products WHERE active = 1').all();
 
   for (const item of items) {
-    // Resolve product — prefer productId, fall back to name matching
+    // Resolve product — prefer productId, fall back to bilingual name matching
     let product = null;
     if (item.productId) {
       product = await env.DB.prepare('SELECT * FROM products WHERE id = ?').bind(item.productId).first();
     }
-    if (!product && item.name) {
-      product = allProducts.find(p =>
-        p.name.toLowerCase() === item.name.toLowerCase() ||
-        item.name.toLowerCase().includes(p.name.toLowerCase())
-      ) || null;
+    if (!product) {
+      const itemNames = [item.name, item.name_es, item.name_en].filter(Boolean).map(n => n.toLowerCase());
+      product = allProducts.find(p => {
+        const pNames = [p.name, p.name_es].filter(Boolean).map(n => n.toLowerCase());
+        return pNames.some(pn => itemNames.some(inm => inm === pn || inm.includes(pn)));
+      }) || null;
     }
     if (!product || !product.auto_generate_label) continue;
 
