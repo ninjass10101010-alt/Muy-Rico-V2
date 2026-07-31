@@ -584,6 +584,9 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   color: var(--hairline-strong);
 }
 /* Hero photo: un-boxed widget, uniform radius, bleeds to the viewport edge */
+/* Pre-hide so GSAP doesn't flash the image at its natural position before
+   setting the animation start state (x:40, opacity:0). GSAP's autoAlpha
+   will reveal it during the entrance animation. */
 .hero-photo { position: relative; z-index: 1; }
 .hero-photo-img {
   width: 100%;
@@ -1495,6 +1498,7 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
    The inline scripts add .no-gsap to <html> when window.gsap is missing. */
 .no-gsap .reveal,
 .no-gsap .hero-anim,
+.no-gsap .hero-photo,
 .no-gsap .hero-ctas > * {
   opacity: 1 !important;
   transform: none !important;

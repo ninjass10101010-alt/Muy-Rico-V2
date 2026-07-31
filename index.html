@@ -515,11 +515,13 @@
     }
     if (!prefersReduced) {
       // One orchestrated entrance: copy column staggers in, photo slides from the right
-      gsap.from('.hero-photo', { x: 40, autoAlpha: 0, duration: 1, ease: 'power3.out' });
-      gsap.from('.hero-copy .hero-anim', {
-        y: 26, autoAlpha: 0, duration: 0.8, stagger: 0.12,
-        ease: 'power3.out', delay: 0.15, clearProps: 'opacity,visibility,transform'
-      });
+      gsap.fromTo('.hero-photo',
+        { x: 40, autoAlpha: 0 },
+        { x: 0, autoAlpha: 1, duration: 1, ease: 'power3.out', clearProps: 'all' });
+      gsap.fromTo('.hero-copy .hero-anim',
+        { y: 26, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.8, stagger: 0.12,
+          ease: 'power3.out', delay: 0.15, clearProps: 'opacity,visibility,transform' });
     }
 
     /* ---------------- Hamburger ---------------- */
