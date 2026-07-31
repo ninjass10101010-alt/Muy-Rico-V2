@@ -1452,23 +1452,6 @@
             galleryProductIds = new Set((gData.photos || []).map(ph => ph.product_id));
           }
         } catch (_) { /* ignore */ }
-        if (!allProducts.some(p => p.id === 'prod_custom_cake' || p.category === 'Cakes')) {
-          allProducts.push({
-            id: 'prod_custom_cake',
-            name: 'Custom Cake',
-            name_es: 'Pastel Personalizado',
-            description: '8-inch, 2-layer cake made fresh to order. Choose your cake flavor and frosting to create your perfect combination.',
-            description_es: 'Pastel de 8 pulgadas, 2 capas, hecho al momento. Elige el sabor del pastel y el betún.',
-            image_url: 'menu-cake.webp',
-            price: 35.00,
-            category: 'Cakes',
-            emoji: 'cake.svg',
-            flavor_groups: [
-              { name: 'Cake', name_es: 'Pastel', options: ['Chocolate', 'Vanilla'] },
-              { name: 'Frosting', name_es: 'Betún', options: ['Vanilla Buttercream', 'Chocolate Buttercream'] }
-            ]
-          });
-        }
         renderProducts(allProducts);
       } catch (err) {
         console.warn('Could not load live products, showing fallback menu:', err);
