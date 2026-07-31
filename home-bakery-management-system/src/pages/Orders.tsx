@@ -16,7 +16,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, products, payments, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, refreshPayments, receipts, resendReceipt, generateReceipt } = useStore();
+  const { orders, products, payments, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -495,6 +495,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   await generateOrderLabels(Number(selected.id));
                   setLabelGenResult("Labels generated! Click \"View Labels\" to open them.");
                   await refreshOrders();
+                  await refreshLabelTemplates();
                 } catch {
                   setLabelGenResult("Could not generate labels — try again.");
                 } finally {
