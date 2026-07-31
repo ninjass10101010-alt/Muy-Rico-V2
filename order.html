@@ -643,14 +643,19 @@
                The script at the bottom replaces this inner content with live
                products from /api/products when JS + API are available. -->
 
-          <article class="product-tile reveal has-hero has-packs" id="tile-prod_cookie" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Coqui" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_cookie" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Coqui" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="16" data-pack-qty="4" data-pack-label="Pack of 4">
             <div class="tile-hero"><img class="tile-hero-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Coqui">Galleta de Chispas de Chocolate</h3>
-            <p class="tile-desc lang-fade" data-es="Classic soft-baked chocolate chip cookie. Dozen Pricing: $40." data-en="Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;.">Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;.</p>
+            <p class="tile-desc lang-fade" data-es="Classic soft-baked chocolate chip cookie. Pack pricing: 4/$16, 6/$22, 12/$40." data-en="Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;. Pack pricing: 4/$16, 6/$22, 12/$40.">Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;. Pack pricing: 4/$16, 6/$22, 12/$40.</p>
             <div class="pack-selects">
-              <div class="pack-option selected" data-pack-id="single" data-pack-price="4" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
-                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+              <div class="pack-option selected" data-pack-id="4-pack" data-pack-price="16" data-pack-qty="4" data-pack-label="Pack of 4" data-pack-label-es="Paquete de 4" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Paquete de 4" data-en="Pack of 4">Pack of 4</button>
                 <span class="pack-unit-price lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="half-dozen" data-pack-price="22" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Media Docena (6)" data-en="Half Dozen (6)">Half Dozen (6)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $2!" data-en="Save $2">Save $2</span>
+                <span class="pack-unit-price lang-fade" data-es="$3.67 c/u" data-en="$3.67 ea">$3.67 ea</span>
               </div>
               <div class="pack-option" data-pack-id="dozen" data-pack-price="40" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)" onclick="selectPack(this)">
                 <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)">Dozen (12)</button>
@@ -671,7 +676,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal has-hero has-packs" id="tile-prod_conchas" data-category="Bread" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="conchas.svg" data-has-packs="1" data-pack-price="4" data-pack-qty="1" data-pack-label="Single">
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_conchas" data-category="Bread" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="conchas.svg" data-has-packs="1" data-pack-price="16" data-pack-qty="4" data-pack-label="Pack of 4">
             <div class="tile-hero"><img class="tile-hero-img" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Conchas" data-en="Conchas">Conchas</h3>
             <p class="tile-desc lang-fade"
@@ -688,8 +693,8 @@
               </select>
             </div>
             <div class="pack-selects">
-              <div class="pack-option selected" data-pack-id="single" data-pack-price="4" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
-                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+              <div class="pack-option selected" data-pack-id="4-pack" data-pack-price="16" data-pack-qty="4" data-pack-label="Pack of 4" data-pack-label-es="Paquete de 4" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Paquete de 4" data-en="Pack of 4">Pack of 4</button>
                 <span class="pack-unit-price lang-fade" data-es="$4.00 c/u" data-en="$4.00 ea">$4.00 ea</span>
               </div>
               <div class="pack-option" data-pack-id="half-dozen" data-pack-price="22" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
@@ -716,7 +721,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal has-hero has-packs" id="tile-prod_bolillos" data-category="Bread" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="bolillos.svg" data-has-packs="1" data-pack-price="2" data-pack-qty="1" data-pack-label="Single">
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_bolillos" data-category="Bread" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="bolillos.svg" data-has-packs="1" data-pack-price="8" data-pack-qty="4" data-pack-label="Pack of 4">
             <div class="tile-hero"><img class="tile-hero-img" src="menu-bolillos.webp" alt="Bolillos" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Bolillos" data-en="Bolillos">Bolillos</h3>
             <p class="tile-desc lang-fade"
@@ -725,9 +730,14 @@
               This Mexican French inspired bread has a crunchy crust and soft center. These Bolillos are perfect for all your sandwich/Torta needs. But let&rsquo;s be real, warm that Bolillo up, cover it in butter, and let the happiness wash over you.
             </p>
             <div class="pack-selects">
-              <div class="pack-option selected" data-pack-id="single" data-pack-price="2" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
-                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+              <div class="pack-option selected" data-pack-id="4-pack" data-pack-price="8" data-pack-qty="4" data-pack-label="Pack of 4" data-pack-label-es="Paquete de 4" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Paquete de 4" data-en="Pack of 4">Pack of 4</button>
                 <span class="pack-unit-price lang-fade" data-es="$2.00 c/u" data-en="$2.00 ea">$2.00 ea</span>
+              </div>
+              <div class="pack-option" data-pack-id="half-dozen" data-pack-price="11" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Media Docena (6)" data-en="Half Dozen (6)">Half Dozen (6)</button>
+                <span class="pack-badge lang-fade" data-es="¡Ahorra $1!" data-en="Save $1">Save $1</span>
+                <span class="pack-unit-price lang-fade" data-es="$1.83 c/u" data-en="$1.83 ea">$1.83 ea</span>
               </div>
               <div class="pack-option" data-pack-id="dozen" data-pack-price="20" data-pack-qty="12" data-pack-label="Dozen (12)" data-pack-label-es="Docena (12)" onclick="selectPack(this)">
                 <button type="button" class="pack-btn lang-fade" data-es="Docena (12)" data-en="Dozen (12)">Dozen (12)</button>
@@ -769,7 +779,7 @@
             </div>
           </article>
 
-          <article class="product-tile reveal has-hero has-packs" id="tile-prod_empanadas" data-category="Bread" data-name="Empanadas" data-name-en="Empanadas" data-price="3.00" data-icon="empanada.svg" data-toast-emoji="empanada.svg" data-has-flavors="1" data-has-packs="1" data-pack-price="3" data-pack-qty="1" data-pack-label="Single">
+          <article class="product-tile reveal has-hero has-packs" id="tile-prod_empanadas" data-category="Bread" data-name="Empanadas" data-name-en="Empanadas" data-price="3.00" data-icon="empanada.svg" data-toast-emoji="empanada.svg" data-has-flavors="1" data-has-packs="1" data-pack-price="12" data-pack-qty="4" data-pack-label="Pack of 4">
             <div class="tile-hero"><img class="tile-hero-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Empanadas" data-en="Empanadas">Empanadas</h3>
             <p class="tile-desc lang-fade"
@@ -789,8 +799,8 @@
               </div>
             </div>
             <div class="pack-selects">
-              <div class="pack-option selected" data-pack-id="single" data-pack-price="3" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
-                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+              <div class="pack-option selected" data-pack-id="4-pack" data-pack-price="12" data-pack-qty="4" data-pack-label="Pack of 4" data-pack-label-es="Paquete de 4" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Paquete de 4" data-en="Pack of 4">Pack of 4</button>
                 <span class="pack-unit-price lang-fade" data-es="$3.00 c/u" data-en="$3.00 ea">$3.00 ea</span>
               </div>
               <div class="pack-option" data-pack-id="half-dozen" data-pack-price="15" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
@@ -817,7 +827,7 @@
             </div>
           </article>
 
-<article class="product-tile reveal has-hero has-packs" id="tile-prod_cakepop" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="cakepop.svg" data-has-flavors="1" data-has-packs="1" data-pack-price="3" data-pack-qty="1" data-pack-label="Single">
+<article class="product-tile reveal has-hero has-packs" id="tile-prod_cakepop" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="cakepop.svg" data-has-flavors="1" data-has-packs="1" data-pack-price="12" data-pack-qty="4" data-pack-label="Pack of 4">
              <div class="tile-hero"><img class="tile-hero-img" src="menu-cakepops.webp" alt="Cakepops" loading="lazy"/></div>
              <h3 class="tile-title lang-fade" data-es="Cakepops" data-en="Cakepops">Cakepops</h3>
              <p class="tile-desc lang-fade"
@@ -846,8 +856,8 @@
               </select>
             </div>
             <div class="pack-selects">
-              <div class="pack-option selected" data-pack-id="single" data-pack-price="3" data-pack-qty="1" data-pack-label="Single" data-pack-label-es="Individual" onclick="selectPack(this)">
-                <button type="button" class="pack-btn lang-fade" data-es="Individual" data-en="Single">Single</button>
+              <div class="pack-option selected" data-pack-id="4-pack" data-pack-price="12" data-pack-qty="4" data-pack-label="Pack of 4" data-pack-label-es="Paquete de 4" onclick="selectPack(this)">
+                <button type="button" class="pack-btn lang-fade" data-es="Paquete de 4" data-en="Pack of 4">Pack of 4</button>
                 <span class="pack-unit-price lang-fade" data-es="$3.00 c/u" data-en="$3.00 ea">$3.00 ea</span>
               </div>
               <div class="pack-option" data-pack-id="half-dozen" data-pack-price="15" data-pack-qty="6" data-pack-label="Half Dozen (6)" data-pack-label-es="Media Docena (6)" onclick="selectPack(this)">
