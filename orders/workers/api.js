@@ -555,7 +555,7 @@ async function getOrder(id, env, actor) {
 
 async function updateOrder(id, request, env, actor) {
   const body = await request.json();
-  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring'];
+  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring', 'customer_id'];
   const sets = [], binds = [];
   for (const f of allowed) {
     if (body[f] === undefined) continue;
