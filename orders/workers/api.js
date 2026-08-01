@@ -1783,6 +1783,8 @@ async function enrichInventoryOff(request, env) {
       headers: { 'User-Agent': OFF_USER_AGENT, 'Accept': 'application/json' },
       signal: ctrl.signal,
     });
+    // OFF returns HTTP 404 for unknown barcodes — a clean miss, not an error
+    if (res.status === 404) return json({ source: 'off', product: null }, 200);
     if (!res.ok) return json({ error: 'Open Food Facts lookup failed', status: res.status }, 502);
     const data = await res.json();
     const product = data && data.product ? mapOffProduct(data.product) : null;
