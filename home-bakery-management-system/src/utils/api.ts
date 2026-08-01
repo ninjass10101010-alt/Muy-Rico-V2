@@ -62,11 +62,15 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     let errorMsg = `API error ${res.status}`;
+    let errBody: any = null;
     try {
-      const errData = await res.json();
-      errorMsg = errData.error || errorMsg;
+      errBody = await res.json();
+      errorMsg = errBody.error || errorMsg;
     } catch {}
-    throw new Error(errorMsg);
+    const err: any = new Error(errorMsg);
+    err.status = res.status;
+    err.body = errBody;
+    throw err;
   }
   const data = await res.json();
   return data as T;
@@ -351,7 +355,7 @@ export async function lookupInventoryByCode(
     const data = await apiFetch<{ item: ApiInventoryItem }>(url);
     return { item: data.item };
   } catch (err: any) {
-    return { error: err?.message || "Lookup failed", status: 500 };
+    return { error: err?.message || "Lookup failed", status: err?.status || 500 };
   }
 }
 

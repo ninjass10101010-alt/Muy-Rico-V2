@@ -1730,7 +1730,7 @@ async function adjustInventoryItem(id, request, env, actor) {
   const delta = Number(body.delta);
   if (!Number.isFinite(delta)) return json({ error: 'delta must be a finite number' }, 400);
   const r = await env.DB.prepare(
-    `UPDATE inventory SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ? AND active = 1`
+    `UPDATE inventory SET quantity = MAX(0, quantity + ?), updated_at = datetime('now') WHERE id = ? AND active = 1`
   ).bind(delta, id).run();
   if (!r.meta.changes) return json({ error: 'Not found or inactive' }, 404);
   const row = await env.DB.prepare('SELECT quantity FROM inventory WHERE id = ?').bind(id).first();
@@ -1767,7 +1767,18 @@ async function createInventory(request, env, actor) {
       body.barcode || null,
     ).run();
   } catch (err) {
-    return json({ error: String(err) }, 400);
+    const msg = String(err);
+    if (msg.includes('UNIQUE') && msg.includes('inventory.barcode')) {
+      const owner = body.barcode ? await env.DB.prepare(
+        'SELECT id, name FROM inventory WHERE LOWER(barcode) = LOWER(?) LIMIT 1'
+      ).bind(body.barcode).first() : null;
+      return json({
+        error: 'Barcode already bound to another item',
+        code: 'barcode_conflict',
+        conflict: owner || null,
+      }, 409);
+    }
+    return json({ error: msg }, 400);
   }
   return json({ ok: true, id: body.id }, 201);
 }

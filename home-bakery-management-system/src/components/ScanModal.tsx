@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ScanLine, Search, X, Check, Link as LinkIcon } from "lucide-react";
+import { ScanLine, Search, Check, Link as LinkIcon } from "lucide-react";
 import Modal from "./ui/Modal";
 import Badge from "./ui/Badge";
 import {
@@ -179,9 +179,10 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
       }
     } catch (e: any) {
       // 409 conflict: another item already has this code
-      const msg = String(e?.message || "");
-      if (msg.toLowerCase().includes("barcode") || msg.toLowerCase().includes("conflict")) {
-        const c: ConflictInfo | null = (e?.conflict) ? e.conflict : null;
+      const status = e?.status ?? 0;
+      const body = e?.body ?? null;
+      if (status === 409 || body?.code === 'barcode_conflict') {
+        const c: ConflictInfo | null = body?.conflict ? { id: body.conflict.id, name: body.conflict.name } : null;
         if (c) {
           setConflict(c);
           setMode("conflict");
@@ -190,7 +191,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
           setMode("error");
         }
       } else {
-        setErrMsg(msg || "Bind failed");
+        setErrMsg(String(e?.message || "Bind failed"));
         setMode("error");
       }
     } finally {
