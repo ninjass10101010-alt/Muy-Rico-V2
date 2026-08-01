@@ -32,5 +32,6 @@ UPDATE customers SET
 WHERE active = 1 AND email IS NOT NULL AND email_normalized IS NULL;
 
 UPDATE customers SET
-  phone_normalized = REGEXP_REPLACE(phone, '[^0-9]', '', 'g')
+  phone_normalized = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+    phone, '-', ''), ' ', ''), '(', ''), ')', ''), '.', ''), '+', '')
 WHERE active = 1 AND phone IS NOT NULL AND phone_normalized IS NULL;
