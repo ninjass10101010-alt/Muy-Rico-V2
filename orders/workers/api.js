@@ -58,7 +58,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-import { normalizeEmail, normalizePhone } from './customer-match.js';
+import { normalizeEmail, normalizePhone, matchCustomer } from './customer-match.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -1832,16 +1832,49 @@ async function createCustomer(request, env, actor) {
   const body = await request.json();
   if (!body.id || !body.name) return json({ error: 'Missing required fields: id, name' }, 400);
   if (typeof body.id !== 'string' || body.id.length > 64) return json({ error: 'id must be a short string' }, 400);
+
+  const emailNorm = normalizeEmail(body.email);
+  const phoneNorm = normalizePhone(body.phone);
+
+  if (!body.force) {
+    const { results: existing } = await env.DB.prepare(
+      'SELECT id, name, email_normalized, phone_normalized FROM customers WHERE active = 1'
+    ).all();
+
+    const match = matchCustomer(
+      { name: body.name, email: body.email, phone: body.phone },
+      existing
+    );
+
+    if (match) {
+      return json({
+        ok: false,
+        duplicate: true,
+        existingId: match.existingId,
+        existingName: match.existingName,
+        matchedBy: match.matchedBy,
+      }, 200);
+    }
+  }
+
   try {
     await env.DB.prepare(`
-      INSERT INTO customers (id, name, phone, email, notes, created_at, active)
-      VALUES (?, ?, ?, ?, ?, datetime('now'), 1)
+      INSERT INTO customers (id, name, phone, email, email_normalized, phone_normalized, notes, created_at, active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
     `).bind(
-      body.id, body.name, body.phone || null, body.email || null, body.notes || null
+      body.id, body.name, body.phone || null, body.email || null,
+      emailNorm, phoneNorm, body.notes || null
     ).run();
   } catch (err) {
     return json({ error: String(err) }, 400);
   }
+
+  if (body.force) {
+    await env.DB.prepare(`
+      INSERT INTO order_events (order_id, actor, event) VALUES (0, ?, 'customer_created_despite_match')
+    `).bind(actor).run();
+  }
+
   return json({ ok: true, id: body.id }, 201);
 }
 
