@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Mail, Phone, FileText } from "lucide-react";
 import Modal from "./ui/Modal";
 import { formatCurrency } from "../utils/format";
-import { apiMergeCustomers } from "../utils/api";
 import type { Customer } from "../types";
 import type { DuplicatePair } from "../utils/api";
 
@@ -11,10 +10,10 @@ interface MergeModalProps {
   onClose: () => void;
   pair: DuplicatePair | null;
   stats: Record<string, { count: number; total: number }>;
-  onMerged: () => void;
+  onMerge: (survivingId: string, mergedId: string) => Promise<void>;
 }
 
-export default function MergeModal({ open, onClose, pair, stats, onMerged }: MergeModalProps) {
+export default function MergeModal({ open, onClose, pair, stats, onMerge }: MergeModalProps) {
   const [survivingSide, setSurvivingSide] = useState<"left" | "right">("left");
   const [merging, setMerging] = useState(false);
   const [error, setError] = useState("");
@@ -38,8 +37,7 @@ export default function MergeModal({ open, onClose, pair, stats, onMerged }: Mer
     setMerging(true);
     setError("");
     try {
-      await apiMergeCustomers(surviving.id, merged.id);
-      onMerged();
+      await onMerge(surviving.id, merged.id);
       onClose();
     } catch (err: any) {
       setError(err.message || "Merge failed");

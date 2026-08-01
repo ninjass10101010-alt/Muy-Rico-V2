@@ -18,7 +18,7 @@ const emptyCustomer = (): Customer => ({
 });
 
 export default function Customers({ search }: { search: string }) {
-  const { customers, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, orders } = useStore();
+  const { customers, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleMergeCustomers, orders } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<Customer>(emptyCustomer());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -291,8 +291,8 @@ export default function Customers({ search }: { search: string }) {
         }}
         pair={mergePair}
         stats={stats}
-        onMerged={() => {
-          // Refresh duplicates and customers after merge
+        onMerge={async (survivingId, mergedId) => {
+          await handleMergeCustomers(survivingId, mergedId);
           apiGetDuplicateCustomers().then(setDuplicates).catch(() => {});
         }}
       />

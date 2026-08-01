@@ -223,6 +223,12 @@ export default {
         if (method === 'DELETE') return await deleteLabelTemplate(id, env, actorName);
       }
 
+      // Customer merge/duplicates — MUST be before the :id route below
+      if (method === 'POST' && path === '/api/customers/merge')             return mergeCustomers(request, env, ctx, actorName);
+      if (method === 'POST' && path.match(/^\/api\/customers\/merge\/([^/]+)\/reverse$/))
+        return reverseMerge(path.match(/^\/api\/customers\/merge\/([^/]+)\/reverse$/)[1], request, env, actorName);
+      if (method === 'GET' && path === '/api/customers/duplicates')          return listDuplicates(env);
+
       const cm = path.match(/^\/api\/customers\/([A-Za-z0-9_-]+)$/);
       if (cm) {
         const id = cm[1];
@@ -233,12 +239,6 @@ export default {
 
       if (path === '/api/customers' && method === 'GET') return await listCustomers(env);
       if (path === '/api/customers' && method === 'POST') return await createCustomer(request, env, actorName);
-
-      // Customer merge/duplicates
-      if (method === 'POST' && path === '/api/customers/merge')             return mergeCustomers(request, env, ctx, actorName);
-      if (method === 'POST' && path.match(/^\/api\/customers\/merge\/([^/]+)\/reverse$/))
-        return reverseMerge(path.match(/^\/api\/customers\/merge\/([^/]+)\/reverse$/)[1], request, env, actorName);
-      if (method === 'GET' && path === '/api/customers/duplicates')          return listDuplicates(env);
       if (path === '/api/payments' && method === 'GET') return await listPayments(env);
       if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
 
@@ -1856,10 +1856,11 @@ async function createCustomer(request, env, actor) {
   const phoneNorm = normalizePhone(body.phone);
 
   if (!body.force) {
-    const { results: existing } = await env.DB.prepare(
-      'SELECT id, name, email_normalized, phone_normalized FROM customers WHERE active = 1'
+    const { results: existingRows } = await env.DB.prepare(
+      'SELECT id, name, active, email_normalized, phone_normalized FROM customers WHERE active = 1'
     ).all();
 
+    const existing = existingRows.map(snakeToCamelObject);
     const match = matchCustomer(
       { name: body.name, email: body.email, phone: body.phone },
       existing
@@ -1904,6 +1905,12 @@ async function updateCustomer(id, request, env, actor) {
     const val = getBodyField(body, f);
     if (val === undefined) continue;
     sets.push(`${f} = ?`); binds.push(val);
+    // Keep normalized columns in sync when email/phone changes
+    if (f === 'email') {
+      sets.push('email_normalized = ?'); binds.push(normalizeEmail(val));
+    } else if (f === 'phone') {
+      sets.push('phone_normalized = ?'); binds.push(normalizePhone(val));
+    }
   }
   if (!sets.length) return json({ error: 'Nothing to update' }, 400);
   sets.push("updated_at = datetime('now')");
@@ -1934,18 +1941,25 @@ async function mergeCustomers(request, env, ctx, actor) {
   if (!survivingId || !mergedId) return json({ error: 'Missing survivingId or mergedId' }, 400);
   if (survivingId === mergedId) return json({ error: 'Cannot merge a customer with itself' }, 400);
 
-  const surviving = await env.DB.prepare('SELECT id, name, active, merged_into_id FROM customers WHERE id = ?').bind(survivingId).first();
-  const merged = await env.DB.prepare('SELECT id, name, active, merged_into_id FROM customers WHERE id = ?').bind(mergedId).first();
-  if (!surviving || !merged) return json({ error: 'Customer not found' }, 404);
-  if (surviving.active !== 1 || merged.active !== 1) return json({ error: 'Both customers must be active' }, 400);
-  if (surviving.merged_into_id || merged.merged_into_id) return json({ error: 'Cannot merge an already-merged customer' }, 400);
+  const survivingRow = await env.DB.prepare('SELECT id, name, active, email, phone, email_normalized, phone_normalized, merged_into_id FROM customers WHERE id = ?').bind(survivingId).first();
+  const mergedRow = await env.DB.prepare('SELECT id, name, active, email, phone, email_normalized, phone_normalized, merged_into_id FROM customers WHERE id = ?').bind(mergedId).first();
+  if (!survivingRow || !mergedRow) return json({ error: 'Customer not found' }, 404);
+  if (survivingRow.active !== 1 || mergedRow.active !== 1) return json({ error: 'Both customers must be active' }, 400);
+  if (survivingRow.merged_into_id || mergedRow.merged_into_id) return json({ error: 'Cannot merge an already-merged customer' }, 400);
+
+  const surviving = snakeToCamelObject(survivingRow);
+  const merged = snakeToCamelObject(mergedRow);
 
   const match = matchCustomer(
-    { name: merged.name, email: null, phone: null },
+    { name: merged.name, email: merged.email, phone: merged.phone },
     [surviving]
   );
   const matchedBy = match ? match.matchedBy : 'admin_manual';
-  const matchedFields = JSON.stringify({ surviving: survivingId, merged: mergedId });
+  const matchedFields = JSON.stringify({
+    surviving: { id: survivingId, name: surviving.name, email: surviving.email, phone: surviving.phone },
+    merged: { id: mergedId, name: merged.name, email: merged.email, phone: merged.phone },
+    matchedBy,
+  });
 
   const { results: ordersToRelink } = await env.DB.prepare(
     'SELECT id FROM orders WHERE customer_id = ?'
