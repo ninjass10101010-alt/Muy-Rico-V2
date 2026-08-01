@@ -1,9 +1,10 @@
 import { useState, Suspense, lazy } from "react";
-import { Minus, Pencil, Plus, ScanLine, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, ScanLine, Search, Trash2 } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
 import Badge from "../components/ui/Badge";
 import { formatCurrency } from "../utils/format";
+import { lookupUsdaIngredient, type UsdaCandidate } from "../utils/api";
 import type { InventoryItem } from "../types";
 
 const ScanModal = lazy(() => import("../components/ScanModal"));
@@ -27,6 +28,11 @@ export default function Inventory({ search }: { search: string }) {
   const [draft, setDraft] = useState<InventoryItem>(emptyItem());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [allergensText, setAllergensText] = useState("");
+  const [usdaOpen, setUsdaOpen] = useState(false);
+  const [usdaBusy, setUsdaBusy] = useState(false);
+  const [usdaQ, setUsdaQ] = useState("");
+  const [usdaResults, setUsdaResults] = useState<UsdaCandidate[]>([]);
+  const [usdaErr, setUsdaErr] = useState("");
 
   const filtered = inventory.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -34,6 +40,10 @@ export default function Inventory({ search }: { search: string }) {
     setDraft(emptyItem());
     setEditingId(null);
     setAllergensText("");
+    setUsdaOpen(false);
+    setUsdaQ("");
+    setUsdaResults([]);
+    setUsdaErr("");
     setModalOpen(true);
   }
 
@@ -41,6 +51,10 @@ export default function Inventory({ search }: { search: string }) {
     setDraft(i);
     setEditingId(i.id);
     setAllergensText((i.allergens || []).join(", "));
+    setUsdaOpen(false);
+    setUsdaQ(i.name);
+    setUsdaResults([]);
+    setUsdaErr("");
     setModalOpen(true);
   }
 
@@ -59,6 +73,8 @@ export default function Inventory({ search }: { search: string }) {
       unit_weight: draft.unit_weight,
       allergens: allergens.length ? allergens : undefined,
       barcode: draft.barcode ? draft.barcode : null,
+      nutrition_source: draft.nutritionSource,
+      nutrition_fetched_at: draft.nutritionFetchedAt,
     };
     try {
       if (editingId) {
@@ -91,6 +107,40 @@ export default function Inventory({ search }: { search: string }) {
     }).catch((err) => {
       console.warn("Adjust failed:", err);
     });
+  }
+
+  async function usdaSearch() {
+    if (!usdaQ.trim()) return;
+    setUsdaBusy(true);
+    setUsdaErr("");
+    try {
+      const r = await lookupUsdaIngredient(usdaQ.trim(), 5);
+      setUsdaResults(r.candidates || []);
+    } catch (e: any) {
+      setUsdaErr(e?.message || "Lookup failed");
+      setUsdaResults([]);
+    } finally {
+      setUsdaBusy(false);
+    }
+  }
+
+  function usdaApply(c: UsdaCandidate) {
+    const merged = [...(draft.allergens || []).filter(Boolean)];
+    for (const tag of c.allergenHints) if (!merged.includes(tag)) merged.push(tag);
+    setAllergensText(merged.join(", "));
+    const lb =
+      c.portionGramWeight != null
+        ? Math.round(c.portionGramWeight * 0.00220462 * 10000) / 10000
+        : undefined;
+    setDraft({
+      ...draft,
+      ingredients_label: c.ingredients || draft.ingredients_label,
+      unit_weight: lb ?? draft.unit_weight,
+      nutritionSource: `fdc:${c.fdcId}`,
+      nutritionFetchedAt: new Date().toISOString(),
+    });
+    setUsdaOpen(false);
+    setUsdaResults([]);
   }
 
   const totalValue = inventory.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
@@ -263,7 +313,28 @@ export default function Inventory({ search }: { search: string }) {
           <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
             <p className="mb-2 text-xs font-medium text-cocoa">Label info (used to auto-generate product labels)</p>
             <div className="space-y-3">
-              <Field label="Sub-ingredients label (legal)">
+              <div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="text-xs font-medium text-cocoa-muted">Sub-ingredients label (legal)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsdaQ(draft.name || usdaQ);
+                      setUsdaOpen(!usdaOpen);
+                      setUsdaResults([]);
+                      setUsdaErr("");
+                    }}
+                    className="rounded-lg border border-palm/30 px-2.5 py-1 text-xs font-medium text-palm hover:bg-palm/5"
+                  >
+                    Find ingredient data
+                  </button>
+                </div>
+                {draft.nutritionSource && (
+                  <p className="mb-1 text-[11px] text-cocoa-muted">
+                    Filled from USDA · {(draft.nutritionFetchedAt || "").slice(0, 10)} — click "Find ingredient
+                    data" to refetch.
+                  </p>
+                )}
                 <textarea
                   value={draft.ingredients_label || ""}
                   onChange={(e) => setDraft({ ...draft, ingredients_label: e.target.value || undefined })}
@@ -271,7 +342,51 @@ export default function Inventory({ search }: { search: string }) {
                   rows={2}
                   className="input"
                 />
-              </Field>
+                {usdaOpen && (
+                  <div className="mt-2 rounded-lg border border-sand-200 bg-white p-2">
+                    <div className="flex gap-2">
+                      <input
+                        value={usdaQ}
+                        onChange={(e) => setUsdaQ(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") usdaSearch(); }}
+                        placeholder="Search USDA FoodData Central…"
+                        className="input flex-1"
+                      />
+                      <button
+                        onClick={usdaSearch}
+                        disabled={usdaBusy}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-palm px-3 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        <Search size={12} /> {usdaBusy ? "Searching…" : "Search"}
+                      </button>
+                    </div>
+                    {usdaErr && <p className="mt-2 text-xs text-hibiscus">{usdaErr}</p>}
+                    <ul className="mt-2 max-h-48 divide-y divide-sand-100 overflow-y-auto">
+                      {usdaResults.map((c) => (
+                        <li key={c.fdcId}>
+                          <button
+                            type="button"
+                            onClick={() => usdaApply(c)}
+                            className="w-full px-2 py-2 text-left hover:bg-sand-50"
+                          >
+                            <div className="text-sm font-medium text-cocoa">{c.name}</div>
+                            <div className="text-xs text-cocoa-muted">
+                              {c.dataType}
+                              {c.foodCategory ? ` · ${c.foodCategory}` : ""}
+                              {c.portionGramWeight != null
+                                ? ` · ${Math.round(c.portionGramWeight)} g/portion`
+                                : ""}
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                      {!usdaBusy && usdaResults.length === 0 && (
+                        <li className="px-2 py-3 text-xs text-cocoa-muted">No matches — try a different search.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
               <Field label="Allergens (comma-separated tags)">
                 <input
                   value={allergensText}
