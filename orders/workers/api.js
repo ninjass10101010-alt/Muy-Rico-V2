@@ -122,6 +122,9 @@ export default {
       if (path === '/api/inventory' && method === 'POST') return await createInventory(request, env, actorName);
       // /api/inventory/lookup must be matched BEFORE the /api/inventory/:id regex below
       if (path === '/api/inventory/lookup' && method === 'GET') return await lookupInventoryByCode(request, env);
+      // External-source enrichment lookups
+      if (path === '/api/inventory/lookup-ingredient' && method === 'GET') return await lookupIngredientUsda(request, env);
+      if (path === '/api/inventory/enrich' && method === 'GET') return await enrichInventoryOff(request, env);
 
       const om = path.match(/^\/api\/orders\/(\d+)$/);
       if (om) {
@@ -249,8 +252,9 @@ export default {
       const qm = path.match(/^\/api\/quotes\/(\d+)$/);
       if (qm) {
         const id = Number(qm[1]);
-        if (method === 'GET')   return await getQuote(id, env);
-        if (method === 'PATCH') return await updateQuote(id, request, env, ctx, actorName);
+        if (method === 'GET')    return await getQuote(id, env);
+        if (method === 'PATCH')  return await updateQuote(id, request, env, ctx, actorName);
+        if (method === 'DELETE') return await deleteQuote(id, env);
       }
 
       const qcm = path.match(/^\/api\/quotes\/(\d+)\/convert$/);
@@ -2094,24 +2098,40 @@ function parseAllergenTags(allergenText) {
 }
 
 async function generateLabelsForOrder(env, orderId, body) {
+  if (!body || !body.items_json) {
+    console.error(`generateLabelsForOrder: no items_json for order ${orderId}`);
+    return 0;
+  }
   let items = [];
   try {
     items = typeof body.items_json === 'string' ? JSON.parse(body.items_json) : body.items_json;
-  } catch(e) { return; }
+  } catch(e) {
+    console.error(`generateLabelsForOrder: failed to parse items_json for order ${orderId}:`, e);
+    return 0;
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    console.error(`generateLabelsForOrder: empty items array for order ${orderId}`);
+    return 0;
+  }
 
   const profileRow = await env.DB.prepare("SELECT * FROM business_profile WHERE id = 'singleton'").first();
   const profile = profileRow || {};
   const foodColoring = (body.food_coloring || '').trim();
+  // Products that can be tinted with food coloring (mirrors COLORABLE_PRODUCTS in OrderModal.tsx).
+  // The disclosure is only appended to labels for these products, not the whole order.
+  const COLORABLE_PRODUCTS = ['prod_cupcakes', 'prod_cakepop', 'prod_custom_cake'];
   const orderPrefix = `MR-${orderId}`;
 
   // Load all products once for name-based fallback matching
   const { results: allProducts } = await env.DB.prepare('SELECT * FROM products WHERE active = 1').all();
 
+  let generated = 0;
+
   for (const item of items) {
-    // Resolve product — prefer productId, fall back to bilingual name matching
+    // Resolve product from cached list
     let product = null;
     if (item.productId) {
-      product = await env.DB.prepare('SELECT * FROM products WHERE id = ?').bind(item.productId).first();
+      product = allProducts.find(p => p.id === item.productId) || null;
     }
     if (!product) {
       const itemNames = [item.name, item.name_es, item.name_en].filter(Boolean).map(n => n.toLowerCase());
@@ -2126,9 +2146,9 @@ async function generateLabelsForOrder(env, orderId, body) {
     // "Cupcakes (6) (Cupcake flavor: Chocolate)") so each flavor gets its own label.
     const itemName = (item.name || product.name).trim();
 
-    // Skip if label already exists for this order + item
+    // Skip if label already exists for this order + item (active only)
     const existing = await env.DB.prepare(
-      `SELECT id FROM label_templates WHERE name = ? LIMIT 1`
+      `SELECT id FROM label_templates WHERE name = ? AND active = 1 LIMIT 1`
     ).bind(`${orderPrefix} - ${itemName}`).first();
     if (existing) continue;
 
@@ -2136,9 +2156,10 @@ async function generateLabelsForOrder(env, orderId, body) {
     const labelName = `${orderPrefix} - ${itemName}`;
 
     // Append food coloring disclosure to ingredients and allergens if provided
+    // (only for products that can actually be tinted — e.g. not Conchas)
     let ingredients = product.ingredients || '';
     let allergens = product.allergens || '';
-    if (foodColoring) {
+    if (foodColoring && COLORABLE_PRODUCTS.includes(product.id)) {
       ingredients += ` Food coloring: ${foodColoring}.`;
       const dyeKeywords = ['Red 40', 'Red 3', 'Blue 1', 'Blue 2', 'Green 3', 'Yellow 5', 'Yellow 6', 'Violet 1', 'FD&C'];
       const usedDyes = dyeKeywords.filter(d => foodColoring.toLowerCase().includes(d.toLowerCase()));
@@ -2160,7 +2181,7 @@ async function generateLabelsForOrder(env, orderId, body) {
       ingredients,
       allergens,
       net_weight: '',
-      price: `$${(item.price || product.price).toFixed(2)}`,
+      price: `$${((item.price || product.price) || 0).toFixed(2)}`,
       show_price: 1,
       show_best_by: 1,
       best_by_days: 7,
@@ -2198,18 +2219,20 @@ async function generateLabelsForOrder(env, orderId, body) {
 
     try {
       await env.DB.prepare(`INSERT INTO label_templates (${cols.join(', ')}) VALUES (${placeholders})`).bind(...binds).run();
+      generated++;
     } catch(e) {
       console.error('Failed to auto-generate label:', e);
     }
   }
+  return generated;
 }
 
 // Generate labels for a single order by ID (on-demand, for historical orders)
 async function generateLabelsForOrderById(orderId, env) {
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
   if (!order) return json({ error: 'Order not found' }, 404);
-  await generateLabelsForOrder(env, orderId, order);
-  return json({ ok: true, orderId }, 200);
+  const generated = await generateLabelsForOrder(env, orderId, order);
+  return json({ ok: true, orderId, generated }, 200);
 }
 
 // Backfill labels for ALL past orders that don't already have labels
@@ -2221,12 +2244,15 @@ async function backfillAllOrderLabels(env) {
   let generated = 0;
   for (const order of orders) {
     const before = await env.DB.prepare(
-      `SELECT COUNT(*) as cnt FROM label_templates WHERE name LIKE ?`
-    ).bind(`MR-${order.id} - %`).first();
+      `SELECT COUNT(*) as cnt FROM label_templates WHERE (name LIKE ? OR name LIKE ?) AND active = 1`
+    ).bind(`MR-${order.id} - %`, `Order #${order.id}%`).first();
     const alreadyHasLabels = before && before.cnt > 0;
     if (!alreadyHasLabels) {
-      await generateLabelsForOrder(env, order.id, order);
-      generated++;
+      try {
+        generated += await generateLabelsForOrder(env, order.id, order);
+      } catch(e) {
+        console.error(`backfillAllOrderLabels: failed for order ${order.id}:`, e);
+      }
     }
   }
   return json({ ok: true, ordersProcessed: orders.length, labelsGenerated: generated }, 200);
@@ -2594,6 +2620,12 @@ async function updateQuote(id, request, env, ctx, actor) {
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
+}
+
+async function deleteQuote(id, env) {
+  const r = await env.DB.prepare('DELETE FROM cake_quotes WHERE id = ?').bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
 }
 
 async function convertQuote(id, request, env, ctx, actor) {
