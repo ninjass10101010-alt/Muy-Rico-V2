@@ -82,6 +82,8 @@ export interface InventoryItem {
   unit_weight?: number;
   active?: boolean;
   barcode?: string | null;
+  nutritionSource?: string;
+  nutritionFetchedAt?: string;
 }
 
 export interface Customer {
@@ -204,51 +206,81 @@ export interface LabelElement {
   y: number;
   w: number;
   h: number;
+  z: number;
+  hidden?: boolean;
+  lock?: boolean;
   fontSize?: number;
   fontWeight?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
   color?: string;
   opacity?: number;
   align?: "left" | "center" | "right";
   text?: string;
   rotation?: number;
   qrValue?: string;
+  qrErrorLevel?: "L" | "M" | "Q" | "H";
   radius?: number;
-  nfp_data?: NfpData;
+  nfpData?: NfpData;
   nfp_title?: string;
   nfp_show_title?: boolean;
   nfp_subtitle?: string;
   nfp_show_subtitle?: boolean;
   nfp_show_footer?: boolean;
   nfp_layout?: "standard" | "vertical";
+  fontSizeOverride?: number;
+  colorOverride?: string;
+  fontFamilyOverride?: string;
+  alignOverride?: "left" | "center" | "right";
+  strokeColor?: string;
+  strokeWidth?: number;
+  fillColor?: string;
 }
 
 export interface LabelTemplate {
   id: string;
   name: string;
-  productId: string | null;
   shape: LabelShape;
-  orientation: LabelOrientation;
-  width: number;
-  height: number;
+  bgColor: string;
+  accentColor: string;
+  textColor: string;
+  businessName: string;
+  productName: string;
+  details: string;
+  ingredients: string;
+  allergens: string;
+  netWeight: string;
+  netWeightUS: string;
+  netWeightMetric: string;
+  price: string;
+  showPrice: boolean;
+  showBestBy: boolean;
+  bestByDays: number;
+  bestByDate?: string | null;
+  logoEmoji: string;
+  logoImage?: string;
+  logoSize?: number;
+  font: string;
+  businessIdMode: BusinessIdMode;
+  address: string;
+  phoneNumber: string;
+  registrationNumber: string;
+  showDisclaimer: boolean;
+  labelWidth: number;
+  labelHeight: number;
+  displayOrder?: number;
   elements: LabelElement[];
-  globalFont: string;
-  globalFontSize: number;
-  primaryColor: string;
-  backgroundColor: string;
-  borderColor: string;
-  borderWidth: number;
-  borderRadius: number;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  showPrice?: boolean;
-  bestByDays?: number;
-  averyPreset?: AveryPreset;
-  padPct?: number;
-  productName?: string | null;
-  netWeight?: string | null;
-  netWeightUS?: string | null;
-  netWeightMetric?: string | null;
+  websiteUrl: string;
+  orientation: LabelOrientation;
+  disclaimerVariant: DisclaimerVariant;
+  productType: ProductType;
+  allergenTags: string[];
+  noAllergensConfirmed: boolean;
+  nutrientClaim: boolean;
+  bgImage?: string;
+  averyPreset: AveryPreset;
+  active?: boolean;
 }
 
 export interface QuoteItem {

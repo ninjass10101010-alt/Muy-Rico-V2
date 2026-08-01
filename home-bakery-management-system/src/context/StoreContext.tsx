@@ -215,6 +215,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       allergens: allergens.length ? allergens : undefined,
       unit_weight: typeof row.unit_weight === "number" ? row.unit_weight : undefined,
       active: !!row.active,
+      barcode: row.barcode || null,
+      nutritionSource: row.nutrition_source || undefined,
+      nutritionFetchedAt: row.nutrition_fetched_at || undefined,
     };
   }
 

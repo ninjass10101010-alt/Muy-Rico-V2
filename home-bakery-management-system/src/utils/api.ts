@@ -293,6 +293,8 @@ export interface ApiInventoryItem {
   unit_weight?: number | null;
   active: number;
   barcode?: string | null;
+  nutrition_source?: string | null;
+  nutrition_fetched_at?: string | null;
   created_at?: string;
   updated_at?: string | null;
 }
@@ -311,6 +313,8 @@ export interface InventoryItemCreate {
   unit_weight?: number | null;
   active?: boolean;
   barcode?: string | null;
+  nutrition_source?: string | null;
+  nutrition_fetched_at?: string | null;
 }
 
 export type InventoryItemUpdate = Partial<InventoryItemCreate>;
@@ -373,6 +377,44 @@ export async function adjustInventoryQuantity(
   } catch (err: any) {
     return { error: err?.message || "Adjust failed" };
   }
+}
+
+// ─── Inventory enrichment (USDA FoodData Central + Open Food Facts) ──────────
+
+export interface UsdaCandidate {
+  fdcId: number;
+  name: string;
+  dataType: string;
+  ingredients: string | null;
+  foodCategory: string | null;
+  portionGramWeight: number | null;
+  per100g: { energy?: number; protein?: number; carbs?: number; fat?: number } | null;
+  allergenHints: string[];
+}
+
+export interface OffProduct {
+  name: string;
+  brand: string | null;
+  ingredients: string | null;
+  allergens: string[];
+  quantity: string | null;
+  unitWeightLb: number | null;
+  imageUrl: string | null;
+}
+
+export async function lookupUsdaIngredient(
+  q: string,
+  limit = 5
+): Promise<{ candidates: UsdaCandidate[] }> {
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  return apiFetch(`/api/inventory/lookup-ingredient?${params.toString()}`);
+}
+
+export async function enrichBarcode(
+  code: string
+): Promise<{ source: "off"; product: OffProduct | null }> {
+  const params = new URLSearchParams({ code });
+  return apiFetch(`/api/inventory/enrich?${params.toString()}`);
 }
 
 // ─── Customers ───────────────────────────────────────────────────────────────
