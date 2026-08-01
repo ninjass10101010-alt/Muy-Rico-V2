@@ -16,6 +16,8 @@
 //   DELETE /api/products/:id  — soft delete (admin)
 //
 //   GET    /api/inventory        — list inventory (admin only)
+//   GET    /api/inventory/lookup-ingredient — USDA FoodData Central search (admin)
+//   GET    /api/inventory/enrich           — Open Food Facts product lookup (admin)
 //   GET    /api/inventory/:id    — single item (admin)
 //   POST   /api/inventory        — create (admin)
 //   PATCH  /api/inventory/:id    — update (admin)
@@ -59,6 +61,7 @@ const CORS = {
 };
 
 import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
+import { createLruCache, usdaCandidatesFromResponse, mapOffProduct } from './enrich-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -1686,7 +1689,7 @@ const INVENTORY_FIELDS = [
   'name', 'category', 'quantity', 'unit',
   'reorder_level', 'cost_per_unit', 'supplier',
   'ingredients_label', 'allergens', 'unit_weight',
-  'active', 'barcode',
+  'active', 'barcode', 'nutrition_source', 'nutrition_fetched_at',
 ];
 
 function parseAllergens(v) {
@@ -1726,6 +1729,72 @@ async function lookupInventoryByCode(request, env) {
   return json({ item: row }, 200);
 }
 
+// ─── External data sources (USDA FoodData Central + Open Food Facts) ────────
+// Admin-only, like the rest of inventory. USDA results are cached in memory
+// (LRU, ~50 entries, 5-min TTL) so repeated edits don't re-hit upstream.
+
+const usdaCache = createLruCache(50, 5 * 60 * 1000);
+
+// GET /api/inventory/lookup-ingredient?q=…&limit=5 — USDA FoodData Central search.
+// Falls back to DEMO_KEY when env.USDA_KEY is not set; signals that with the
+// X-Data-Source: demo header so the SPA can warn about the 30 req/hr limit.
+async function lookupIngredientUsda(request, env) {
+  const url = new URL(request.url);
+  const q = (url.searchParams.get('q') || '').trim();
+  if (!q) return json({ error: 'Missing q parameter' }, 400);
+  let limit = Number(url.searchParams.get('limit') || 5);
+  if (!Number.isFinite(limit) || limit < 1 || limit > 10) limit = 5;
+
+  const cacheKey = `${q}:${limit}`;
+  const cached = usdaCache.get(cacheKey);
+  if (cached) {
+    return json({ candidates: cached.candidates }, 200, { 'X-Data-Source': cached.demo ? 'demo' : 'usda' });
+  }
+
+  const apiKey = env.USDA_KEY || 'DEMO_KEY';
+  const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=${limit}&api_key=${encodeURIComponent(apiKey)}`;
+  let data;
+  try {
+    const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) return json({ error: 'USDA lookup failed', status: res.status }, 502);
+    data = await res.json();
+  } catch (e) {
+    return json({ error: 'USDA lookup failed: ' + ((e && e.message) || e) }, 502);
+  }
+
+  const candidates = usdaCandidatesFromResponse(data);
+  const demo = !env.USDA_KEY;
+  usdaCache.set(cacheKey, { candidates, demo });
+  return json({ candidates }, 200, { 'X-Data-Source': demo ? 'demo' : 'usda' });
+}
+
+// GET /api/inventory/enrich?code=… — Open Food Facts product lookup by barcode.
+const OFF_USER_AGENT = 'MuyRico/1.0 (contact@muy-rico.com)';
+
+async function enrichInventoryOff(request, env) {
+  const url = new URL(request.url);
+  const code = (url.searchParams.get('code') || '').trim();
+  if (!/^[0-9]{8,14}$/.test(code)) return json({ error: 'code must be a numeric barcode' }, 400);
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(code)}.json`, {
+      headers: { 'User-Agent': OFF_USER_AGENT, 'Accept': 'application/json' },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return json({ error: 'Open Food Facts lookup failed', status: res.status }, 502);
+    const data = await res.json();
+    const product = data && data.product ? mapOffProduct(data.product) : null;
+    return json({ source: 'off', product }, 200);
+  } catch (e) {
+    if (e && e.name === 'AbortError') return json({ error: 'Open Food Facts timeout' }, 504);
+    return json({ error: 'Open Food Facts lookup failed: ' + ((e && e.message) || e) }, 502);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // POST /api/inventory/:id/adjust  body { delta: Number }
 // Atomic quantity adjust (delta may be negative). Used by the scan modal's
 // "Set the new count" stepper which sends delta = newCount − currentCount.
@@ -1753,8 +1822,9 @@ async function createInventory(request, env, actor) {
     await env.DB.prepare(`
       INSERT INTO inventory
         (id, name, category, quantity, unit, reorder_level, cost_per_unit, supplier,
-         ingredients_label, allergens, unit_weight, active, barcode)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ingredients_label, allergens, unit_weight, active, barcode,
+         nutrition_source, nutrition_fetched_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.name,
@@ -1769,6 +1839,8 @@ async function createInventory(request, env, actor) {
       typeof body.unit_weight === 'number' && !Number.isNaN(body.unit_weight) ? body.unit_weight : null,
       body.active === false ? 0 : 1,
       body.barcode || null,
+      body.nutrition_source || null,
+      body.nutrition_fetched_at || null,
     ).run();
   } catch (err) {
     const msg = String(err);
