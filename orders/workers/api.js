@@ -58,7 +58,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-import { normalizeEmail, normalizePhone, matchCustomer } from './customer-match.js';
+import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -233,6 +233,12 @@ export default {
 
       if (path === '/api/customers' && method === 'GET') return await listCustomers(env);
       if (path === '/api/customers' && method === 'POST') return await createCustomer(request, env, actorName);
+
+      // Customer merge/duplicates
+      if (method === 'POST' && path === '/api/customers/merge')             return mergeCustomers(request, env, ctx, actorName);
+      if (method === 'POST' && path.match(/^\/api\/customers\/merge\/([^/]+)\/reverse$/))
+        return reverseMerge(path.match(/^\/api\/customers\/merge\/([^/]+)\/reverse$/)[1], request, env, actorName);
+      if (method === 'GET' && path === '/api/customers/duplicates')          return listDuplicates(env);
       if (path === '/api/payments' && method === 'GET') return await listPayments(env);
       if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
 
@@ -1898,6 +1904,87 @@ async function deleteCustomer(id, env, actor) {
   const r = await env.DB.prepare(`UPDATE customers SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
+}
+
+async function listDuplicates(env) {
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM customers WHERE active = 1 ORDER BY created_at ASC'
+  ).all();
+  const customers = results.map(snakeToCamelObject);
+  const pairs = findDuplicates(customers);
+  return json({ duplicates: pairs }, 200);
+}
+
+async function mergeCustomers(request, env, ctx, actor) {
+  const body = await request.json();
+  const { survivingId, mergedId } = body;
+  if (!survivingId || !mergedId) return json({ error: 'Missing survivingId or mergedId' }, 400);
+  if (survivingId === mergedId) return json({ error: 'Cannot merge a customer with itself' }, 400);
+
+  const surviving = await env.DB.prepare('SELECT id, name, active, merged_into_id FROM customers WHERE id = ?').bind(survivingId).first();
+  const merged = await env.DB.prepare('SELECT id, name, active, merged_into_id FROM customers WHERE id = ?').bind(mergedId).first();
+  if (!surviving || !merged) return json({ error: 'Customer not found' }, 404);
+  if (surviving.active !== 1 || merged.active !== 1) return json({ error: 'Both customers must be active' }, 400);
+  if (surviving.merged_into_id || merged.merged_into_id) return json({ error: 'Cannot merge an already-merged customer' }, 400);
+
+  const match = matchCustomer(
+    { name: merged.name, email: null, phone: null },
+    [surviving]
+  );
+  const matchedBy = match ? match.matchedBy : 'admin_manual';
+  const matchedFields = JSON.stringify({ surviving: survivingId, merged: mergedId });
+
+  const { results: ordersToRelink } = await env.DB.prepare(
+    'SELECT id FROM orders WHERE customer_id = ?'
+  ).bind(mergedId).all();
+  const relinkedCount = ordersToRelink.length;
+
+  const statements = [];
+
+  if (relinkedCount > 0) {
+    statements.push(
+      env.DB.prepare('UPDATE orders SET customer_id = ? WHERE customer_id = ?').bind(survivingId, mergedId)
+    );
+  }
+
+  statements.push(
+    env.DB.prepare("UPDATE customers SET active = 0, merged_into_id = ?, updated_at = datetime('now') WHERE id = ?")
+      .bind(survivingId, mergedId)
+  );
+
+  statements.push(
+    env.DB.prepare(`
+      INSERT INTO customer_merges (surviving_id, merged_id, matched_by, matched_fields_json, merged_by)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(survivingId, mergedId, matchedBy, matchedFields, actor)
+  );
+
+  for (const o of ordersToRelink) {
+    statements.push(
+      env.DB.prepare("INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'customer:relinked')")
+        .bind(o.id, actor)
+    );
+  }
+
+  await env.DB.batch(statements);
+
+  return json({ ok: true, survivingId, relinkedOrderCount: relinkedCount }, 200);
+}
+
+async function reverseMerge(mergeId, request, env, actor) {
+  const mergeRow = await env.DB.prepare('SELECT * FROM customer_merges WHERE id = ?').bind(mergeId).first();
+  if (!mergeRow) return json({ error: 'Merge record not found' }, 404);
+  if (mergeRow.reversed_by) return json({ error: 'Merge already reversed' }, 400);
+
+  await env.DB.prepare(
+    "UPDATE customers SET active = 1, merged_into_id = NULL, updated_at = datetime('now') WHERE id = ?"
+  ).bind(mergeRow.merged_id).run();
+
+  await env.DB.prepare(
+    "UPDATE customer_merges SET reversed_by = ?, reversed_at = datetime('now') WHERE id = ?"
+  ).bind(actor, mergeId).run();
+
+  return json({ ok: true, restoredId: mergeRow.merged_id }, 200);
 }
 
 // ─── Payments ───────────────────────────────────────────────────────────────
