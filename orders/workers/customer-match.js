@@ -77,15 +77,11 @@ export function matchCustomer(newCust, existingCustomers) {
 export function findDuplicates(customers) {
   const active = customers.filter(c => c.active === 1 && !c.mergedIntoId);
   const pairs = [];
-  const seen = new Set();
 
   for (let i = 0; i < active.length; i++) {
     for (let j = i + 1; j < active.length; j++) {
       const a = active[i];
       const b = active[j];
-      const key = [a.id, b.id].sort().join(':');
-      if (seen.has(key)) continue;
-      seen.add(key);
 
       const emailNormA = normalizeEmail(a.email);
       const emailNormB = normalizeEmail(b.email);
