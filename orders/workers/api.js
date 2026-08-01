@@ -58,6 +58,8 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+import { normalizeEmail, normalizePhone } from './customer-match.js';
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -118,6 +120,8 @@ export default {
       if (path === '/api/products' && method === 'POST') return await createProduct(request, env, actorName);
       if (path === '/api/inventory' && method === 'GET') return await listInventory(env);
       if (path === '/api/inventory' && method === 'POST') return await createInventory(request, env, actorName);
+      // /api/inventory/lookup must be matched BEFORE the /api/inventory/:id regex below
+      if (path === '/api/inventory/lookup' && method === 'GET') return await lookupInventoryByCode(request, env);
 
       const om = path.match(/^\/api\/orders\/(\d+)$/);
       if (om) {
@@ -207,6 +211,9 @@ export default {
         if (method === 'PATCH')  return await updateInventoryItem(id, request, env, actorName);
         if (method === 'DELETE') return await deleteInventoryItem(id, env, actorName);
       }
+
+      const ia = path.match(/^\/api\/inventory\/([A-Za-z0-9_-]+)\/adjust$/);
+      if (ia && method === 'POST') return await adjustInventoryItem(ia[1], request, env, actorName);
 
       const lm = path.match(/^\/api\/labels\/([A-Za-z0-9_-]+)$/);
       if (lm) {
@@ -327,6 +334,44 @@ async function createOrder(request, env, ctx, actor) {
 
   const items = typeof body.items_json === 'string' ? body.items_json : JSON.stringify(body.items_json);
   const customerId = getBodyField(body, 'customer_id') || null;
+  // Hardening: ignore client-provided customer_id for website orders.
+  // Website orders go through the email-based backfill below.
+  const isWebsite = (body.source || 'in-person') === 'website';
+  const rawCustomerId = isWebsite ? null : customerId;
+
+  // Website backfill: link order to existing customer by email, or create one.
+  let effectiveCustomerId = rawCustomerId;
+  if (isWebsite && !effectiveCustomerId) {
+    const emailNorm = normalizeEmail(body.email);
+    if (emailNorm) {
+      // Look up existing customer by normalized email
+      const { results: existingCustomers } = await env.DB.prepare(
+        'SELECT id, name, email_normalized FROM customers WHERE active = 1 AND email_normalized = ?'
+      ).bind(emailNorm).all();
+
+      if (existingCustomers.length > 0) {
+        effectiveCustomerId = existingCustomers[0].id;
+      } else {
+        // Create a new customer from the website order data
+        const custId = 'cust_web_' + Math.random().toString(36).slice(2, 9);
+        const phoneNorm = normalizePhone(body.phone);
+        await env.DB.prepare(`
+          INSERT INTO customers (id, name, phone, email, email_normalized, phone_normalized, created_at, active)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 1)
+        `).bind(
+          custId,
+          body.customer_name?.trim() || '',
+          body.phone || null,
+          body.email?.trim() || null,
+          emailNorm,
+          phoneNorm,
+        ).run();
+        effectiveCustomerId = custId;
+      }
+    } else {
+      // No email on website order — log skip event (will happen after insert)
+    }
+  }
 
   const result = await env.DB.prepare(`
     INSERT INTO orders
@@ -335,7 +380,7 @@ async function createOrder(request, env, ctx, actor) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.customer_name.trim(),
-    customerId,
+    effectiveCustomerId,
     body.phone || null,
     body.email?.trim() || null,
     body.pickup_date,
@@ -356,6 +401,13 @@ async function createOrder(request, env, ctx, actor) {
   await env.DB.prepare(`
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
   `).bind(id, actor).run();
+
+  // Log when a website order couldn't be linked due to missing email
+  if (isWebsite && !effectiveCustomerId && !rawCustomerId) {
+    await env.DB.prepare(`
+      INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'customer_match_skipped')
+    `).bind(id, 'system').run();
+  }
 
   // Only fire notifications and labels for real orders (not awaiting_payment)
   if (body.status !== 'awaiting_payment') {
@@ -1624,7 +1676,7 @@ const INVENTORY_FIELDS = [
   'name', 'category', 'quantity', 'unit',
   'reorder_level', 'cost_per_unit', 'supplier',
   'ingredients_label', 'allergens', 'unit_weight',
-  'active',
+  'active', 'barcode',
 ];
 
 function parseAllergens(v) {
@@ -1652,6 +1704,33 @@ async function getInventoryItem(id, env) {
   return json({ item: row }, 200);
 }
 
+// GET /api/inventory/lookup?code=… — used by phone-camera + scanner-gun scan modal.
+// Returns the first inventory item whose `barcode` matches (case-insensitive trim).
+async function lookupInventoryByCode(request, env) {
+  const code = (new URL(request.url).searchParams.get('code') || '').trim();
+  if (!code) return json({ error: 'Missing code parameter' }, 400);
+  const row = await env.DB.prepare(
+    'SELECT * FROM inventory WHERE active = 1 AND LOWER(barcode) = LOWER(?) LIMIT 1'
+  ).bind(code).first();
+  if (!row) return json({ error: 'Not found' }, 404);
+  return json({ item: row }, 200);
+}
+
+// POST /api/inventory/:id/adjust  body { delta: Number }
+// Atomic quantity adjust (delta may be negative). Used by the scan modal's
+// "Set the new count" stepper which sends delta = newCount − currentCount.
+async function adjustInventoryItem(id, request, env, actor) {
+  const body = await request.json().catch(() => ({}));
+  const delta = Number(body.delta);
+  if (!Number.isFinite(delta)) return json({ error: 'delta must be a finite number' }, 400);
+  const r = await env.DB.prepare(
+    `UPDATE inventory SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ? AND active = 1`
+  ).bind(delta, id).run();
+  if (!r.meta.changes) return json({ error: 'Not found or inactive' }, 404);
+  const row = await env.DB.prepare('SELECT quantity FROM inventory WHERE id = ?').bind(id).first();
+  return json({ ok: true, quantity: row && row.quantity }, 200);
+}
+
 async function createInventory(request, env, actor) {
   const body = await request.json();
   if (!body.id || !body.name || !body.category || !body.unit) {
@@ -1664,8 +1743,8 @@ async function createInventory(request, env, actor) {
     await env.DB.prepare(`
       INSERT INTO inventory
         (id, name, category, quantity, unit, reorder_level, cost_per_unit, supplier,
-         ingredients_label, allergens, unit_weight, active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ingredients_label, allergens, unit_weight, active, barcode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.name,
@@ -1679,6 +1758,7 @@ async function createInventory(request, env, actor) {
       parseAllergens(body.allergens),
       typeof body.unit_weight === 'number' && !Number.isNaN(body.unit_weight) ? body.unit_weight : null,
       body.active === false ? 0 : 1,
+      body.barcode || null,
     ).run();
   } catch (err) {
     return json({ error: String(err) }, 400);
@@ -1704,7 +1784,23 @@ async function updateInventoryItem(id, request, env, actor) {
   if (!sets.length) return json({ error: 'Nothing to update' }, 400);
   sets.push("updated_at = datetime('now')");
   binds.push(id);
-  const r = await env.DB.prepare(`UPDATE inventory SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  try {
+    var r = await env.DB.prepare(`UPDATE inventory SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  } catch (err) {
+    // Unique-barcode conflict (idx_inventory_barcode). Look up the existing owner.
+    if (String(err).includes('UNIQUE') && String(err).includes('idx_inventory_barcode')) {
+      const code = body.barcode;
+      const owner = code ? await env.DB.prepare(
+        'SELECT id, name FROM inventory WHERE LOWER(barcode) = LOWER(?) LIMIT 1'
+      ).bind(code).first() : null;
+      return json({
+        error: 'Barcode already bound to another item',
+        code: 'barcode_conflict',
+        conflict: owner || null,
+      }, 409);
+    }
+    throw err;
+  }
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
 }
