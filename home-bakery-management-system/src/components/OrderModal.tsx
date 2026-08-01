@@ -129,7 +129,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
         id: `cust_${Math.random().toString(36).slice(2, 9)}`,
         name: customerName.trim(),
         phone: phone.trim(),
-        email: "",
+        email: email.trim(),
         notes: "",
         createdAt: new Date().toISOString(),
       };
