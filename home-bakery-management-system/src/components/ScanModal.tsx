@@ -6,12 +6,14 @@ import {
   adjustInventoryQuantity,
   lookupInventoryByCode,
   updateInventoryItem,
+  enrichBarcode,
   type ApiInventoryItem,
+  type OffProduct,
 } from "../utils/api";
 import { useStore } from "../context/StoreContext";
 import type { InventoryItem } from "../types";
 
-type Mode = "scanning" | "adjust" | "bind" | "conflict" | "error";
+type Mode = "scanning" | "adjust" | "bind" | "preview" | "conflict" | "error";
 
 interface ConflictInfo { id: string; name: string }
 
@@ -21,6 +23,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
   const [code, setCode] = useState<string>("");
   const [item, setItem] = useState<ApiInventoryItem | null>(null);
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
+  const [offProduct, setOffProduct] = useState<OffProduct | null>(null);
   const [newCount, setNewCount] = useState<number>(0);
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState<string>("");
@@ -92,6 +95,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     setCode("");
     setItem(null);
     setConflict(null);
+    setOffProduct(null);
     setErrMsg("");
     lastDecodedRef.current = null;
 
@@ -138,6 +142,19 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     }
   }, [open]);
 
+  // After a code is bound (or skipped), look it up so the count stepper opens.
+  const gotoAdjust = useCallback(async () => {
+    const r = await lookupInventoryByCode(code);
+    if ("item" in r) {
+      setItem(r.item);
+      setNewCount(Number(r.item.quantity) || 0);
+      setMode("adjust");
+      await refreshInventory();
+    } else {
+      throw new Error("Bind succeeded but lookup failed");
+    }
+  }, [code, refreshInventory]);
+
   const saveAdjust = useCallback(async () => {
     if (!item) return;
     setBusy(true);
@@ -167,15 +184,19 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     setErrMsg("");
     try {
       await updateInventoryItem(bindPick.id, { barcode: code } as any);
-      // After binding, look it up to read the freshly-saved quantity
-      const r = await lookupInventoryByCode(code);
-      if ("item" in r) {
-        setItem(r.item);
-        setNewCount(Number(r.item.quantity) || 0);
-        setMode("adjust");
-        await refreshInventory();
+      // Auto-lookup the code on Open Food Facts (non-fatal if it fails or misses)
+      let product: OffProduct | null = null;
+      try {
+        const r = await enrichBarcode(code);
+        product = r && r.product ? r.product : null;
+      } catch {
+        product = null;
+      }
+      if (product) {
+        setOffProduct(product);
+        setMode("preview");
       } else {
-        throw new Error("Bind succeeded but lookup failed");
+        await gotoAdjust();
       }
     } catch (e: any) {
       // 409 conflict: another item already has this code
@@ -197,7 +218,31 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     } finally {
       setBusy(false);
     }
-  }, [bindPick, code, refreshInventory]);
+  }, [bindPick, code, gotoAdjust]);
+
+  // "Use this info" — apply the OFF fields to the bound item, then open the count stepper.
+  const applyOff = useCallback(async () => {
+    if (!bindPick || !offProduct) return;
+    setBusy(true);
+    setErrMsg("");
+    try {
+      const patch: Record<string, any> = {
+        nutrition_source: `off:${code}`,
+        nutrition_fetched_at: new Date().toISOString(),
+      };
+      if (offProduct.brand) patch.supplier = offProduct.brand;
+      if (offProduct.ingredients) patch.ingredients_label = offProduct.ingredients;
+      if (offProduct.allergens.length) patch.allergens = offProduct.allergens;
+      if (offProduct.unitWeightLb != null) patch.unit_weight = offProduct.unitWeightLb;
+      await updateInventoryItem(bindPick.id, patch as any);
+      await gotoAdjust();
+    } catch (e: any) {
+      setErrMsg(String(e?.message || "Apply failed"));
+      setMode("error");
+    } finally {
+      setBusy(false);
+    }
+  }, [bindPick, offProduct, code, gotoAdjust]);
 
   const bindMatches = useMemo(() => {
     const q = bindSearch.trim().toLowerCase();
@@ -273,6 +318,62 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
             onCancel={() => { setMode("scanning"); focusManual(); }}
             busy={busy}
           />
+        )}
+
+        {mode === "preview" && offProduct && (
+          <div className="rounded-xl border border-stone-200 bg-white p-4">
+            <div className="flex items-start gap-3">
+              {offProduct.imageUrl && (
+                <img
+                  src={offProduct.imageUrl}
+                  alt="Open Food Facts product"
+                  className="h-16 w-16 rounded-lg object-cover"
+                />
+              )}
+              <div className="min-w-0">
+                <div className="font-semibold text-stone-900">{offProduct.name}</div>
+                <div className="text-xs text-stone-500">
+                  {offProduct.brand}
+                  {offProduct.brand && offProduct.quantity ? " · " : ""}
+                  {offProduct.quantity}
+                </div>
+              </div>
+            </div>
+            {offProduct.ingredients && (
+              <p className="mt-2 line-clamp-2 text-xs text-stone-600">{offProduct.ingredients}</p>
+            )}
+            {offProduct.allergens.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {offProduct.allergens.map((a) => (
+                  <Badge key={a} tone="new">{a}</Badge>
+                ))}
+              </div>
+            )}
+            <p className="mt-2 text-[11px] text-stone-400">
+              Product data from Open Food Facts — review before using.
+            </p>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                onClick={() =>
+                  gotoAdjust().catch((e: any) => {
+                    setErrMsg(String(e?.message || "Skip failed"));
+                    setMode("error");
+                  })
+                }
+                disabled={busy}
+                className="rounded-lg px-3 py-2 text-stone-700 hover:bg-stone-100"
+              >
+                Skip
+              </button>
+              <button
+                onClick={applyOff}
+                disabled={busy}
+                className="inline-flex items-center gap-2 rounded-lg bg-coral px-4 py-2 text-white hover:opacity-90 disabled:opacity-50"
+              >
+                <Check className="h-4 w-4" /> Use this info
+              </button>
+            </div>
+          </div>
         )}
 
         {mode === "conflict" && conflict && (
