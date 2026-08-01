@@ -1976,13 +1976,14 @@ async function reverseMerge(mergeId, request, env, actor) {
   if (!mergeRow) return json({ error: 'Merge record not found' }, 404);
   if (mergeRow.reversed_by) return json({ error: 'Merge already reversed' }, 400);
 
-  await env.DB.prepare(
-    "UPDATE customers SET active = 1, merged_into_id = NULL, updated_at = datetime('now') WHERE id = ?"
-  ).bind(mergeRow.merged_id).run();
-
-  await env.DB.prepare(
-    "UPDATE customer_merges SET reversed_by = ?, reversed_at = datetime('now') WHERE id = ?"
-  ).bind(actor, mergeId).run();
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE customers SET active = 1, merged_into_id = NULL, updated_at = datetime('now') WHERE id = ?"
+    ).bind(mergeRow.merged_id),
+    env.DB.prepare(
+      "UPDATE customer_merges SET reversed_by = ?, reversed_at = datetime('now') WHERE id = ?"
+    ).bind(actor, mergeId),
+  ]);
 
   return json({ ok: true, restoredId: mergeRow.merged_id }, 200);
 }
