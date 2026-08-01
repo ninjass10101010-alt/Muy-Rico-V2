@@ -22,7 +22,7 @@ import type {
   Receipt,
 } from "../types";
 import { newId } from "../utils/format";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt, type ApiQuote } from "../utils/api";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, apiMergeCustomers, apiRelinkOrder, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt, type ApiQuote } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -68,6 +68,8 @@ interface StoreContextValue {
   refreshQuotes: () => Promise<void>;
   handleUpdateQuote: (id: number, patch: { quoted_price?: number | null; admin_notes?: string | null; status?: string }) => Promise<void>;
   handleConvertQuote: (id: number, depositAmountCents: number, paymentMethod: string) => Promise<{ orderId: number; paymentStatus: string }>;
+  handleMergeCustomers: (survivingId: string, mergedId: string) => Promise<void>;
+  handleRelinkOrder: (orderId: number, customerId: string | null) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -636,6 +638,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { orderId: result.order_id, paymentStatus: result.payment_status };
   }, [refreshQuotes, refreshOrders]);
 
+  const handleMergeCustomers = useCallback(async (survivingId: string, mergedId: string) => {
+    await apiMergeCustomers(survivingId, mergedId);
+    await Promise.all([refreshCustomers(), refreshOrders()]);
+  }, [refreshCustomers, refreshOrders]);
+
+  const handleRelinkOrder = useCallback(async (orderId: number, customerId: string | null) => {
+    await apiRelinkOrder(orderId, customerId);
+    await refreshOrders();
+  }, [refreshOrders]);
+
   const value = useMemo(
     () => ({
       products,
@@ -682,8 +694,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refreshQuotes,
       handleUpdateQuote,
       handleConvertQuote,
+      handleMergeCustomers,
+      handleRelinkOrder,
     }),
-    [products, inventory, customers, orders, payments, receipts, labelTemplates, refreshLabelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, apiDeductInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt, quotes, refreshQuotes, handleUpdateQuote, handleConvertQuote],
+    [products, inventory, customers, orders, payments, receipts, labelTemplates, refreshLabelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, apiDeductInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt, quotes, refreshQuotes, handleUpdateQuote, handleConvertQuote, handleMergeCustomers, handleRelinkOrder],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
