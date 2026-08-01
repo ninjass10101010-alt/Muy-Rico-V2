@@ -402,10 +402,15 @@ export interface OffProduct {
   imageUrl: string | null;
 }
 
+export interface UsdaLookupResponse {
+  candidates: UsdaCandidate[];
+  demo?: boolean; // true when the worker fell back to DEMO_KEY (30 req/hr limit)
+}
+
 export async function lookupUsdaIngredient(
   q: string,
   limit = 5
-): Promise<{ candidates: UsdaCandidate[] }> {
+): Promise<UsdaLookupResponse> {
   const params = new URLSearchParams({ q, limit: String(limit) });
   return apiFetch(`/api/inventory/lookup-ingredient?${params.toString()}`);
 }

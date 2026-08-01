@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy } from "react";
+import { useState, useRef, Suspense, lazy } from "react";
 import { Minus, Pencil, Plus, ScanLine, Search, Trash2 } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
@@ -33,6 +33,8 @@ export default function Inventory({ search }: { search: string }) {
   const [usdaQ, setUsdaQ] = useState("");
   const [usdaResults, setUsdaResults] = useState<UsdaCandidate[]>([]);
   const [usdaErr, setUsdaErr] = useState("");
+  const [usdaDemo, setUsdaDemo] = useState(false);
+  const usdaReqRef = useRef(0);
 
   const filtered = inventory.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -44,6 +46,8 @@ export default function Inventory({ search }: { search: string }) {
     setUsdaQ("");
     setUsdaResults([]);
     setUsdaErr("");
+    setUsdaDemo(false);
+    setUsdaBusy(false);
     setModalOpen(true);
   }
 
@@ -55,6 +59,8 @@ export default function Inventory({ search }: { search: string }) {
     setUsdaQ(i.name);
     setUsdaResults([]);
     setUsdaErr("");
+    setUsdaDemo(false);
+    setUsdaBusy(false);
     setModalOpen(true);
   }
 
@@ -110,22 +116,28 @@ export default function Inventory({ search }: { search: string }) {
   }
 
   async function usdaSearch() {
-    if (!usdaQ.trim()) return;
+    if (!usdaQ.trim() || usdaBusy) return;
+    const reqId = ++usdaReqRef.current;
     setUsdaBusy(true);
     setUsdaErr("");
+    setUsdaDemo(false);
     try {
       const r = await lookupUsdaIngredient(usdaQ.trim(), 5);
+      if (reqId !== usdaReqRef.current) return; // stale response — a newer search superseded this one
       setUsdaResults(r.candidates || []);
+      setUsdaDemo(!!r.demo);
     } catch (e: any) {
+      if (reqId !== usdaReqRef.current) return;
       setUsdaErr(e?.message || "Lookup failed");
       setUsdaResults([]);
     } finally {
-      setUsdaBusy(false);
+      if (reqId === usdaReqRef.current) setUsdaBusy(false);
     }
   }
 
   function usdaApply(c: UsdaCandidate) {
-    const merged = [...(draft.allergens || []).filter(Boolean)];
+    const existing = allergensText.split(",").map((s) => s.trim()).filter(Boolean);
+    const merged = [...existing];
     for (const tag of c.allergenHints) if (!merged.includes(tag)) merged.push(tag);
     setAllergensText(merged.join(", "));
     const lb =
@@ -141,6 +153,7 @@ export default function Inventory({ search }: { search: string }) {
     });
     setUsdaOpen(false);
     setUsdaResults([]);
+    setUsdaErr("");
   }
 
   const totalValue = inventory.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
@@ -360,6 +373,12 @@ export default function Inventory({ search }: { search: string }) {
                         <Search size={12} /> {usdaBusy ? "Searching…" : "Search"}
                       </button>
                     </div>
+                    {usdaDemo && (
+                      <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
+                        USDA demo key in use — max 30 lookups/hour. Ask the owner to set the USDA_KEY secret for
+                        full access.
+                      </p>
+                    )}
                     {usdaErr && <p className="mt-2 text-xs text-hibiscus">{usdaErr}</p>}
                     <ul className="mt-2 max-h-48 divide-y divide-sand-100 overflow-y-auto">
                       {usdaResults.map((c) => (

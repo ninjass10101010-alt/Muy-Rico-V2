@@ -1737,7 +1737,9 @@ const usdaCache = createLruCache(50, 5 * 60 * 1000);
 
 // GET /api/inventory/lookup-ingredient?q=…&limit=5 — USDA FoodData Central search.
 // Falls back to DEMO_KEY when env.USDA_KEY is not set; signals that with the
-// X-Data-Source: demo header so the SPA can warn about the 30 req/hr limit.
+// `demo` body flag (and X-Data-Source header) so the SPA can warn about the
+// 30 req/hr limit. 3-second fetch timeout so a hung upstream can't leave the
+// edit modal's search spinner spinning forever.
 async function lookupIngredientUsda(request, env) {
   const url = new URL(request.url);
   const q = (url.searchParams.get('q') || '').trim();
@@ -1748,24 +1750,29 @@ async function lookupIngredientUsda(request, env) {
   const cacheKey = `${q}:${limit}`;
   const cached = usdaCache.get(cacheKey);
   if (cached) {
-    return json({ candidates: cached.candidates }, 200, { 'X-Data-Source': cached.demo ? 'demo' : 'usda' });
+    return json({ candidates: cached.candidates, demo: cached.demo }, 200, { 'X-Data-Source': cached.demo ? 'demo' : 'usda' });
   }
 
   const apiKey = env.USDA_KEY || 'DEMO_KEY';
   const apiUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=${limit}&api_key=${encodeURIComponent(apiKey)}`;
   let data;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
   try {
-    const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
+    const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' }, signal: ctrl.signal });
     if (!res.ok) return json({ error: 'USDA lookup failed', status: res.status }, 502);
     data = await res.json();
   } catch (e) {
+    if (e && e.name === 'AbortError') return json({ error: 'USDA lookup timeout' }, 504);
     return json({ error: 'USDA lookup failed: ' + ((e && e.message) || e) }, 502);
+  } finally {
+    clearTimeout(timer);
   }
 
   const candidates = usdaCandidatesFromResponse(data);
   const demo = !env.USDA_KEY;
   usdaCache.set(cacheKey, { candidates, demo });
-  return json({ candidates }, 200, { 'X-Data-Source': demo ? 'demo' : 'usda' });
+  return json({ candidates, demo }, 200, { 'X-Data-Source': demo ? 'demo' : 'usda' });
 }
 
 // GET /api/inventory/enrich?code=… — Open Food Facts product lookup by barcode.

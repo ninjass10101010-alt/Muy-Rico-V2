@@ -151,7 +151,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
       setMode("adjust");
       await refreshInventory();
     } else {
-      throw new Error("Bind succeeded but lookup failed");
+      throw new Error("Item saved but re-lookup failed");
     }
   }, [code, refreshInventory]);
 
@@ -225,19 +225,28 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     if (!bindPick || !offProduct) return;
     setBusy(true);
     setErrMsg("");
+    const patch: Record<string, any> = {
+      nutrition_source: `off:${code}`,
+      nutrition_fetched_at: new Date().toISOString(),
+    };
+    if (offProduct.brand) patch.supplier = offProduct.brand;
+    if (offProduct.ingredients) patch.ingredients_label = offProduct.ingredients;
+    if (offProduct.allergens.length) patch.allergens = offProduct.allergens;
+    if (offProduct.unitWeightLb != null) patch.unit_weight = offProduct.unitWeightLb;
     try {
-      const patch: Record<string, any> = {
-        nutrition_source: `off:${code}`,
-        nutrition_fetched_at: new Date().toISOString(),
-      };
-      if (offProduct.brand) patch.supplier = offProduct.brand;
-      if (offProduct.ingredients) patch.ingredients_label = offProduct.ingredients;
-      if (offProduct.allergens.length) patch.allergens = offProduct.allergens;
-      if (offProduct.unitWeightLb != null) patch.unit_weight = offProduct.unitWeightLb;
       await updateInventoryItem(bindPick.id, patch as any);
+    } catch (e: any) {
+      // The save itself failed — "Apply failed" is honest here.
+      setErrMsg(String(e?.message || "Apply failed"));
+      setMode("error");
+      setBusy(false);
+      return;
+    }
+    try {
       await gotoAdjust();
     } catch (e: any) {
-      setErrMsg(String(e?.message || "Apply failed"));
+      // Data WAS saved; only the follow-up lookup failed.
+      setErrMsg(String(e?.message || "Item saved but re-lookup failed"));
       setMode("error");
     } finally {
       setBusy(false);
@@ -354,12 +363,16 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
             </p>
             <div className="mt-3 flex items-center justify-end gap-2">
               <button
-                onClick={() =>
-                  gotoAdjust().catch((e: any) => {
-                    setErrMsg(String(e?.message || "Skip failed"));
-                    setMode("error");
-                  })
-                }
+                onClick={() => {
+                  if (busy) return;
+                  setBusy(true);
+                  gotoAdjust()
+                    .catch((e: any) => {
+                      setErrMsg(String(e?.message || "Skip failed"));
+                      setMode("error");
+                    })
+                    .finally(() => setBusy(false));
+                }}
                 disabled={busy}
                 className="rounded-lg px-3 py-2 text-stone-700 hover:bg-stone-100"
               >
