@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState, Suspense, lazy } from "react";
+import { Minus, Pencil, Plus, ScanLine, Trash2 } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
 import Badge from "../components/ui/Badge";
 import { formatCurrency } from "../utils/format";
 import type { InventoryItem } from "../types";
+
+const ScanModal = lazy(() => import("../components/ScanModal"));
 
 const emptyItem = (): InventoryItem => ({
   id: "",
@@ -15,11 +17,13 @@ const emptyItem = (): InventoryItem => ({
   reorderLevel: 5,
   costPerUnit: 0,
   supplier: "",
+  barcode: "",
 });
 
 export default function Inventory({ search }: { search: string }) {
   const { inventory, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [draft, setDraft] = useState<InventoryItem>(emptyItem());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [allergensText, setAllergensText] = useState("");
@@ -54,6 +58,7 @@ export default function Inventory({ search }: { search: string }) {
       ingredients_label: draft.ingredients_label,
       unit_weight: draft.unit_weight,
       allergens: allergens.length ? allergens : undefined,
+      barcode: draft.barcode ? draft.barcode : null,
     };
     try {
       if (editingId) {
@@ -104,6 +109,12 @@ export default function Inventory({ search }: { search: string }) {
             <p className="font-semibold text-hibiscus">{lowCount} items</p>
           </div>
         </div>
+        <button
+          onClick={() => setScanOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-palm/30 bg-white px-4 py-2.5 text-sm font-medium text-palm shadow-sm transition hover:bg-palm/5"
+        >
+          <ScanLine size={16} /> Scan
+        </button>
         <button
           onClick={openNew}
           className="flex items-center gap-1.5 rounded-xl bg-palm px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:shadow-md"
@@ -240,6 +251,14 @@ export default function Inventory({ search }: { search: string }) {
               className="input"
             />
           </Field>
+          <Field label="Barcode (optional)">
+            <input
+              value={draft.barcode || ""}
+              onChange={(e) => setDraft({ ...draft, barcode: e.target.value || undefined })}
+              placeholder="Scan or type a code — leave blank to clear"
+              className="input font-mono"
+            />
+          </Field>
 
           <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
             <p className="mb-2 text-xs font-medium text-cocoa">Label info (used to auto-generate product labels)</p>
@@ -280,6 +299,12 @@ export default function Inventory({ search }: { search: string }) {
           </button>
         </div>
       </Modal>
+
+      {scanOpen && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-palm/40 backdrop-blur-sm"><div className="rounded-xl bg-white p-6 shadow-lg">Loading scanner…</div></div>}>
+          <ScanModal open={scanOpen} onClose={() => setScanOpen(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

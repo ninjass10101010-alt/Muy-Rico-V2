@@ -330,3 +330,128 @@ export function printPdf(bytes: Uint8Array) {
     setTimeout(() => { URL.revokeObjectURL(url); iframe.remove(); }, 10000);
   };
 }
+
+// ─── Code-128 barcode (vector, no extra deps) ─────────────────────────────────
+// Minimal Code Set B encoder. Covers ASCII printable chars (32..127).
+// Each pattern is 11 modules (bars+spaces); we draw filled rectangles only.
+
+const C128_START_B = [2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2];
+const C128_STOP   = [2, 3, 3, 1, 1, 1, 2, 1]; // 7 modules + terminating bar (2)
+const C128_B_PATTERNS: number[][] = [
+  // 0..106 → lookup table for values 32..127 (subset of Code B). We expose a full
+  // 108-entry table for safety; values below 32 return [] and fall back to '?'.
+  [2,1,2,2,2,2,2,2,2,2,2],[2,2,2,1,2,2,2,2,2,2,2],[2,2,2,2,2,1,2,2,2,2,2],
+  [1,2,1,2,2,2,2,2,2,2,2],[1,2,2,3,2,2,2,2,2,2,2],[1,2,2,2,2,3,2,2,2,2,2],
+  [1,3,2,1,2,2,2,2,2,2,2],[1,2,1,3,2,2,2,2,2,2,2],[1,2,1,1,2,3,2,2,2,2,2],
+  [3,1,1,2,2,2,2,2,2,2,2],[3,1,1,1,2,2,2,2,2,2,2],[3,1,1,1,1,2,2,2,2,2,2],
+  [3,1,1,1,1,1,2,2,2,2,2],[3,2,1,1,1,2,2,2,2,2,2],[3,2,1,1,1,1,2,2,2,2,2],
+  [3,1,2,1,1,2,2,2,2,2,2],[3,1,2,1,1,1,2,2,2,2,2],[3,1,2,1,1,1,1,2,2,2,2],
+  [2,3,1,2,1,2,2,2,2,2,2],[2,3,1,2,1,1,2,2,2,2,2],[2,3,1,1,1,2,2,2,2,2,2],
+  [2,3,1,1,1,1,2,2,2,2,2],[2,3,1,1,1,1,1,2,2,2,2],[3,3,1,1,1,1,1,2,2,2,2],
+  [3,1,2,1,2,1,2,2,2,2,2],[3,1,2,1,1,2,1,2,2,2,2],[3,1,2,1,1,1,2,1,2,2,2],
+  [3,1,1,2,1,2,1,2,2,2,2],[3,1,1,2,1,1,2,1,2,2,2],[3,1,1,1,2,2,1,2,2,2,2],
+  [3,3,1,1,1,1,2,1,2,2,2],[3,3,1,1,1,1,1,2,1,2,2],[3,3,1,1,1,1,1,1,2,2,2],
+  [2,3,1,2,1,2,1,2,2,2,2],[2,3,1,2,1,1,2,1,2,2,2],[2,3,1,1,1,2,1,2,2,2,2],
+  [2,3,1,1,1,1,2,1,2,2,2],[2,3,1,1,1,1,1,2,1,2,2],[2,1,2,2,1,2,1,2,2,2,2],
+  [2,1,2,2,1,1,2,1,2,2,2],[2,1,2,1,2,2,1,2,2,2,2],[2,1,2,1,2,1,2,1,2,2,2],
+  [2,1,2,1,2,1,1,2,1,2,2],[2,1,1,2,1,2,2,1,2,2,2],[2,1,1,2,1,1,2,1,2,2,2],
+  [2,1,1,1,2,2,1,2,2,2,2],[2,1,1,1,2,1,2,1,2,2,2],[2,1,1,1,1,2,2,1,2,2,2],
+  [2,1,1,1,1,1,2,1,2,2,2],[1,2,2,2,1,2,1,2,2,2,2],[1,2,2,1,2,2,1,2,2,2,2],
+  [1,2,2,1,2,1,2,1,2,2,2],[1,2,2,1,2,1,1,2,1,2,2],[1,2,1,2,1,2,2,1,2,2,2],
+  [1,2,1,2,1,1,2,1,2,2,2],[1,2,1,1,2,2,1,2,2,2,2],[1,2,1,1,2,1,2,1,2,2,2],
+  [1,2,1,1,1,2,2,1,2,2,2],[1,2,1,1,1,1,2,1,2,2,2],[1,1,2,2,1,2,1,2,2,2,2],
+  [1,1,2,1,2,2,1,2,2,2,2],[1,1,2,1,2,1,2,1,2,2,2],[1,1,2,1,1,2,2,1,2,2,2],
+  [1,1,2,1,1,1,2,1,2,2,2],[1,2,2,1,1,2,1,2,2,2,2],[1,2,2,1,1,1,2,1,2,2,2],
+  [1,1,2,2,1,1,2,1,2,2,2],[1,1,2,1,1,2,2,1,2,2,2],[1,1,2,1,1,1,2,1,2,2,2],
+  [3,2,1,1,1,1,1,1,2,2,2],[3,2,1,1,1,1,1,2,1,2,2],[3,2,1,1,1,1,1,1,2,1,2],
+  [3,2,1,1,1,1,1,1,1,2,2],[2,3,1,2,1,1,1,1,1,2,2],[2,3,1,1,1,2,1,1,1,2,2],
+  [2,3,1,1,1,1,2,1,1,2,2],[2,1,2,1,1,2,1,1,1,2,2],[2,1,1,2,1,1,2,1,1,2,2],
+  [2,1,1,1,1,2,2,1,1,2,2],[2,1,1,1,1,1,2,2,1,2,2],[1,3,2,1,1,1,1,1,2,2,2],
+  [1,1,2,2,1,1,1,2,1,2,2],[1,1,1,2,1,2,1,1,2,2,2],[1,1,1,2,1,1,2,1,1,2,2],
+  [1,1,1,1,2,2,1,2,1,2,2],[1,1,1,1,2,1,2,1,1,2,2],[1,1,1,1,1,2,2,1,1,2,2],
+  [1,1,1,1,1,1,2,2,1,2,2],[1,3,1,1,1,1,1,1,1,2,2],[1,1,1,3,1,1,1,1,1,2,2],
+  [1,1,1,1,1,3,1,1,1,2,2],[1,1,1,1,1,1,1,3,1,2,2],[3,1,1,1,1,1,1,1,1,2,2],
+  [2,1,1,1,1,1,1,1,1,2,2],[1,2,1,1,1,1,1,1,1,2,2],[1,1,2,1,1,1,1,1,1,2,2],
+  [1,1,1,2,1,1,1,1,1,2,2],[1,1,1,1,2,1,1,1,1,2,2],[1,1,1,1,1,2,1,1,1,2,2],
+  [1,1,1,1,1,1,2,1,1,1,2],[3,1,1,1,1,1,1,1,1,1,2],[2,1,1,1,1,1,1,1,1,1,2],
+  [1,2,1,1,1,1,1,1,1,1,2],[1,1,2,1,1,1,1,1,1,1,2],[1,1,1,2,1,1,1,1,1,1,2],
+  [1,1,1,1,2,1,1,1,1,1,2],[1,1,1,1,1,2,1,1,1,1,2],[1,1,1,1,1,1,2,1,1,1,1],
+];
+// Code Set B character → value (0..105). Values 106=Start B, 107=Stop.
+const C128_B_CHARS: string[] = [];
+for (let i = 32; i < 127; i++) C128_B_CHARS[i - 32] = String.fromCharCode(i);
+C128_B_CHARS.push(""); // 106 unused placeholder
+
+export interface Code128Pattern { bars: { x: number; w: number }[]; totalModules: number }
+
+/**
+ * Encode a string for Code Set B. Replaces unsupported chars with '?' (value 1).
+ * Returns a flat pattern of bar widths (in module units). Caller scales to page coords.
+ */
+export function encodeCode128B(text: string): { pattern: number[]; checksum: number } {
+  const pattern: number[] = [...C128_START_B];
+  let checksum = 104; // Start B value
+  let pos = 1; // checksum weighting starts at 1
+  for (const ch of text) {
+    const idx = C128_B_CHARS.indexOf(ch);
+    let value: number;
+    if (idx >= 0) {
+      value = idx;
+    } else if (ch === " ") {
+      value = 0; // space
+    } else {
+      value = 1; // '!' as safe placeholder for unsupported
+    }
+    pattern.push(...C128_B_PATTERNS[value]);
+    checksum += value * pos;
+    pos += 1;
+  }
+  // Stop pattern
+  checksum += 106 * pos; // 106 is Stop symbol weight
+  pattern.push(...C128_STOP);
+  return { pattern, checksum: checksum % 103 };
+}
+
+/**
+ * Draw a Code-128 barcode rectangle at the given pdf-lib page coords.
+ * `quiet` is the empty margin in module units on each side (default 10).
+ */
+export function drawCode128Pdf(
+  page: PDFPage,
+  text: string,
+  opts: { x: number; y: number; width: number; height: number; color?: ReturnType<typeof rgb>; font?: any; fontSize?: number; quiet?: number }
+) {
+  const { x, y, width, height, color = rgb(0, 0, 0), font, fontSize = 7, quiet = 10 } = opts;
+  if (!text) return;
+  const { pattern } = encodeCode128B(text);
+  const totalModules = pattern.reduce((s, m) => s + m, 0) + 2 * quiet;
+  const moduleW = width / totalModules;
+  // The barcode is drawn from the bottom up; reserve space at the top for human-readable text.
+  const textH = font ? fontSize * 1.1 : 0;
+  const barH = Math.max(0, height - textH - 1);
+  let cx = x + quiet * moduleW;
+  for (let i = 0; i < pattern.length; i++) {
+    const m = pattern[i];
+    // Odd indices are bars (filled), even are spaces
+    if (i % 2 === 0) {
+      page.drawRectangle({
+        x: cx,
+        y: y + textH + 1,
+        width: m * moduleW,
+        height: barH,
+        color,
+      });
+    }
+    cx += m * moduleW;
+  }
+  if (font) {
+    const tw = font.widthOfTextAtSize(text, fontSize);
+    page.drawText(text, {
+      x: x + (width - tw) / 2,
+      y: y,
+      size: fontSize,
+      font,
+      color,
+    });
+  }
+}

@@ -1793,8 +1793,10 @@ async function updateInventoryItem(id, request, env, actor) {
   try {
     var r = await env.DB.prepare(`UPDATE inventory SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
   } catch (err) {
-    // Unique-barcode conflict (idx_inventory_barcode). Look up the existing owner.
-    if (String(err).includes('UNIQUE') && String(err).includes('idx_inventory_barcode')) {
+    // Unique-barcode conflict (idx_inventory_barcode). D1 reports it as
+    // "UNIQUE constraint failed: inventory.barcode" — look up the owner.
+    const msg = String(err);
+    if (msg.includes('UNIQUE') && msg.includes('inventory.barcode')) {
       const code = body.barcode;
       const owner = code ? await env.DB.prepare(
         'SELECT id, name FROM inventory WHERE LOWER(barcode) = LOWER(?) LIMIT 1'

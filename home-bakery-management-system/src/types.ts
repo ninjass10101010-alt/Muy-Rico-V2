@@ -81,6 +81,7 @@ export interface InventoryItem {
   allergens?: string[];
   unit_weight?: number;
   active?: boolean;
+  barcode?: string | null;
 }
 
 export interface Customer {
