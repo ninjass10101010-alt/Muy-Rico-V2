@@ -592,6 +592,7 @@ export interface ApiLabelTemplate {
   nutrientClaim: number | null;
   bgImage: string | null;
   averyPreset: string | null;
+  bestByDate: string | null;
   displayOrder: number;
   active: boolean;
 }
@@ -708,7 +709,7 @@ export async function resetSeedData(): Promise<{ ok: boolean }> {
 
 // ─── Label generation ──────────────────────────────────────────────────────────
 
-export async function generateOrderLabels(orderId: number): Promise<{ ok: boolean; orderId: number }> {
+export async function generateOrderLabels(orderId: number): Promise<{ ok: boolean; orderId: number; generated: number }> {
   return apiFetch(`/api/orders/${orderId}/generate-labels`, { method: "POST" });
 }
 
@@ -834,6 +835,10 @@ export async function updateQuote(
     method: "PATCH",
     body: JSON.stringify(patch),
   });
+}
+
+export async function deleteQuote(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/quotes/${id}`, { method: "DELETE" });
 }
 
 export async function convertQuote(
