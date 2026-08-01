@@ -10,7 +10,7 @@ import type { Quote } from "../types";
 import type { Page } from "../App";
 
 export default function Quotes({ search, setPage }: { search: string; setPage: (p: Page) => void }) {
-  const { quotes, handleUpdateQuote, loading } = useStore();
+  const { quotes, handleUpdateQuote, handleDeleteQuote, loading } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Quote | null>(null);
   const [quotedPrice, setQuotedPrice] = useState("");
@@ -19,6 +19,9 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
   const [convertOpen, setConvertOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [archivedFrom, setArchivedFrom] = useState<Record<number, Quote["status"]>>({});
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return quotes
@@ -66,6 +69,20 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
       setSelected(null);
     } catch (err) {
       setSaveMsg("Failed to archive. Try again.");
+    }
+  }
+
+  async function deleteQuote() {
+    if (!selected) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await handleDeleteQuote(selected.id);
+      setConfirmDeleteOpen(false);
+      setSelected(null);
+    } catch (err) {
+      setDeleteError("Failed to delete. Try again.");
+      setDeleting(false);
     }
   }
 
@@ -331,6 +348,17 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                 </button>
               )}
 
+              <button
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleting(false);
+                  setConfirmDeleteOpen(true);
+                }}
+                className="text-xs font-medium text-hibiscus hover:underline"
+              >
+                Delete quote
+              </button>
+
               {selected.status === "archived" && (
                 <button
                   onClick={async () => {
@@ -348,6 +376,39 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
             <div className="flex items-center justify-between text-xs text-cocoa-muted">
               <span>Created {formatDate(selected.createdAt)}</span>
               <span>Updated {formatDate(selected.updatedAt)}</span>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        title={selected?.convertedOrderId ? "Delete converted quote?" : "Delete this quote?"}
+      >
+        {selected && (
+          <div className="space-y-4">
+            <p className="text-sm text-cocoa">
+              This permanently removes quote #{selected.id} and all its items.{" "}
+              <span className="font-semibold">This cannot be undone.</span>
+            </p>
+            {selected.convertedOrderId && (
+              <p className="rounded-xl bg-coral-light/20 p-3 text-sm text-cocoa">
+                Order #{selected.convertedOrderId} stays, but the link from this quote will be lost.
+              </p>
+            )}
+            {deleteError && <p className="text-xs text-hibiscus">{deleteError}</p>}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDeleteOpen(false)} className="btn-secondary">
+                Cancel
+              </button>
+              <button
+                onClick={deleteQuote}
+                disabled={deleting}
+                className="rounded-xl bg-hibiscus px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete permanently"}
+              </button>
             </div>
           </div>
         )}
