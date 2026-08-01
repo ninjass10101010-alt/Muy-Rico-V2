@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
-import { Mail, Pencil, Phone, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Mail, Pencil, Phone, Plus, Trash2 } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
+import MergeModal from "../components/MergeModal";
 import { formatCurrency, formatDate, newId } from "../utils/format";
+import { apiGetDuplicateCustomers } from "../utils/api";
 import type { Customer } from "../types";
+import type { DuplicatePair } from "../utils/api";
 
 const emptyCustomer = (): Customer => ({
   id: "",
@@ -22,6 +25,14 @@ export default function Customers({ search }: { search: string }) {
   const [viewing, setViewing] = useState<Customer | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [duplicates, setDuplicates] = useState<DuplicatePair[]>([]);
+  const [mergePair, setMergePair] = useState<DuplicatePair | null>(null);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<{ existingId: string; existingName: string } | null>(null);
+
+  useEffect(() => {
+    apiGetDuplicateCustomers().then(setDuplicates).catch(() => {});
+  }, []);
 
   const stats = useMemo(() => {
     const map: Record<string, { count: number; total: number }> = {};
@@ -54,6 +65,7 @@ export default function Customers({ search }: { search: string }) {
     if (!draft.name.trim()) return;
     setSaving(true);
     setErrorMsg("");
+    setDuplicateError(null);
     try {
       if (editingId) {
         await handleUpdateCustomer(editingId, {
@@ -63,15 +75,24 @@ export default function Customers({ search }: { search: string }) {
           notes: draft.notes,
         });
       } else {
-        await handleCreateCustomer({
+        const result = await handleCreateCustomer({
           id: newId("cust"),
           name: draft.name,
           phone: draft.phone,
           email: draft.email,
           notes: draft.notes,
         });
+        // Check if the API returned a duplicate block
+        if (result && (result as any).duplicate) {
+          setDuplicateError({
+            existingId: (result as any).existingId,
+            existingName: (result as any).existingName,
+          });
+          return; // Don't close modal
+        }
       }
       setModalOpen(false);
+      setDuplicateError(null);
     } catch (err: any) {
       console.error("Failed to save customer:", err);
       setErrorMsg(err.message || "Failed to save. Please try again.");
@@ -95,6 +116,13 @@ export default function Customers({ search }: { search: string }) {
         </button>
       </div>
 
+      {duplicates.length > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <AlertTriangle size={16} />
+          <span className="font-medium">{duplicates.length} possible duplicate customer{duplicates.length !== 1 ? "s" : ""} to review</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((c) => {
           const s = stats[c.id] || { count: 0, total: 0 };
@@ -103,6 +131,25 @@ export default function Customers({ search }: { search: string }) {
               <div className="flex items-start justify-between">
                 <button className="text-left" onClick={() => setViewing(c)}>
                   <p className="font-semibold text-cocoa hover:underline">{c.name}</p>
+                  {duplicates.some(
+                    (d) => d.survivingCandidate.id === c.id || d.mergedCandidate.id === c.id
+                  ) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const pair = duplicates.find(
+                          (d) => d.survivingCandidate.id === c.id || d.mergedCandidate.id === c.id
+                        );
+                        if (pair) {
+                          setMergePair(pair);
+                          setMergeModalOpen(true);
+                        }
+                      }}
+                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                    >
+                      <AlertTriangle size={10} /> Possible duplicate
+                    </button>
+                  )}
                   <p className="text-xs text-cocoa-muted">Customer since {formatDate(c.createdAt)}</p>
                 </button>
               </div>
@@ -161,6 +208,47 @@ export default function Customers({ search }: { search: string }) {
           {errorMsg && (
             <p className="rounded-lg bg-hibiscus-light/10 px-3 py-2 text-xs text-hibiscus">{errorMsg}</p>
           )}
+          {duplicateError && (
+            <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+              <p className="font-medium">{duplicateError.existingName} already uses this email.</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    setDuplicateError(null);
+                    setModalOpen(false);
+                  }}
+                  className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium hover:bg-amber-100"
+                >
+                  Use existing
+                </button>
+                <button
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await handleCreateCustomer({
+                        id: newId("cust"),
+                        name: draft.name,
+                        phone: draft.phone,
+                        email: draft.email,
+                        notes: draft.notes,
+                        force: true,
+                      } as any);
+                      setModalOpen(false);
+                      setDuplicateError(null);
+                    } catch (err: any) {
+                      setErrorMsg(err.message || "Failed");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={saving}
+                  className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  Create anyway
+                </button>
+              </div>
+            </div>
+          )}
           <button
             onClick={save}
             disabled={saving}
@@ -194,6 +282,20 @@ export default function Customers({ search }: { search: string }) {
           </div>
         )}
       </Modal>
+
+      <MergeModal
+        open={mergeModalOpen}
+        onClose={() => {
+          setMergeModalOpen(false);
+          setMergePair(null);
+        }}
+        pair={mergePair}
+        stats={stats}
+        onMerged={() => {
+          // Refresh duplicates and customers after merge
+          apiGetDuplicateCustomers().then(setDuplicates).catch(() => {});
+        }}
+      />
     </div>
   );
 }
