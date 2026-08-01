@@ -288,6 +288,7 @@ export interface ApiInventoryItem {
   allergens?: string;           // JSON array
   unit_weight?: number | null;
   active: number;
+  barcode?: string | null;
   created_at?: string;
   updated_at?: string | null;
 }
@@ -305,6 +306,7 @@ export interface InventoryItemCreate {
   allergens?: string[] | string;
   unit_weight?: number | null;
   active?: boolean;
+  barcode?: string | null;
 }
 
 export type InventoryItemUpdate = Partial<InventoryItemCreate>;
@@ -337,6 +339,36 @@ export async function deleteInventoryItem(id: string): Promise<{ ok: boolean }> 
   return apiFetch(`/api/inventory/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+// Lookup by scanned/typed barcode (case-insensitive). 404 if not bound to any active item.
+export async function lookupInventoryByCode(
+  code: string
+): Promise<{ item: ApiInventoryItem } | { error: string; status?: number }> {
+  const q = encodeURIComponent(code.trim());
+  const url = `${API_BASE}/api/inventory/lookup?code=${q}`;
+  try {
+    const data = await apiFetch<{ item: ApiInventoryItem }>(url);
+    return { item: data.item };
+  } catch (err: any) {
+    return { error: err?.message || "Lookup failed", status: 500 };
+  }
+}
+
+// Atomic quantity adjust (delta may be negative). Used by the scan modal.
+export async function adjustInventoryQuantity(
+  id: string,
+  delta: number
+): Promise<{ ok: boolean; quantity: number } | { error: string }> {
+  try {
+    const data = await apiFetch<{ ok: boolean; quantity: number }>(
+      `${API_BASE}/api/inventory/${encodeURIComponent(id)}/adjust`,
+      { method: "POST", body: JSON.stringify({ delta }) }
+    );
+    return { ok: true, quantity: Number(data.quantity) };
+  } catch (err: any) {
+    return { error: err?.message || "Adjust failed" };
+  }
 }
 
 // ─── Customers ───────────────────────────────────────────────────────────────
@@ -384,6 +416,44 @@ export async function updateCustomer(id: string, patch: CustomerUpdate): Promise
 export async function deleteCustomer(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/customers/${encodeURIComponent(id)}`, {
     method: "DELETE",
+  });
+}
+
+export interface DuplicatePair {
+  survivingCandidate: ApiCustomer;
+  mergedCandidate: ApiCustomer;
+  matchedBy: string;
+  confidence: string;
+}
+
+export async function apiGetDuplicateCustomers(): Promise<DuplicatePair[]> {
+  const data = await apiFetch<{ duplicates: DuplicatePair[] }>("/api/customers/duplicates");
+  return data.duplicates || [];
+}
+
+export async function apiMergeCustomers(
+  survivingId: string,
+  mergedId: string
+): Promise<{ ok: boolean; survivingId: string; relinkedOrderCount: number }> {
+  return apiFetch("/api/customers/merge", {
+    method: "POST",
+    body: JSON.stringify({ survivingId, mergedId }),
+  });
+}
+
+export async function apiReverseMerge(mergeId: string): Promise<{ ok: boolean; restoredId: string }> {
+  return apiFetch(`/api/customers/merge/${mergeId}/reverse`, {
+    method: "POST",
+  });
+}
+
+export async function apiRelinkOrder(
+  orderId: number,
+  customerId: string | null
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/orders/${orderId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ customer_id: customerId }),
   });
 }
 
