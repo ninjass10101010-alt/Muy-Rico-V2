@@ -16,7 +16,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, products, payments, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt } = useStore();
+  const { orders, products, payments, customers, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, handleRelinkOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -29,6 +29,8 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [editPaySub, setEditPaySub] = useState("");
   const [generatingLabels, setGeneratingLabels] = useState(false);
   const [labelGenResult, setLabelGenResult] = useState<string | null>(null);
+  const [relinkOrderId, setRelinkOrderId] = useState<string | null>(null);
+  const [relinkSearch, setRelinkSearch] = useState("");
 
   const filtered = useMemo(() => {
     return orders
@@ -200,13 +202,55 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         </div>
       </div>
 
-      <Modal open={!!selected} onClose={() => { setSelected(null); setLabelGenResult(null); }} title={selected ? `Order ${selected.orderNumber}` : ""}>
+      <Modal open={!!selected} onClose={() => { setSelected(null); setLabelGenResult(null); setRelinkOrderId(null); setRelinkSearch(""); }} title={selected ? `Order ${selected.orderNumber}` : ""}>
         {selected && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-cocoa">{selected.customerName}</p>
                 <p className="text-xs text-cocoa-muted">{selected.phone}</p>
+                {relinkOrderId === selected.id ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="text"
+                      value={relinkSearch}
+                      onChange={(e) => setRelinkSearch(e.target.value)}
+                      placeholder="Search customer..."
+                      className="input text-xs"
+                      autoFocus
+                    />
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleRelinkOrder(Number(selected.id), e.target.value);
+                          setRelinkOrderId(null);
+                          setRelinkSearch("");
+                        }
+                      }}
+                      className="input text-xs"
+                    >
+                      <option value="">Select...</option>
+                      {customers
+                        .filter((c) => c.name.toLowerCase().includes(relinkSearch.toLowerCase()))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                    <button
+                      onClick={() => { setRelinkOrderId(null); setRelinkSearch(""); }}
+                      className="text-xs text-cocoa-muted hover:text-cocoa"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setRelinkOrderId(selected.id)}
+                    className="text-xs text-palm hover:underline"
+                  >
+                    Change
+                  </button>
+                )}
               </div>
               <div className="flex gap-1.5">
                 <Badge tone={selected.source}>{selected.source}</Badge>
