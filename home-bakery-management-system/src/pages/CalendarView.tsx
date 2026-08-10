@@ -10,6 +10,7 @@ import Modal from "../components/ui/Modal";
 import OrderModal from "../components/OrderModal";
 import ProductIcon from "../components/ProductIcon";
 import { loadReminderConfig } from "../utils/reminders";
+import { computePrepList } from "../utils/prepList";
 import type { Order } from "../types";
 import type { Page } from "../App";
 
@@ -129,9 +130,12 @@ export default function CalendarView({
         </div>
 
         <div className="w-full lg:w-80">
-          <div className="rounded-xl border border-sand-200 bg-white p-4 text-center text-sm text-cocoa-muted">
-            Side panel (reminders + prep list) ships in Task 9.
-          </div>
+          <SidePanel
+            mode={mode}
+            cursor={cursor}
+            byIso={byIso}
+            onOpenInventory={onOpenInventory}
+          />
         </div>
       </div>
 
@@ -418,4 +422,166 @@ function OrderTimelineCard({ order }: { order: Order }) {
       </Modal>
     </>
   );
+}
+
+function SidePanel({ mode, cursor, byIso, onOpenInventory }: {
+  mode: CalendarViewMode;
+  cursor: Date;
+  byIso: Map<string, Order[]>;
+  onOpenInventory: (highlightId: string) => void;
+}) {
+  const { products, inventory, apiUpdateInventoryItem, profile } = useStore();
+  const { reminders, markAllRead, snooze, dismiss } = useReminders();
+  const cfg = loadReminderConfig(profile?.reminders);
+
+  const [openPrep, setOpenPrep] = useState(true);
+
+  const windowRange = useMemo(() => {
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (mode === "month") {
+      return [iso(new Date(cursor.getFullYear(), cursor.getMonth(), 1)), iso(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0))];
+    }
+    if (mode === "week") {
+      const start = new Date(cursor); start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      return [iso(start), iso(end)];
+    }
+    if (mode === "day") {
+      return [iso(cursor), iso(cursor)];
+    }
+    const today = iso(new Date());
+    const end = new Date(); end.setDate(end.getDate() + cfg.leadDays);
+    return [today, iso(end)];
+  }, [mode, cursor, cfg.leadDays]);
+
+  const prep = useMemo(
+    () => computePrepList(ordersForWindow(byIso, windowRange[0], windowRange[1]), products, inventory, windowRange[0], windowRange[1]),
+    [byIso, products, inventory, windowRange],
+  );
+
+  async function adjust(id: string, delta: number) {
+    const current = inventory.find((i) => i.id === id)?.quantity ?? 0;
+    try {
+      await apiUpdateInventoryItem(id, { quantity: Math.max(0, +(current + delta).toFixed(2)) });
+    } catch (err) {
+      console.warn("Adjust failed:", err);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
+        <header className="flex items-center justify-between border-b border-sand-100 px-4 py-3">
+          <p className="font-serif text-sm font-semibold text-cocoa">Reminders</p>
+          <button onClick={markAllRead} className="text-xs font-medium text-coral hover:underline">Mark all read</button>
+        </header>
+        {reminders.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs text-cocoa-muted">No reminders in the active window.</p>
+        ) : (
+          <div className="divide-y divide-sand-100">
+            {reminders.slice(0, 5).map((r) => (
+              <div key={r.order.id} className="px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-cocoa">{r.order.orderNumber} · {r.order.customerName}</span>
+                  <Badge tone={r.tier}>{r.tier}</Badge>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  <button onClick={() => snooze(r.order.id, cfg.defaultSnoozeHours)} className="font-medium text-cocoa-muted hover:text-cocoa">Snooze</button>
+                  <button onClick={() => dismiss(r.order.id)} className="font-medium text-cocoa-muted hover:text-hibiscus">Dismiss</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
+        <header className="border-b border-sand-100 px-4 py-3">
+          <p className="font-serif text-sm font-semibold text-cocoa">
+            {mode === "day" ? "This day" : mode === "week" ? "This week" : mode === "month" ? "This month" : "Upcoming"}
+          </p>
+        </header>
+        {prep.ordersCovered.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs text-cocoa-muted">No orders in this window.</p>
+        ) : (
+          <div className="divide-y divide-sand-100">
+            {prep.ordersCovered.map((o) => (
+              <div key={o.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                <span className="truncate text-cocoa">{o.orderNumber} · {o.customerName}</span>
+                <span className="text-xs text-cocoa-muted">{formatDate(o.dueDate)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section id="prep-panel" className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
+        <header className="flex items-center justify-between border-b border-sand-100 px-4 py-3">
+          <button onClick={() => setOpenPrep((v) => !v)} className="flex flex-1 items-center justify-between">
+            <span className="font-serif text-sm font-semibold text-cocoa">Prep list</span>
+            <span className="text-xs text-cocoa-muted">{windowRange[0]} → {windowRange[1]}</span>
+          </button>
+        </header>
+        {!openPrep ? null : prep.needs.length === 0 && prep.withoutRecipe.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs text-cocoa-muted">Nothing needed for this window.</p>
+        ) : (
+          <div className="max-h-96 space-y-3 overflow-y-auto px-4 py-3">
+            {prep.needs.filter((n) => !n.ok).length > 0 && (
+              <div>
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-hibiscus">Short ({prep.needs.filter((n) => !n.ok).length})</p>
+                <div className="space-y-1.5">
+                  {prep.needs.filter((n) => !n.ok).map((n) => (
+                    <div key={n.inventoryItemId} className="rounded-lg bg-hibiscus-light/10 px-3 py-2 ring-1 ring-inset ring-hibiscus-light/30">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-cocoa">{n.name}</p>
+                        <p className="text-xs text-hibiscus">✗ {n.short.toFixed(1)} {n.unit} short</p>
+                      </div>
+                      <p className="text-xs text-cocoa-muted">need {n.need.toFixed(1)} · have {n.have.toFixed(1)} {n.unit}</p>
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <button onClick={() => adjust(n.inventoryItemId, n.short)} className="rounded-lg bg-palm px-2 py-1 text-[11px] font-semibold text-white hover:shadow">
+                          Adjust +{n.short.toFixed(0)}
+                        </button>
+                        <button onClick={() => onOpenInventory(n.inventoryItemId)} className="rounded-lg border border-sand-200 px-2 py-1 text-[11px] font-medium text-cocoa-muted hover:bg-sand-100">
+                          Open inventory
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {prep.needs.filter((n) => n.ok).length > 0 && (
+              <div>
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-palm">OK ({prep.needs.filter((n) => n.ok).length})</p>
+                <div className="space-y-1">
+                  {prep.needs.filter((n) => n.ok).map((n) => (
+                    <div key={n.inventoryItemId} className="flex items-center justify-between px-1 text-sm">
+                      <span className="text-cocoa">{n.name}</span>
+                      <span className="text-xs text-cocoa-muted">need {n.need.toFixed(1)} · have {n.have.toFixed(1)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {prep.withoutRecipe.length > 0 && (
+              <div className="rounded-lg bg-sand-50 px-3 py-2">
+                <p className="text-xs font-semibold text-cocoa-muted">Needs manual entry ({prep.withoutRecipe.length})</p>
+                <p className="mt-0.5 text-[11px] text-cocoa-muted">
+                  {prep.withoutRecipe.map((w) => `${w.qty}× ${w.productName}`).join(", ")}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ordersForWindow(byIso: Map<string, Order[]>, start: string, end: string): Order[] {
+  const out: Order[] = [];
+  for (const [iso, orders] of byIso) {
+    if (iso >= start && iso <= end) out.push(...orders);
+  }
+  return out;
 }
