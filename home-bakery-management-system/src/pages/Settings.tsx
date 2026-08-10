@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CheckCircle2, RefreshCcw, Save, Bell } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import type { BusinessProfile, PaymentMethod } from "../types";
-import { DEFAULT_REMINDER_CONFIG, type ReminderConfig } from "../types";
+import { DEFAULT_REMINDER_CONFIG } from "../types";
 import { saveReminderConfigToLocal } from "../utils/reminders";
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
 import { backfillAllOrderLabels } from "../utils/api";

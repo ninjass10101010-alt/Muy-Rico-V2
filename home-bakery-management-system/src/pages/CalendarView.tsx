@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, List, CalendarDays, CalendarRange, CalendarClock, Plus, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, List, CalendarDays, CalendarRange, CalendarClock } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import { useReminders } from "../hooks/useReminders";
 import { calendarGrid, type CalendarCell } from "../utils/calendarGrid";
