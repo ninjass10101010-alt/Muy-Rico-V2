@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { CheckCircle2, RefreshCcw, Save } from "lucide-react";
+import { CheckCircle2, RefreshCcw, Save, Bell } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import type { BusinessProfile, PaymentMethod } from "../types";
+import { DEFAULT_REMINDER_CONFIG, type ReminderConfig } from "../types";
+import { saveReminderConfigToLocal } from "../utils/reminders";
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
 import { backfillAllOrderLabels } from "../utils/api";
 
@@ -23,6 +25,7 @@ export default function Settings() {
 
   async function save() {
     try {
+      saveReminderConfigToLocal(draft.reminders ?? DEFAULT_REMINDER_CONFIG);
       await handleUpdateProfile(draft);
     } catch (err) {
       console.error("Failed to save profile:", err);
@@ -99,6 +102,67 @@ export default function Settings() {
                 Leave blank to use name + address instead.
               </p>
             </Field>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 flex items-center gap-2 font-serif text-sm font-semibold text-cocoa">
+            <Bell size={15} className="text-coral" /> Reminders
+          </h3>
+          <p className="mb-4 text-xs text-cocoa-muted">
+            When should the dashboard alert you before an order is due? Saved to this browser.
+          </p>
+          <div className="space-y-3">
+            <Field label="Remind N days before due">
+              <input
+                type="number"
+                min={1}
+                max={14}
+                value={draft.reminders?.leadDays ?? DEFAULT_REMINDER_CONFIG.leadDays}
+                onChange={(e) => setDraft({ ...draft, reminders: { ...(draft.reminders ?? DEFAULT_REMINDER_CONFIG), leadDays: Number(e.target.value) } })}
+                className="input"
+              />
+            </Field>
+            <label className="flex items-center justify-between rounded-lg border border-sand-200 px-3 py-2.5">
+              <span className="text-sm text-cocoa">Also remind on the due day</span>
+              <input
+                type="checkbox"
+                checked={draft.reminders?.dayOf ?? DEFAULT_REMINDER_CONFIG.dayOf}
+                onChange={(e) => setDraft({ ...draft, reminders: { ...(draft.reminders ?? DEFAULT_REMINDER_CONFIG), dayOf: e.target.checked } })}
+                className="h-4 w-4 accent-palm"
+              />
+            </label>
+            <Field label="Default snooze (hours)">
+              <input
+                type="number"
+                min={1}
+                value={draft.reminders?.defaultSnoozeHours ?? DEFAULT_REMINDER_CONFIG.defaultSnoozeHours}
+                onChange={(e) => setDraft({ ...draft, reminders: { ...(draft.reminders ?? DEFAULT_REMINDER_CONFIG), defaultSnoozeHours: Number(e.target.value) } })}
+                className="input"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Day view starts at (24h)">
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={draft.reminders?.dayStartTime ?? DEFAULT_REMINDER_CONFIG.dayStartTime}
+                  onChange={(e) => setDraft({ ...draft, reminders: { ...(draft.reminders ?? DEFAULT_REMINDER_CONFIG), dayStartTime: Number(e.target.value) } })}
+                  className="input"
+                />
+              </Field>
+              <Field label="Day view ends at (24h)">
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={draft.reminders?.dayEndTime ?? DEFAULT_REMINDER_CONFIG.dayEndTime}
+                  onChange={(e) => setDraft({ ...draft, reminders: { ...(draft.reminders ?? DEFAULT_REMINDER_CONFIG), dayEndTime: Number(e.target.value) } })}
+                  className="input"
+                />
+              </Field>
+            </div>
           </div>
         </div>
 
