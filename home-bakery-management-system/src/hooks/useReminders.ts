@@ -7,7 +7,6 @@ import {
   loadDismissMap,
   saveDismissMap,
   loadReminderConfig,
-  type Reminder,
 } from "../utils/reminders";
 
 const TICK_MS = 60_000;

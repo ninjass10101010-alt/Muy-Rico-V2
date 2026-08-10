@@ -41,12 +41,11 @@ function AdminApp() {
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
   const [inventoryHighlightId, setInventoryHighlightId] = useState<string | null>(null);
 
+  // Deep links: #calendar/YYYY-MM-DD → open Calendar; CalendarView consumes the
+  // hash (switches to that day) and clears it once read.
   useEffect(() => {
     const m = window.location.hash.match(/^#calendar\/(\d{4}-\d{2}-\d{2})$/);
-    if (m) {
-      setPage("calendar");
-      window.location.hash = "";
-    }
+    if (m) setPage("calendar");
   }, []);
 
   return (
@@ -80,7 +79,6 @@ function AdminApp() {
           {page === "orders" && <Orders search={search} setPage={setPage} setLabelFilter={setLabelFilter} />}
           {page === "calendar" && (
             <CalendarView
-              setPage={setPage}
               onOpenInventory={(id) => {
                 setInventoryHighlightId(id);
                 setPage("inventory");

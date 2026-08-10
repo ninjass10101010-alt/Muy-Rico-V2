@@ -12,7 +12,6 @@ import ProductIcon from "../components/ProductIcon";
 import { loadReminderConfig } from "../utils/reminders";
 import { computePrepList } from "../utils/prepList";
 import type { Order } from "../types";
-import type { Page } from "../App";
 
 export type CalendarViewMode = "month" | "week" | "day" | "list";
 
@@ -30,10 +29,8 @@ export function ordersByIso(orders: Order[]): Map<string, Order[]> {
 }
 
 export default function CalendarView({
-  setPage,
   onOpenInventory,
 }: {
-  setPage: (p: Page) => void;
   onOpenInventory: (highlightId: string) => void;
 }) {
   const { orders } = useStore();
@@ -55,6 +52,7 @@ export default function CalendarView({
     if (m) {
       setMode("day");
       setCursor(new Date(m[1] + "T12:00:00"));
+      window.location.hash = "";
     }
   }, []);
 
@@ -73,10 +71,6 @@ export default function CalendarView({
       else d.setDate(d.getDate() + delta);
       return d;
     });
-  }
-
-  function tierFor(o: Order) {
-    return dueTier(o.dueDate, o.status);
   }
 
   return (
@@ -170,13 +164,6 @@ function MonthGrid({ byIso, cursor, todayIso, onSelect }: {
 }
 
 function MonthCell({ cell, orders, onSelect }: { cell: CalendarCell; orders: Order[]; onSelect: (iso: string) => void }) {
-  const maxTier = orders.reduce<ReturnType<typeof dueTier> | null>((acc, o) => {
-    const t = dueTier(o.dueDate, o.status);
-    if (t === "overdue") return "overdue";
-    if (t === "today" && acc !== "overdue") return "today";
-    if (t === "tomorrow" && acc !== "overdue" && acc !== "today") return "tomorrow";
-    return acc;
-  }, null);
   return (
     <button
       onClick={() => onSelect(cell.iso)}
