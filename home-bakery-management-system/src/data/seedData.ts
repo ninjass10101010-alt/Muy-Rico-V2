@@ -178,7 +178,7 @@ export const seedProducts: Product[] = [
     ],
     auto_generate_label: true,
     flavor_groups: [
-      { name: 'Cake', options: ['Chocolate', 'Vanilla'] },
+      { name: 'Cake', options: ['Chocolate', 'Vanilla', 'Strawberry'] },
       { name: 'Chocolate Dip', options: ['Milk Chocolate', 'White Chocolate'] },
       { name: 'Topping', options: ['Marble', 'Sprinkles', 'Chocolate Drizzle', 'Chocolate Accessories', 'Fondant Accessories'] },
     ],

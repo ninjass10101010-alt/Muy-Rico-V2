@@ -576,6 +576,11 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                     <label className="flex items-center gap-2 text-sm text-cocoa-muted">
                       <input type="checkbox" checked={!!rec} onChange={() => toggleRecipe(item.id)} />
                       {item.name}
+                      {item.barcode && item.barcode !== item.id && (
+                        <span className="rounded bg-sand-100 px-1.5 py-0.5 font-mono text-[10px] text-cocoa-muted" title="Scanned barcode bound to this ingredient">
+                          {item.barcode}
+                        </span>
+                      )}
                     </label>
                     {rec && (
                       <div className="flex items-center gap-1 text-xs text-cocoa-muted">

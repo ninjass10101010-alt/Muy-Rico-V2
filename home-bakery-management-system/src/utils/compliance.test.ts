@@ -51,6 +51,7 @@ function makeLabel(overrides: Partial<LabelTemplate> = {}): LabelTemplate {
     disclaimerVariant: "standard",
     productType: "standard",
     allergenTags: ["Milk", "Wheat"],
+    active: true,
     noAllergensConfirmed: false,
     nutrientClaim: false,
     averyPreset: "single",

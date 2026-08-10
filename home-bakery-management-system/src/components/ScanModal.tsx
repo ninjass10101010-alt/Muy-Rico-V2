@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ScanLine, Search, Check, Link as LinkIcon } from "lucide-react";
+import { ScanLine, Search, Check, Link as LinkIcon, CheckCircle2, Unlink, Plus, Sparkles } from "lucide-react";
 import Modal from "./ui/Modal";
 import Badge from "./ui/Badge";
 import {
@@ -7,15 +7,36 @@ import {
   lookupInventoryByCode,
   updateInventoryItem,
   enrichBarcode,
+  createInventoryItem,
   type ApiInventoryItem,
+  type InventoryItemCreate,
   type OffProduct,
 } from "../utils/api";
 import { useStore } from "../context/StoreContext";
+import { sanitizeBarcode } from "../utils/barcode";
 import type { InventoryItem } from "../types";
 
-type Mode = "scanning" | "adjust" | "bind" | "preview" | "conflict" | "error";
+type Mode = "scanning" | "adjust" | "bind" | "preview" | "conflict" | "error" | "suggestCreate" | "manualCreate";
 
 interface ConflictInfo { id: string; name: string }
+
+interface RecognizedInfo { sourceLabel: string | null; fetchedAt: string | null }
+
+const COMMON_UNITS = ["each", "lb", "oz", "g", "kg", "fl oz", "L", "ml", "bag", "box", "case", "dozen"];
+
+// An item is "recognized" when it's linked to a real (non-seeded) barcode and
+// already carries name + ingredient/allergen info.
+function computeRecognized(it: ApiInventoryItem): RecognizedInfo | null {
+  const realBarcode = !!it.barcode && it.barcode !== it.id;
+  if (!realBarcode) return null;
+  if (!it.ingredients_label && !it.nutrition_source) return null;
+  let sourceLabel: string | null = "your records";
+  if (it.nutrition_source) {
+    if (it.nutrition_source.startsWith("off:")) sourceLabel = "Open Food Facts";
+    else if (it.nutrition_source.startsWith("fdc:")) sourceLabel = "USDA";
+  }
+  return { sourceLabel, fetchedAt: it.nutrition_fetched_at || null };
+}
 
 export default function ScanModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { inventory, refreshInventory } = useStore();
@@ -24,11 +45,22 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
   const [item, setItem] = useState<ApiInventoryItem | null>(null);
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
   const [offProduct, setOffProduct] = useState<OffProduct | null>(null);
-  const [newCount, setNewCount] = useState<number>(0);
+  const [recognized, setRecognized] = useState<RecognizedInfo | null>(null);
+  const [countMode, setCountMode] = useState<"add" | "set">(() => {
+    try { return localStorage.getItem("scan_count_mode") === "set" ? "set" : "add"; } catch { return "add"; }
+  });
+  const [countValue, setCountValue] = useState<number>(0);
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState<string>("");
+  const [scanWarn, setScanWarn] = useState<string>("");
   const [bindSearch, setBindSearch] = useState("");
   const [bindPick, setBindPick] = useState<InventoryItem | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState("Uncategorized");
+  const [newUnit, setNewUnit] = useState("ea");
+
+  // Session-level trail of the last few scans (code + action) shown under the viewfinder.
+  const [sessionScans, setSessionScans] = useState<{ code: string; action: string }[]>([]);
 
   // Manual-entry hidden input ref (used by the camera-disable fallback AND by the scanner gun)
   const manualRef = useRef<HTMLInputElement | null>(null);
@@ -36,16 +68,39 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
   const scannerRef = useRef<any>(null);
   const scannerElId = "scan-modal-reader";
   const lastDecodedRef = useRef<{ code: string; ts: number } | null>(null);
+  const modeRef = useRef<Mode>("scanning");
+  const countModeRef = useRef<"add" | "set">(countMode);
+
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { countModeRef.current = countMode; }, [countMode]);
 
   const focusManual = useCallback(() => {
     const t = window.setTimeout(() => manualRef.current?.focus(), 50);
     return () => window.clearTimeout(t);
   }, []);
 
-  // Core handler: a barcode arrived (camera or gun/manual)
+  const enterAdjustForItem = useCallback((it: ApiInventoryItem) => {
+    setItem(it);
+    setCountValue(countModeRef.current === "set" ? (Number(it.quantity) || 0) : 0);
+    setRecognized(computeRecognized(it));
+    setMode("adjust");
+  }, []);
+
+  // Core handler: a barcode arrived (camera or gun/manual). Codes are ignored
+  // unless we're in "scanning" mode, so camera re-reads can't wipe an open flow.
   const handleCode = useCallback(async (rawCode: string) => {
-    const c = (rawCode || "").trim();
+    const s = sanitizeBarcode(rawCode);
+    // Internal codes (inv_*, mr…, short supplier codes) have no GTIN digits —
+    // fall back to the stripped raw string so they keep working.
+    const c = s.code || s.stripped.trim();
     if (!c) return;
+    if (modeRef.current !== "scanning") return;
+    // Warn (never block) when the code looks like a GTIN but fails its check digit.
+    if (s.digits.length >= 8 && !s.valid) {
+      setScanWarn("Scanned code fails its check digit — it may have been misread. Verify it before continuing.");
+    } else {
+      setScanWarn("");
+    }
     // Debounce: ignore the same code within 1.2s (cameras can fire many reads)
     const last = lastDecodedRef.current;
     const now = Date.now();
@@ -58,15 +113,36 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     try {
       const r = await lookupInventoryByCode(c);
       if ("item" in r) {
-        setItem(r.item);
-        setNewCount(Number(r.item.quantity) || 0);
-        setMode("adjust");
+        setSessionScans(prev => [...prev.slice(-4), { code: c, action: "found" }]);
+        enterAdjustForItem(r.item);
       } else {
-        // 404 — offer to bind to an existing item
+        setSessionScans(prev => [...prev.slice(-4), { code: c, action: "new" }]);
+        // 404 — unknown code. Try to recognize the product (Open Food Facts)
+        // so we can suggest adding it as a brand-new inventory item.
         setItem(null);
-        setMode("bind");
+        setRecognized(null);
         setBindPick(null);
         setBindSearch("");
+        let product: OffProduct | null = null;
+        try {
+          const er = await enrichBarcode(c);
+          product = er && er.product ? er.product : null;
+        } catch {
+          product = null;
+        }
+        if (product) {
+          setOffProduct(product);
+          setNewName(product.name || "");
+          setNewCategory("Uncategorized");
+          setNewUnit(product.unitWeightLb != null ? "lb" : "ea");
+          setMode("suggestCreate");
+        } else {
+          setOffProduct(null);
+          setNewName("");
+          setNewCategory("Uncategorized");
+          setNewUnit("ea");
+          setMode("manualCreate");
+        }
       }
     } catch (e: any) {
       setErrMsg(e?.message || "Lookup failed");
@@ -75,7 +151,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
       setBusy(false);
       focusManual();
     }
-  }, [focusManual]);
+  }, [enterAdjustForItem, focusManual]);
 
   // Listen for the gun (HID-keyboard wedge typing code + Enter)
   const handleManualKey = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -96,7 +172,10 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     setItem(null);
     setConflict(null);
     setOffProduct(null);
+    setRecognized(null);
     setErrMsg("");
+    setScanWarn("");
+    setSessionScans([]);
     lastDecodedRef.current = null;
 
     (async () => {
@@ -142,18 +221,16 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     }
   }, [open]);
 
-  // After a code is bound (or skipped), look it up so the count stepper opens.
+  // After a code is bound (or skipped, or a new item created), look it up so the count stepper opens.
   const gotoAdjust = useCallback(async () => {
     const r = await lookupInventoryByCode(code);
     if ("item" in r) {
-      setItem(r.item);
-      setNewCount(Number(r.item.quantity) || 0);
-      setMode("adjust");
+      enterAdjustForItem(r.item);
       await refreshInventory();
     } else {
       throw new Error("Item saved but re-lookup failed");
     }
-  }, [code, refreshInventory]);
+  }, [code, enterAdjustForItem, refreshInventory]);
 
   const saveAdjust = useCallback(async () => {
     if (!item) return;
@@ -161,14 +238,18 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     setErrMsg("");
     try {
       const current = Number(item.quantity) || 0;
-      const delta = newCount - current;
+      // "Add to current" = the typed value is a delta; "Set total" = absolute count.
+      const delta = countModeRef.current === "add" ? countValue : countValue - current;
       if (!Number.isFinite(delta)) throw new Error("Invalid count");
       const r = await adjustInventoryQuantity(item.id, delta);
       if ("error" in r) throw new Error(r.error);
       await refreshInventory();
       // Return to scanning so the next item can be scanned immediately
+      setSessionScans(prev => [...prev.slice(-4), { code: code, action: `adjusted ${delta > 0 ? "+" : ""}${delta}` }]);
       setItem(null);
       setCode("");
+      setRecognized(null);
+      setCountValue(0);
       setMode("scanning");
       focusManual();
     } catch (e: any) {
@@ -176,7 +257,13 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     } finally {
       setBusy(false);
     }
-  }, [item, newCount, refreshInventory, focusManual]);
+  }, [item, code, countValue, refreshInventory, focusManual]);
+
+  const switchCountMode = useCallback((m: "add" | "set") => {
+    setCountMode(m);
+    try { localStorage.setItem("scan_count_mode", m); } catch {}
+    setCountValue(m === "set" ? (Number(item?.quantity) || 0) : 0);
+  }, [item]);
 
   const bindToItem = useCallback(async () => {
     if (!bindPick) return;
@@ -253,6 +340,104 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     }
   }, [bindPick, offProduct, code, gotoAdjust]);
 
+  // Create a brand-new inventory item from the scanned code (+ OFF data when available).
+  const createNewItem = useCallback(async () => {
+    const nm = newName.trim();
+    if (!nm) return;
+    setBusy(true);
+    setErrMsg("");
+    const payload: InventoryItemCreate = {
+      id: `inv_${Date.now().toString(36)}`,
+      name: nm,
+      category: newCategory.trim() || "Uncategorized",
+      unit: newUnit.trim() || "ea",
+      quantity: 0,
+      barcode: code,
+    };
+    if (offProduct) {
+      payload.nutrition_source = `off:${code}`;
+      payload.nutrition_fetched_at = new Date().toISOString();
+      if (offProduct.brand) payload.supplier = offProduct.brand;
+      if (offProduct.ingredients) payload.ingredients_label = offProduct.ingredients;
+      if (offProduct.allergens.length) payload.allergens = offProduct.allergens;
+      if (offProduct.unitWeightLb != null) payload.unit_weight = offProduct.unitWeightLb;
+    }
+    try {
+      await createInventoryItem(payload);
+      await refreshInventory();
+    } catch (e: any) {
+      const status = e?.status ?? 0;
+      const body = e?.body ?? null;
+      if (status === 409 || body?.code === 'barcode_conflict') {
+        const c: ConflictInfo | null = body?.conflict ? { id: body.conflict.id, name: body.conflict.name } : null;
+        if (c) {
+          setConflict(c);
+          setMode("conflict");
+        } else {
+          setErrMsg("Barcode already bound to another item.");
+          setMode("error");
+        }
+      } else {
+        setErrMsg(String(e?.message || "Add failed"));
+        setMode("error");
+      }
+      setBusy(false);
+      return;
+    }
+    try {
+      await gotoAdjust();
+    } catch (e: any) {
+      // Data WAS saved; only the follow-up lookup failed.
+      setErrMsg(String(e?.message || "Item added but re-lookup failed"));
+      setMode("error");
+    } finally {
+      setBusy(false);
+    }
+  }, [newName, newCategory, newUnit, offProduct, code, gotoAdjust, refreshInventory]);
+
+  // Clear the barcode from the item currently in the count stepper.
+  const unbindCurrent = useCallback(async () => {
+    if (!item) return;
+    if (!window.confirm(`Remove barcode "${item.barcode}" from "${item.name}"? The item stays in inventory — you can scan and bind a new code anytime.`)) return;
+    setBusy(true);
+    setErrMsg("");
+    try {
+      await updateInventoryItem(item.id, { barcode: null } as any);
+      await refreshInventory();
+      setItem(null);
+      setCode("");
+      setRecognized(null);
+      setMode("scanning");
+      focusManual();
+    } catch (e: any) {
+      setErrMsg(String(e?.message || "Unbind failed"));
+      setMode("error");
+    } finally {
+      setBusy(false);
+    }
+  }, [item, refreshInventory, focusManual]);
+
+  // 409 conflict: free the code from the item that owns it, then retry the pending action.
+  const unbindConflictAndRebind = useCallback(async () => {
+    if (!conflict) return;
+    setBusy(true);
+    setErrMsg("");
+    try {
+      await updateInventoryItem(conflict.id, { barcode: null } as any);
+      setConflict(null);
+      if (bindPick) {
+        await bindToItem();
+      } else {
+        await createNewItem();
+      }
+    } catch (e: any) {
+      setErrMsg(String(e?.message || "Unbind failed"));
+      setMode("error");
+    } finally {
+      setBusy(false);
+    }
+  }, [conflict, bindPick, bindToItem, createNewItem]);
+
   const bindMatches = useMemo(() => {
     const q = bindSearch.trim().toLowerCase();
     if (!q) return inventory.slice(0, 20);
@@ -260,6 +445,11 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
       .filter(i => i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
       .slice(0, 30);
   }, [bindSearch, inventory]);
+
+  const categories = useMemo(
+    () => [...new Set(inventory.map((i) => i.category).filter(Boolean))].sort(),
+    [inventory]
+  );
 
   return (
     <Modal open={open} onClose={onClose} title="Scan inventory" wide>
@@ -297,6 +487,21 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
         {errMsg && mode === "error" && (
           <div className="rounded-lg bg-red-50 text-red-800 px-3 py-2 text-sm">{errMsg}</div>
         )}
+        {scanWarn && (
+          <div className="rounded-lg bg-amber-50 text-amber-900 px-3 py-2 text-sm">{scanWarn}</div>
+        )}
+        {sessionScans.length > 0 && (
+          <div className="flex items-center gap-2 text-[11px] text-stone-500">
+            <span className="shrink-0">Recent scans:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {sessionScans.slice(-5).reverse().map((sc, i) => (
+                <span key={`${sc.code}-${i}`} className="rounded bg-stone-100 px-1.5 py-0.5 font-mono">
+                  {sc.code.slice(0, 10)} · {sc.action}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {mode === "scanning" && (
           <div className="text-sm text-stone-500 flex items-center gap-2">
@@ -307,10 +512,14 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
         {mode === "adjust" && item && (
           <AdjustPanel
             item={item}
-            newCount={newCount}
-            setNewCount={setNewCount}
+            recognized={recognized}
+            countMode={countMode}
+            countValue={countValue}
+            setCountValue={setCountValue}
+            onSwitchMode={switchCountMode}
             onSave={saveAdjust}
-            onCancel={() => { setItem(null); setMode("scanning"); focusManual(); }}
+            onCancel={() => { setItem(null); setRecognized(null); setMode("scanning"); focusManual(); }}
+            onUnbind={unbindCurrent}
             busy={busy}
           />
         )}
@@ -329,38 +538,27 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
           />
         )}
 
+        {(mode === "suggestCreate" || mode === "manualCreate") && (
+          <NewItemPanel
+            code={code}
+            offProduct={mode === "suggestCreate" ? offProduct : null}
+            name={newName}
+            setName={setNewName}
+            category={newCategory}
+            setCategory={setNewCategory}
+            unit={newUnit}
+            setUnit={setNewUnit}
+            categories={categories}
+            onAdd={createNewItem}
+            onBind={() => { setMode("bind"); setBindPick(null); setBindSearch(""); }}
+            onCancel={() => { setMode("scanning"); focusManual(); }}
+            busy={busy}
+          />
+        )}
+
         {mode === "preview" && offProduct && (
           <div className="rounded-xl border border-stone-200 bg-white p-4">
-            <div className="flex items-start gap-3">
-              {offProduct.imageUrl && (
-                <img
-                  src={offProduct.imageUrl}
-                  alt="Open Food Facts product"
-                  className="h-16 w-16 rounded-lg object-cover"
-                />
-              )}
-              <div className="min-w-0">
-                <div className="font-semibold text-stone-900">{offProduct.name}</div>
-                <div className="text-xs text-stone-500">
-                  {offProduct.brand}
-                  {offProduct.brand && offProduct.quantity ? " · " : ""}
-                  {offProduct.quantity}
-                </div>
-              </div>
-            </div>
-            {offProduct.ingredients && (
-              <p className="mt-2 line-clamp-2 text-xs text-stone-600">{offProduct.ingredients}</p>
-            )}
-            {offProduct.allergens.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {offProduct.allergens.map((a) => (
-                  <Badge key={a} tone="new">{a}</Badge>
-                ))}
-              </div>
-            )}
-            <p className="mt-2 text-[11px] text-stone-400">
-              Product data from Open Food Facts — review before using.
-            </p>
+            <OffCard product={offProduct} />
             <div className="mt-3 flex items-center justify-end gap-2">
               <button
                 onClick={() => {
@@ -391,7 +589,25 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
 
         {mode === "conflict" && conflict && (
           <div className="rounded-lg bg-amber-50 text-amber-900 px-3 py-2 text-sm">
-            Code <code className="font-mono">{code}</code> is already bound to <strong>{conflict.name}</strong> (<code>{conflict.id}</code>). Unbind it there first if you want to reassign.
+            <p>
+              Code <code className="font-mono">{code}</code> is already bound to <strong>{conflict.name}</strong> (<code>{conflict.id}</code>).
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                onClick={unbindConflictAndRebind}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                <Unlink className="w-3.5 h-3.5" /> Unbind it &amp; reassign here
+              </button>
+              <button
+                onClick={() => { setMode("scanning"); focusManual(); }}
+                disabled={busy}
+                className="rounded-lg px-3 py-1.5 text-xs text-amber-900 hover:bg-amber-100"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -399,17 +615,27 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
   );
 }
 
-function AdjustPanel({ item, newCount, setNewCount, onSave, onCancel, busy }: {
+function AdjustPanel({ item, recognized, countMode, countValue, setCountValue, onSwitchMode, onSave, onCancel, onUnbind, busy }: {
   item: ApiInventoryItem;
-  newCount: number;
-  setNewCount: (n: number) => void;
+  recognized: RecognizedInfo | null;
+  countMode: "add" | "set";
+  countValue: number;
+  setCountValue: (n: number) => void;
+  onSwitchMode: (m: "add" | "set") => void;
   onSave: () => void;
   onCancel: () => void;
+  onUnbind: () => void;
   busy: boolean;
 }) {
-  const delta = newCount - (Number(item.quantity) || 0);
-  const sign = delta === 0 ? "±" : delta > 0 ? "+" : "−";
-  const deltaLabel = delta === 0 ? "no change" : `${sign}${Math.abs(delta)}`;
+  const current = Number(item.quantity) || 0;
+  const delta = countMode === "add" ? countValue : countValue - current;
+  const newTotal = current + delta;
+  const deltaLabel = delta === 0 ? "no change" : `${delta > 0 ? "+" : "−"}${Math.abs(delta)}`;
+  const canUnbind = !!item.barcode && item.barcode !== item.id;
+  const totalInvalid = !Number.isFinite(countValue) || newTotal < 0;
+  const reorderLevel = Number(item.reorder_level) || 0;
+  const outOfStock = reorderLevel > 0 && newTotal <= 0;
+  const willBeLow = reorderLevel > 0 && newTotal > 0 && newTotal <= reorderLevel;
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
@@ -419,33 +645,98 @@ function AdjustPanel({ item, newCount, setNewCount, onSave, onCancel, busy }: {
         </div>
         <Badge tone="stone">{item.category}</Badge>
       </div>
+
+      {outOfStock && (
+        <div className="mt-3 rounded-lg border border-hibiscus-light/40 bg-hibiscus-light/10 px-3 py-2 text-sm text-hibiscus">
+          Out of stock at {newTotal.toFixed(2)} {item.unit} — reorder now.
+        </div>
+      )}
+      {willBeLow && (
+        <div className="mt-3 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          After this you'll be at {newTotal.toFixed(2)} {item.unit} — below the reorder level of {reorderLevel} {item.unit}. Restock soon.
+        </div>
+      )}
+
+      {recognized && (
+        <div className="mt-3 rounded-lg border border-palm/30 bg-palm/5 p-3">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-stone-900">
+            <CheckCircle2 className="w-4 h-4 text-palm" /> Item recognized
+          </div>
+          <p className="mt-0.5 text-xs text-stone-600">
+            Linked to barcode <code className="font-mono">{item.barcode}</code> with name, ingredients &amp; allergen info loaded{recognized.sourceLabel ? ` from ${recognized.sourceLabel}` : ""}{recognized.fetchedAt ? ` on ${recognized.fetchedAt.slice(0, 10)}` : ""}. Just set the new count below.
+          </p>
+        </div>
+      )}
+
       <div className="mt-3 text-sm text-stone-600">
-        Current on hand: <strong>{Number(item.quantity).toFixed(2)}</strong> {item.unit}
+        Current on hand: <strong>{current.toFixed(2)}</strong> {item.unit}
       </div>
+
+      <div className="mt-3 inline-flex rounded-lg border border-stone-200 p-0.5 text-xs font-medium">
+        <button
+          onClick={() => onSwitchMode("add")}
+          disabled={busy}
+          className={`rounded-md px-3 py-1.5 transition ${countMode === "add" ? "bg-coral text-white" : "text-stone-600 hover:bg-stone-50"}`}
+        >
+          Add to current
+        </button>
+        <button
+          onClick={() => onSwitchMode("set")}
+          disabled={busy}
+          className={`rounded-md px-3 py-1.5 transition ${countMode === "set" ? "bg-coral text-white" : "text-stone-600 hover:bg-stone-50"}`}
+        >
+          Set total
+        </button>
+      </div>
+
       <div className="mt-3 flex items-end gap-2">
         <div className="flex-1">
-          <label className="text-xs text-stone-500 block">New count</label>
+          <label className="text-xs text-stone-500 block">
+            {countMode === "add" ? "Amount to add" : "New total count"}
+          </label>
           <input
             type="number"
             step="0.01"
             min="0"
-            value={newCount}
+            value={countValue}
             autoFocus
-            onChange={e => setNewCount(Number(e.target.value))}
+            onChange={e => setCountValue(Number(e.target.value))}
             className="w-full mt-1 rounded-lg border border-stone-300 px-3 py-2 text-lg font-semibold"
           />
         </div>
-        <div className="text-xs text-stone-500 pb-2 w-24 text-right">{item.unit}<br/><span className="text-stone-400">delta {deltaLabel}</span></div>
+        <div className="text-xs text-stone-500 pb-2 w-28 text-right">
+          {item.unit}
+          <br />
+          <span className="text-stone-400">
+            delta {deltaLabel}
+            <br />
+            new total {newTotal.toFixed(2)}
+          </span>
+        </div>
       </div>
-      <div className="mt-4 flex items-center justify-end gap-2">
-        <button onClick={onCancel} className="px-3 py-2 rounded-lg text-stone-700 hover:bg-stone-100" disabled={busy}>Cancel</button>
-        <button
-          onClick={onSave}
-          disabled={busy || newCount < 0}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-coral text-white hover:opacity-90 disabled:opacity-50"
-        >
-          <Check className="w-4 h-4" /> Save
-        </button>
+
+      <div className="mt-4 flex items-center justify-between gap-2">
+        {canUnbind ? (
+          <button
+            onClick={onUnbind}
+            disabled={busy}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-stone-500 hover:bg-hibiscus-light/10 hover:text-hibiscus"
+          >
+            <Unlink className="w-3.5 h-3.5" /> Unbind barcode
+          </button>
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-2">
+          <button onClick={onCancel} className="px-3 py-2 rounded-lg text-stone-700 hover:bg-stone-100" disabled={busy}>Cancel</button>
+          <button
+            onClick={onSave}
+            disabled={busy || totalInvalid}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-coral text-white hover:opacity-90 disabled:opacity-50"
+          >
+            <Check className="w-4 h-4" /> Save
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -507,6 +798,151 @@ function BindPanel({ code, search, setSearch, matches, pick, setPick, onBind, on
           <LinkIcon className="w-4 h-4" /> Bind
         </button>
       </div>
+    </div>
+  );
+}
+
+function NewItemPanel({ code, offProduct, name, setName, category, setCategory, unit, setUnit, categories, onAdd, onBind, onCancel, busy }: {
+  code: string;
+  offProduct: OffProduct | null;
+  name: string;
+  setName: (s: string) => void;
+  category: string;
+  setCategory: (s: string) => void;
+  unit: string;
+  setUnit: (s: string) => void;
+  categories: string[];
+  onAdd: () => void;
+  onBind: () => void;
+  onCancel: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white p-4">
+      {offProduct ? (
+        <>
+          <div className="flex items-center gap-2 text-sm text-stone-700">
+            <Sparkles className="w-4 h-4 text-palm shrink-0" />
+            <span>
+              Found <strong className="text-stone-900">{offProduct.name}</strong> for code{" "}
+              <code className="font-mono">{code}</code> — add it as a new inventory item?
+            </span>
+          </div>
+          <OffCard product={offProduct} />
+        </>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-stone-700">
+          <ScanLine className="w-4 h-4 text-stone-500 shrink-0" />
+          <span>
+            No product info found for code <code className="font-mono">{code}</code> — add it manually:
+          </span>
+        </div>
+      )}
+
+      <div className="mt-3 space-y-3">
+        <Field label="Item name">
+          <input
+            autoFocus
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="e.g. King Arthur All-Purpose Flour"
+            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Category">
+            <input
+              list="scan-categories"
+              type="text"
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            />
+            <datalist id="scan-categories">
+              {categories.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </Field>
+          <Field label="Unit">
+            <input
+              list="scan-units"
+              type="text"
+              value={unit}
+              onChange={e => setUnit(e.target.value)}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            />
+            <datalist id="scan-units">
+              {COMMON_UNITS.map(u => <option key={u} value={u} />)}
+            </datalist>
+          </Field>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <button
+          onClick={onBind}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-stone-600 hover:bg-stone-100"
+        >
+          <LinkIcon className="w-4 h-4" /> Bind to existing item
+        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onCancel} disabled={busy} className="rounded-lg px-3 py-2 text-sm text-stone-700 hover:bg-stone-100">Cancel</button>
+          <button
+            onClick={onAdd}
+            disabled={busy || !name.trim()}
+            className="inline-flex items-center gap-2 rounded-lg bg-coral px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-50"
+          >
+            <Plus className="w-4 h-4" /> Add to inventory
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OffCard({ product }: { product: OffProduct }) {
+  return (
+    <div className="mt-3 rounded-lg border border-stone-100 bg-stone-50 p-3">
+      <div className="flex items-start gap-3">
+        {product.imageUrl && (
+          <img
+            src={product.imageUrl}
+            alt="Open Food Facts product"
+            className="h-16 w-16 rounded-lg object-cover"
+          />
+        )}
+        <div className="min-w-0">
+          <div className="font-semibold text-stone-900">{product.name}</div>
+          <div className="text-xs text-stone-500">
+            {product.brand}
+            {product.brand && product.quantity ? " · " : ""}
+            {product.quantity}
+          </div>
+        </div>
+      </div>
+      {product.ingredients && (
+        <p className="mt-2 line-clamp-2 text-xs text-stone-600">{product.ingredients}</p>
+      )}
+      {product.allergens.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {product.allergens.map((a) => (
+            <Badge key={a} tone="new">{a}</Badge>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-stone-400">
+        Product data from Open Food Facts — review before using.
+      </p>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-stone-500">{label}</label>
+      {children}
     </div>
   );
 }

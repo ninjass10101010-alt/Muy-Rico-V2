@@ -104,3 +104,39 @@ function capitalize(s: string): string {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+export type DueTier = "overdue" | "today" | "tomorrow" | "this-week" | "future" | "inactive";
+
+export function dueTier(dueDate: string, status?: string): DueTier {
+  if (status === "completed" || status === "cancelled") return "inactive";
+  if (!dueDate) return "future";
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  if (Number.isNaN(due.getTime())) return "future";
+  const diffDays = Math.round((due.getTime() - now.getTime()) / 86_400_000);
+  if (diffDays < 0) return "overdue";
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "tomorrow";
+  if (diffDays <= 7) return "this-week";
+  return "future";
+}
+
+export const DUE_TIER_LABELS: Record<DueTier, string> = {
+  overdue: "Overdue",
+  today: "Today",
+  tomorrow: "Tomorrow",
+  "this-week": "This week",
+  future: "Upcoming",
+  inactive: "—",
+};
+
+export function urgencyRank(o: { dueDate: string; status: string; paymentStatus: string }): number {
+  const inactive = o.status === "completed" || o.status === "cancelled";
+  if (inactive) return 1000 + new Date(o.dueDate || 0).getTime();
+  const tier = dueTier(o.dueDate, o.status);
+  const tierRank: Record<DueTier, number> = { overdue: 0, today: 1, tomorrow: 2, "this-week": 3, future: 4, inactive: 5 };
+  const payRank = o.paymentStatus === "unpaid" ? 0 : o.paymentStatus === "partial" ? 1 : 2;
+  return payRank * 10 + tierRank[tier];
+}

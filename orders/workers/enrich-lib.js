@@ -41,6 +41,49 @@ const CATEGORY_ALLERGEN_RULES = [
   { match: /celery/i, tag: 'Celery' },
 ];
 
+// ─── Barcode sanitization + check-digit validation ─────────────────────────
+// Scanner guns can emit prefixes (AIM symbology codes like ]C1 / ]e0, GS
+// record separators) and stray whitespace. EAN-13 / UPC-A / EAN-8 / ITF-14
+// share the same mod-10 check digit. Validation is warn-only by design: some
+// legitimately bound codes are non-GTIN (e.g. internal slugs), so callers
+// receive a verdict, never a hard block.
+export function sanitizeBarcode(raw) {
+  const input = String(raw == null ? '' : raw);
+  let stripped = input;
+  // GS1 application-identifier wrapper: "(01)12345678901231"
+  const gs1 = stripped.match(/^\(\s*0*1\s*\)\s*(\d{12,14})$/);
+  if (gs1) stripped = gs1[1];
+  // AIM prefixes, GS/RS/US record separators, all whitespace
+  stripped = stripped
+    .replace(/^\s*\]c\d/gi, '')
+    .replace(/^\s*\]e\d/gi, '')
+    .replace(/[\u001d\u001e\u001f]/g, '')
+    .replace(/\s+/g, '');
+  const digits = stripped.replace(/\D/g, '');
+  if (!digits) {
+    return { code: null, raw: input, stripped, digits: '', valid: false, format: 'non-numeric' };
+  }
+  let format = 'unknown';
+  if (digits.length === 8) format = 'EAN8';
+  else if (digits.length === 12) format = 'UPC-A';
+  else if (digits.length === 13) format = 'EAN13';
+  else if (digits.length === 14) format = 'ITF14';
+  const valid = ['EAN8', 'UPC-A', 'EAN13', 'ITF14'].includes(format) && mod10CheckDigitValid(digits);
+  return { code: digits, raw: input, stripped, digits, valid, format };
+}
+
+// Mod-10 check digit shared by EAN-8/UPC-A/EAN-13/ITF-14. Weights alternate
+// ×3 / ×1 scanning from the right, with the check digit (rightmost) ×1.
+function mod10CheckDigitValid(digits) {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    const d = Number(digits[i]);
+    const posFromRight = digits.length - 1 - i;
+    sum += posFromRight % 2 === 1 ? d * 3 : d;
+  }
+  return sum % 10 === 0;
+}
+
 export function normalizeAllergenTags(tags) {
   const out = [];
   for (const t of tags) {

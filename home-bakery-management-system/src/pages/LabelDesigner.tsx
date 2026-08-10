@@ -137,7 +137,9 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
   } = useStore();
 
   const orderTemplates = filterByOrder
-    ? labelTemplates.filter((t) => t.name.includes(filterByOrder))
+    ? labelTemplates.filter((t) =>
+        t.name.startsWith(`MR-${filterByOrder}`) || t.name.startsWith(`Order #${filterByOrder}`)
+      )
     : null;
 
   const [label, setLabelState] = useState<LabelTemplate>(() => {
@@ -1202,7 +1204,9 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             </button>
             <div className="max-h-64 space-y-1.5 overflow-y-auto">
               {labelTemplates.map((t) => {
-                const isOrderMatch = filterByOrder && t.name.includes(filterByOrder);
+                const isOrderMatch = filterByOrder && (
+                  t.name.startsWith(`MR-${filterByOrder}`) || t.name.startsWith(`Order #${filterByOrder}`)
+                );
                 return (
                   <div
                     key={t.id}

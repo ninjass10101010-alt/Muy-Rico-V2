@@ -166,6 +166,8 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
       pickup_date: dueDate,
       items_json: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, productId: i.productId })),
       total_cents: Math.round(total * 100),
+      subtotal_cents: Math.round(subtotal * 100),
+      discount_cents: Math.round(discount * 100),
       payment_method: paymentMethod,
       payment_status: effectiveStatus,
       notes: notes || null,

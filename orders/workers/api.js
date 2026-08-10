@@ -61,7 +61,7 @@ const CORS = {
 };
 
 import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
-import { createLruCache, usdaCandidatesFromResponse, mapOffProduct } from './enrich-lib.js';
+import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode } from './enrich-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -124,10 +124,12 @@ export default {
       if (path === '/api/inventory' && method === 'GET') return await listInventory(env);
       if (path === '/api/inventory' && method === 'POST') return await createInventory(request, env, actorName);
       // /api/inventory/lookup must be matched BEFORE the /api/inventory/:id regex below
-      if (path === '/api/inventory/lookup' && method === 'GET') return await lookupInventoryByCode(request, env);
+      if (path === '/api/inventory/lookup' && method === 'GET') return await lookupInventoryByCode(request, env, actorName);
+      // Scan audit trail (must also precede the :id regex)
+      if (path === '/api/inventory/scan-history' && method === 'GET') return await listScanHistory(request, env);
       // External-source enrichment lookups
       if (path === '/api/inventory/lookup-ingredient' && method === 'GET') return await lookupIngredientUsda(request, env);
-      if (path === '/api/inventory/enrich' && method === 'GET') return await enrichInventoryOff(request, env);
+      if (path === '/api/inventory/enrich' && method === 'GET') return await enrichInventoryOff(request, env, actorName);
 
       const om = path.match(/^\/api\/orders\/(\d+)$/);
       if (om) {
@@ -220,6 +222,9 @@ export default {
 
       const ia = path.match(/^\/api\/inventory\/([A-Za-z0-9_-]+)\/adjust$/);
       if (ia && method === 'POST') return await adjustInventoryItem(ia[1], request, env, actorName);
+
+      const ish = path.match(/^\/api\/inventory\/([A-Za-z0-9_-]+)\/scan-history$/);
+      if (ish && method === 'GET') return await itemScanHistory(ish[1], request, env);
 
       const lm = path.match(/^\/api\/labels\/([A-Za-z0-9_-]+)$/);
       if (lm) {
@@ -389,8 +394,9 @@ async function createOrder(request, env, ctx, actor) {
   const result = await env.DB.prepare(`
     INSERT INTO orders
       (customer_name, customer_id, phone, email, pickup_date, pickup_time,
-       items_json, total_cents, payment_method, payment_status, status, notes, created_by, source, language, food_coloring)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       items_json, total_cents, subtotal_cents, discount_cents,
+       payment_method, payment_status, status, notes, created_by, source, language, food_coloring)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.customer_name.trim(),
     effectiveCustomerId,
@@ -400,6 +406,8 @@ async function createOrder(request, env, ctx, actor) {
     body.pickup_time || null,
     items,
     Number(body.total_cents) || 0,
+    body.subtotal_cents != null ? Number(body.subtotal_cents) : Number(body.total_cents) || 0,
+    body.discount_cents != null ? Number(body.discount_cents) : 0,
     body.payment_method,
     body.payment_status || 'unpaid',
     body.status || 'pending',
@@ -614,6 +622,9 @@ async function deductOrderInventory(orderId, env, actor) {
     const { results: invRows } = await env.DB.prepare('SELECT id, quantity FROM inventory WHERE active = 1').all();
     const invMap = Object.fromEntries(invRows.map(i => [i.id, { ...i }]));
 
+    const updates = [];
+    const skipped = [];
+
     for (const item of items) {
       const prod = prodMap[item.productId];
       if (!prod) continue;
@@ -635,14 +646,22 @@ async function deductOrderInventory(orderId, env, actor) {
       for (const rec of recipe) {
         if (deductIds.size > 0 && !deductIds.has(rec.inventoryItemId)) continue;
         const inv = invMap[rec.inventoryItemId];
-        if (!inv) continue;
+        if (!inv) {
+          // Recipe references an item that is inactive or missing — record it
+          // instead of silently skipping, so the discrepancy is auditable.
+          skipped.push({ productId: item.productId, inventoryItemId: rec.inventoryItemId, reason: 'inactive_or_missing_inventory' });
+          continue;
+        }
         const used = rec.qtyPerUnit * item.qty;
         const newQty = Math.max(0, +(inv.quantity - used).toFixed(2));
-        await env.DB.prepare('UPDATE inventory SET quantity = ? WHERE id = ?')
-          .bind(newQty, rec.inventoryItemId).run();
+        updates.push(env.DB.prepare('UPDATE inventory SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?')
+          .bind(newQty, rec.inventoryItemId));
         inv.quantity = newQty;
       }
     }
+
+    // Apply all deductions atomically — never a partial write on failure.
+    if (updates.length) await env.DB.batch(updates);
 
     await env.DB.prepare('UPDATE orders SET inventory_deducted = 1 WHERE id = ?')
       .bind(orderId).run();
@@ -651,7 +670,13 @@ async function deductOrderInventory(orderId, env, actor) {
       `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:inventory-deducted')`
     ).bind(orderId, actor || 'system').run();
 
-    return json({ ok: true });
+    if (skipped.length) {
+      await env.DB.prepare(
+        `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)`
+      ).bind(orderId, actor || 'system', 'order:inventory-deduction-skipped: ' + JSON.stringify(skipped)).run();
+    }
+
+    return json({ ok: true, skipped }, 200);
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
@@ -1315,6 +1340,22 @@ function parseRecipe(v) {
   }
 }
 
+// Recipe lines reference inventory by `id` (INVENTORY_ID_IS_STABLE_FOREIGN_KEY).
+// Reject lines that point at ids that don't exist at all — storing phantom ids
+// silently skews order deduction. Inactive items still exist, so they pass.
+async function validateRecipeInventoryRefs(recipeArray, env) {
+  if (!Array.isArray(recipeArray)) return null;
+  const ids = [...new Set(recipeArray.map(r => r && r.inventoryItemId).filter(Boolean))];
+  if (!ids.length) return null;
+  const placeholders = ids.map(() => '?').join(',');
+  const { results } = await env.DB.prepare(
+    `SELECT id FROM inventory WHERE id IN (${placeholders})`
+  ).bind(...ids).all();
+  const found = new Set(results.map(r => r.id));
+  const missing = ids.filter(id => !found.has(id));
+  return missing.length ? missing : null;
+}
+
 async function listProducts(env, includeHidden) {
   const where = includeHidden
     ? 'WHERE active = 1'
@@ -1380,6 +1421,13 @@ async function createProduct(request, env, actor) {
   if (typeof body.id !== 'string' || body.id.length > 64) {
     return json({ error: 'id must be a short string' }, 400);
   }
+  const recipeArray = body.recipe == null || body.recipe === ''
+    ? []
+    : (Array.isArray(body.recipe) ? body.recipe : safeJsonParse(body.recipe, []));
+  const missing = await validateRecipeInventoryRefs(recipeArray, env);
+  if (missing && missing.length) {
+    return json({ error: `Recipe references missing inventory items: ${missing.join(', ')}` }, 400);
+  }
   try {
     await env.DB.prepare(`
       INSERT INTO products
@@ -1420,6 +1468,15 @@ async function updateProduct(id, request, env, actor) {
   let body = await request.json();
   if (body.flavor_groups !== undefined && body.flavors === undefined) {
     body = { ...body, flavors: body.flavor_groups };
+  }
+  if (body.recipe !== undefined) {
+    const recipeArray = body.recipe == null || body.recipe === ''
+      ? []
+      : (Array.isArray(body.recipe) ? body.recipe : safeJsonParse(body.recipe, []));
+    const missing = await validateRecipeInventoryRefs(recipeArray, env);
+    if (missing && missing.length) {
+      return json({ error: `Recipe references missing inventory items: ${missing.join(', ')}` }, 400);
+    }
   }
   const sets = [];
   const binds = [];
@@ -1719,13 +1776,19 @@ async function getInventoryItem(id, env) {
 
 // GET /api/inventory/lookup?code=… — used by phone-camera + scanner-gun scan modal.
 // Returns the first inventory item whose `barcode` matches (case-insensitive trim).
-async function lookupInventoryByCode(request, env) {
+// Codes are sanitized for the audit log, but lookup itself accepts any non-empty
+// string so non-GTIN / internal codes keep working (checksum is warn-only).
+async function lookupInventoryByCode(request, env, actor) {
   const code = (new URL(request.url).searchParams.get('code') || '').trim();
   if (!code) return json({ error: 'Missing code parameter' }, 400);
   const row = await env.DB.prepare(
     'SELECT * FROM inventory WHERE active = 1 AND LOWER(barcode) = LOWER(?) LIMIT 1'
   ).bind(code).first();
-  if (!row) return json({ error: 'Not found' }, 404);
+  if (!row) {
+    logScanEvent(env, { inventory_id: null, code, action: 'miss', source: 'manual', actor });
+    return json({ error: 'Not found' }, 404);
+  }
+  logScanEvent(env, { inventory_id: row.id, code, action: 'lookup', source: 'manual', actor });
   return json({ item: row }, 200);
 }
 
@@ -1778,10 +1841,16 @@ async function lookupIngredientUsda(request, env) {
 // GET /api/inventory/enrich?code=… — Open Food Facts product lookup by barcode.
 const OFF_USER_AGENT = 'MuyRico/1.0 (contact@muy-rico.com)';
 
-async function enrichInventoryOff(request, env) {
+async function enrichInventoryOff(request, env, actor) {
   const url = new URL(request.url);
-  const code = (url.searchParams.get('code') || '').trim();
-  if (!/^[0-9]{8,14}$/.test(code)) return json({ error: 'code must be a numeric barcode' }, 400);
+  const raw = (url.searchParams.get('code') || '').trim();
+  const s = sanitizeBarcode(raw);
+  // OFF only knows GTINs — non-numeric or implausibly short/long codes can't be enriched.
+  if (!s.digits || s.digits.length < 8 || s.digits.length > 14) {
+    logScanEvent(env, { inventory_id: null, code: raw, action: 'enrich_off_skipped', meta: { reason: 'non-gtin', format: s.format }, source: 'manual', actor });
+    return json({ error: 'code must be a numeric barcode' }, 400);
+  }
+  const code = s.code;
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 3000);
@@ -1791,16 +1860,48 @@ async function enrichInventoryOff(request, env) {
       signal: ctrl.signal,
     });
     // OFF returns HTTP 404 for unknown barcodes — a clean miss, not an error
-    if (res.status === 404) return json({ source: 'off', product: null }, 200);
-    if (!res.ok) return json({ error: 'Open Food Facts lookup failed', status: res.status }, 502);
+    if (res.status === 404) {
+      logScanEvent(env, { inventory_id: null, code, action: 'enrich_off_miss', source: 'manual', actor });
+      return json({ source: 'off', product: null }, 200);
+    }
+    if (!res.ok) {
+      logScanEvent(env, { inventory_id: null, code, action: 'enrich_off_failed', meta: { status: res.status }, source: 'manual', actor });
+      return json({ error: 'Open Food Facts lookup failed', status: res.status }, 502);
+    }
     const data = await res.json();
     const product = data && data.product ? mapOffProduct(data.product) : null;
+    logScanEvent(env, { inventory_id: null, code, action: 'enrich_off', meta: product ? { name: product.name, brand: product.brand } : null, source: 'manual', actor });
     return json({ source: 'off', product }, 200);
   } catch (e) {
+    logScanEvent(env, { inventory_id: null, code, action: 'enrich_off_failed', meta: { error: String(e && e.message || e) }, source: 'manual', actor });
     if (e && e.name === 'AbortError') return json({ error: 'Open Food Facts timeout' }, 504);
     return json({ error: 'Open Food Facts lookup failed: ' + ((e && e.message) || e) }, 502);
   } finally {
     clearTimeout(timer);
+  }
+}
+
+// ─── Scan audit trail ──────────────────────────────────────────────────────
+// Every scan-relevant action lands in scan_events (migration 0038) so
+// miscounts / binds / unbinds are traceable. Logging is best-effort: a failed
+// INSERT must never break the scan flow itself.
+
+async function logScanEvent(env, ev) {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO scan_events (inventory_id, code, action, delta, actor, source, meta)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      ev.inventory_id || null,
+      ev.code || null,
+      ev.action || 'lookup',
+      ev.delta == null ? null : ev.delta,
+      ev.actor || null,
+      ev.source || 'manual',
+      ev.meta ? JSON.stringify(ev.meta) : null
+    ).run();
+  } catch (e) {
+    // swallow — logging is best-effort
   }
 }
 
@@ -1816,7 +1917,26 @@ async function adjustInventoryItem(id, request, env, actor) {
   ).bind(delta, id).run();
   if (!r.meta.changes) return json({ error: 'Not found or inactive' }, 404);
   const row = await env.DB.prepare('SELECT quantity FROM inventory WHERE id = ?').bind(id).first();
+  logScanEvent(env, { inventory_id: id, code: null, action: 'adjust', delta, source: 'manual', actor });
   return json({ ok: true, quantity: row && row.quantity }, 200);
+}
+
+// GET /api/inventory/scan-history?limit=50 — page-wide scan audit trail.
+async function listScanHistory(request, env) {
+  const limit = Math.min(Number(new URL(request.url).searchParams.get('limit') || 50) || 50, 200);
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM scan_events ORDER BY id DESC LIMIT ?'
+  ).bind(limit).all();
+  return json({ events: results }, 200);
+}
+
+// GET /api/inventory/:id/scan-history?limit=50 — per-item scan audit trail.
+async function itemScanHistory(id, request, env) {
+  const limit = Math.min(Number(new URL(request.url).searchParams.get('limit') || 50) || 50, 200);
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM scan_events WHERE inventory_id = ? ORDER BY id DESC LIMIT ?'
+  ).bind(id, limit).all();
+  return json({ events: results }, 200);
 }
 
 async function createInventory(request, env, actor) {
@@ -1857,6 +1977,7 @@ async function createInventory(request, env, actor) {
       const owner = body.barcode ? await env.DB.prepare(
         'SELECT id, name FROM inventory WHERE LOWER(barcode) = LOWER(?) LIMIT 1'
       ).bind(body.barcode).first() : null;
+      logScanEvent(env, { inventory_id: null, code: body.barcode, action: 'conflict', meta: { conflict: owner }, source: 'manual', actor });
       return json({
         error: 'Barcode already bound to another item',
         code: 'barcode_conflict',
@@ -1865,6 +1986,7 @@ async function createInventory(request, env, actor) {
     }
     return json({ error: msg }, 400);
   }
+  if (body.barcode) logScanEvent(env, { inventory_id: body.id, code: body.barcode, action: 'create', source: 'manual', actor });
   return json({ ok: true, id: body.id }, 201);
 }
 
@@ -1886,6 +2008,12 @@ async function updateInventoryItem(id, request, env, actor) {
   if (!sets.length) return json({ error: 'Nothing to update' }, 400);
   sets.push("updated_at = datetime('now')");
   binds.push(id);
+  // Detect barcode bind/unbind for the audit trail (only when the field is being written).
+  let prevBarcode = null;
+  if (body.barcode !== undefined) {
+    const prev = await env.DB.prepare('SELECT barcode FROM inventory WHERE id = ?').bind(id).first();
+    prevBarcode = prev ? prev.barcode : null;
+  }
   try {
     var r = await env.DB.prepare(`UPDATE inventory SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
   } catch (err) {
@@ -1897,6 +2025,7 @@ async function updateInventoryItem(id, request, env, actor) {
       const owner = code ? await env.DB.prepare(
         'SELECT id, name FROM inventory WHERE LOWER(barcode) = LOWER(?) LIMIT 1'
       ).bind(code).first() : null;
+      logScanEvent(env, { inventory_id: id, code, action: 'conflict', meta: { conflict: owner }, source: 'manual', actor });
       return json({
         error: 'Barcode already bound to another item',
         code: 'barcode_conflict',
@@ -1906,6 +2035,14 @@ async function updateInventoryItem(id, request, env, actor) {
     throw err;
   }
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  if (body.barcode !== undefined) {
+    const newBarcode = body.barcode || null;
+    if (newBarcode && newBarcode !== prevBarcode) {
+      logScanEvent(env, { inventory_id: id, code: newBarcode, action: 'bind', source: 'manual', actor });
+    } else if (!newBarcode && prevBarcode) {
+      logScanEvent(env, { inventory_id: id, code: prevBarcode, action: 'unbind', source: 'manual', actor });
+    }
+  }
   return json({ ok: true }, 200);
 }
 

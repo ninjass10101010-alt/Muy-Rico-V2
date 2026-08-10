@@ -1,10 +1,10 @@
 import { useState, useRef, Suspense, lazy } from "react";
-import { Minus, Pencil, Plus, ScanLine, Search, Trash2 } from "lucide-react";
+import { History, Minus, Pencil, Plus, ScanLine, Search, Trash2, Unlink } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
 import Badge from "../components/ui/Badge";
 import { formatCurrency } from "../utils/format";
-import { lookupUsdaIngredient, type UsdaCandidate } from "../utils/api";
+import { fetchScanHistory, lookupUsdaIngredient, type ScanEvent, type UsdaCandidate } from "../utils/api";
 import type { InventoryItem } from "../types";
 
 const ScanModal = lazy(() => import("../components/ScanModal"));
@@ -22,7 +22,7 @@ const emptyItem = (): InventoryItem => ({
 });
 
 export default function Inventory({ search }: { search: string }) {
-  const { inventory, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem } = useStore();
+  const { inventory, products, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [draft, setDraft] = useState<InventoryItem>(emptyItem());
@@ -35,6 +35,9 @@ export default function Inventory({ search }: { search: string }) {
   const [usdaErr, setUsdaErr] = useState("");
   const [usdaDemo, setUsdaDemo] = useState(false);
   const usdaReqRef = useRef(0);
+  const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
+  const [historyEvents, setHistoryEvents] = useState<ScanEvent[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
 
   const filtered = inventory.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -96,13 +99,32 @@ export default function Inventory({ search }: { search: string }) {
     }
   }
 
-  async function remove(id: string) {
-    if (!confirm("Remove this inventory item? It can't be used in recipes until re-added.")) return;
+  async function remove(id: string, name: string) {
+    const refs = (products || [])
+      .filter((p) => (p.recipe || []).some((r) => r.inventoryItemId === id))
+      .map((p) => p.name);
+    const msg = refs.length
+      ? `"${name}" is in the recipe of: ${refs.join(", ")}. Deactivating it will SKIP its deduction on future orders until it's re-added. Remove anyway?`
+      : "Remove this inventory item? It can't be used in recipes until re-added.";
+    if (!confirm(msg)) return;
     try {
       await apiDeleteInventoryItem(id);
     } catch (err: any) {
       console.error("Delete inventory item failed:", err);
       alert(`Failed to delete item: ${err.message || err}`);
+    }
+  }
+
+  async function openHistory(item: InventoryItem) {
+    setHistoryItem(item);
+    setHistoryEvents([]);
+    setHistoryBusy(true);
+    try {
+      setHistoryEvents(await fetchScanHistory(item.id, 50));
+    } catch (err: any) {
+      console.warn("Scan history load failed:", err);
+    } finally {
+      setHistoryBusy(false);
     }
   }
 
@@ -113,6 +135,16 @@ export default function Inventory({ search }: { search: string }) {
     }).catch((err) => {
       console.warn("Adjust failed:", err);
     });
+  }
+
+  async function unbind(id: string, name: string) {
+    if (!confirm(`Unbind the barcode from "${name}"? The item stays in inventory — you can scan and bind a new code anytime.`)) return;
+    try {
+      await apiUpdateInventoryItem(id, { barcode: null } as any);
+    } catch (err: any) {
+      console.error("Unbind failed:", err);
+      alert(`Failed to unbind: ${err.message || err}`);
+    }
   }
 
   async function usdaSearch() {
@@ -205,7 +237,21 @@ export default function Inventory({ search }: { search: string }) {
                 const low = i.quantity <= i.reorderLevel;
                 return (
                   <tr key={i.id} className="hover:bg-sand-50">
-                    <td className="px-4 py-3 font-medium text-cocoa">{i.name}</td>
+                    <td className="px-4 py-3 font-medium text-cocoa">
+                      <div>{i.name}</div>
+                      {i.barcode && i.barcode !== i.id && (
+                        <div className="mt-0.5 flex items-center gap-1">
+                          <span className="rounded bg-sand-100 px-1.5 py-0.5 font-mono text-[10px] text-cocoa-muted">{i.barcode}</span>
+                          <button
+                            onClick={() => unbind(i.id, i.name)}
+                            title="Unbind barcode"
+                            className="rounded p-0.5 text-cocoa-muted hover:bg-sand-100 hover:text-hibiscus"
+                          >
+                            <Unlink size={10} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-cocoa-muted">{i.category}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
@@ -236,12 +282,19 @@ export default function Inventory({ search }: { search: string }) {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
+                          onClick={() => openHistory(i)}
+                          title="Scan history"
+                          className="rounded-lg p-1.5 text-cocoa-muted hover:bg-sand-100"
+                        >
+                          <History size={14} />
+                        </button>
+                        <button
                           onClick={() => openEdit(i)}
                           className="rounded-lg p-1.5 text-cocoa-muted hover:bg-sand-100"
                         >
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => remove(i.id)} className="rounded-lg p-1.5 text-hibiscus hover:bg-hibiscus-light/10">
+                        <button onClick={() => remove(i.id, i.name)} className="rounded-lg p-1.5 text-hibiscus hover:bg-hibiscus-light/10">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -315,12 +368,23 @@ export default function Inventory({ search }: { search: string }) {
             />
           </Field>
           <Field label="Barcode (optional)">
-            <input
-              value={draft.barcode || ""}
-              onChange={(e) => setDraft({ ...draft, barcode: e.target.value || undefined })}
-              placeholder="Scan or type a code — leave blank to clear"
-              className="input font-mono"
-            />
+            <div className="flex gap-2">
+              <input
+                value={draft.barcode || ""}
+                onChange={(e) => setDraft({ ...draft, barcode: e.target.value || undefined })}
+                placeholder="Scan or type a code — leave blank to clear"
+                className="input font-mono flex-1"
+              />
+              {draft.barcode && (
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...draft, barcode: undefined })}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs text-cocoa-muted hover:bg-sand-100"
+                >
+                  <Unlink size={12} /> Clear
+                </button>
+              )}
+            </div>
           </Field>
 
           <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
@@ -439,8 +503,60 @@ export default function Inventory({ search }: { search: string }) {
           <ScanModal open={scanOpen} onClose={() => setScanOpen(false)} />
         </Suspense>
       )}
+
+      <Modal open={!!historyItem} onClose={() => setHistoryItem(null)} title={historyItem ? `Scan history — ${historyItem.name}` : "Scan history"} wide>
+        {historyBusy ? (
+          <p className="text-sm text-cocoa-muted">Loading…</p>
+        ) : historyEvents.length === 0 ? (
+          <p className="text-sm text-cocoa-muted">No scan events recorded for this item yet.</p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto rounded-xl border border-sand-100">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-sand-100 bg-sand-50 text-left text-xs uppercase tracking-wide text-cocoa-muted">
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2">Action</th>
+                  <th className="px-3 py-2">Code</th>
+                  <th className="px-3 py-2">Delta</th>
+                  <th className="px-3 py-2">Who</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-sand-100">
+                {historyEvents.map((ev) => (
+                  <tr key={ev.id} className="hover:bg-sand-50">
+                    <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-cocoa-muted">{ev.created_at}</td>
+                    <td className="px-3 py-2 text-cocoa">{scanActionLabel(ev.action)}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-cocoa-muted">{ev.code}</td>
+                    <td className="px-3 py-2 text-cocoa-muted">
+                      {ev.action === "adjust" && ev.delta != null ? `${ev.delta > 0 ? "+" : ""}${ev.delta}` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-cocoa-muted">{ev.actor || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
     </div>
   );
+}
+
+function scanActionLabel(action: string): string {
+  switch (action) {
+    case "lookup": return "Scanned";
+    case "miss": return "No match";
+    case "bind": return "Bound";
+    case "unbind": return "Unbound";
+    case "adjust": return "Adjusted";
+    case "create": return "Created";
+    case "conflict": return "Conflict";
+    case "enrich_off": return "Enriched (OFF)";
+    case "enrich_off_miss": return "Enrich miss";
+    case "enrich_off_failed": return "Enrich failed";
+    case "enrich_off_skipped": return "Enrich skipped";
+    default: return action;
+  }
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

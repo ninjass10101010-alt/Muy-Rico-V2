@@ -40,6 +40,25 @@ export function nameSimilarity(a, b) {
   return union === 0 ? 0 : intersection / union;
 }
 
+// Fuzzy name match: checks if any token from one name is a substring of
+// a token from the other (min 3 chars). Catches "Sam" → "Samantha",
+// "Mike" → "Michael", etc.
+export function nameFuzzyMatch(a, b) {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  if (!na || !nb) return false;
+  const tokensA = na.split(' ');
+  const tokensB = nb.split(' ');
+  for (const ta of tokensA) {
+    if (ta.length < 3) continue;
+    for (const tb of tokensB) {
+      if (tb.length < 3) continue;
+      if (ta.includes(tb) || tb.includes(ta)) return true;
+    }
+  }
+  return false;
+}
+
 // Check if a new customer matches an existing one.
 // Returns null (no match) or { existingId, existingName, matchedBy }.
 export function matchCustomer(newCust, existingCustomers) {
@@ -67,6 +86,11 @@ export function matchCustomer(newCust, existingCustomers) {
       if (nameNorm === normalizeName(c.name)) {
         return { existingId: c.id, existingName: c.name, matchedBy: 'name_exact' };
       }
+    }
+
+    // Rule 4: Fuzzy name match (e.g. "Sam" → "Samantha")
+    if (nameNorm && nameFuzzyMatch(newCust.name, c.name)) {
+      return { existingId: c.id, existingName: c.name, matchedBy: 'name_fuzzy' };
     }
   }
   return null;
@@ -107,6 +131,12 @@ export function findDuplicates(customers) {
       const nameB = normalizeName(b.name);
       if (nameA && nameB && nameA === nameB && !emailNormA && !emailNormB && !phoneNormA && !phoneNormB) {
         pairs.push({ survivingCandidate: a, mergedCandidate: b, matchedBy: 'name_exact', confidence: 'low' });
+        continue;
+      }
+
+      // Rule 4: fuzzy name match (e.g. "Sam" → "Samantha")
+      if (nameA && nameB && nameFuzzyMatch(a.name, b.name)) {
+        pairs.push({ survivingCandidate: a, mergedCandidate: b, matchedBy: 'name_fuzzy', confidence: 'low' });
       }
     }
   }

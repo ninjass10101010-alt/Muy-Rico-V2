@@ -1,4 +1,4 @@
-import type { BusinessProfile, ComplianceIssue, ComplianceResult, LabelElement, LabelTemplate } from "../types";
+import type { BusinessProfile, ComplianceIssue, ComplianceResult, LabelTemplate } from "../types";
 import { disclaimerText } from "./disclaimer";
 import { FDA_ALLERGENS_LIST, TREE_NUTS, SHELLFISH } from "./miLaw";
 import { requiresNFP } from "./nfp";

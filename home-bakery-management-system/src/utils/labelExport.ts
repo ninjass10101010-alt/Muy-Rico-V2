@@ -15,20 +15,22 @@ import quicksandUrl from "../assets/fonts/Quicksand-Regular.ttf";
 
 const PT_PER_IN = 72;
 
-let _fonts: { cormorant: any; quicksand: any; helv: any } | null = null;
+const _fontBytes: { cormorant?: ArrayBuffer; quicksand?: ArrayBuffer } = {};
 
 async function getFonts(doc: PDFDocument) {
-  if (_fonts) return _fonts;
   doc.registerFontkit(fontkit);
-  const [cb, qb] = await Promise.all([
-    fetch(cormorantUrl).then((r) => r.arrayBuffer()),
-    fetch(quicksandUrl).then((r) => r.arrayBuffer()),
+  if (!_fontBytes.cormorant) {
+    [_fontBytes.cormorant, _fontBytes.quicksand] = await Promise.all([
+      fetch(cormorantUrl).then((r) => r.arrayBuffer()),
+      fetch(quicksandUrl).then((r) => r.arrayBuffer()),
+    ]);
+  }
+  const [cormorant, quicksand, helv] = await Promise.all([
+    doc.embedFont(_fontBytes.cormorant),
+    doc.embedFont(_fontBytes.quicksand),
+    doc.embedFont(StandardFonts.Helvetica),
   ]);
-  const cormorant = await doc.embedFont(cb);
-  const quicksand = await doc.embedFont(qb);
-  const helv = await doc.embedFont(StandardFonts.Helvetica);
-  _fonts = { cormorant, quicksand, helv };
-  return _fonts;
+  return { cormorant, quicksand, helv };
 }
 
 function hexToRgb(hex: string) {
@@ -115,16 +117,25 @@ export async function renderLabelPdf(
   const elements = label.elements || [];
   const shape = label.shape || "rounded";
   const isSquareish = shape === "square" || shape === "circle";
+
+  const sheet = opts.sheet || label.averyPreset || "single";
+  const layout = AVERY[sheet] || AVERY.single;
+
   let lw = label.labelWidth || 3;
   let lh = label.labelHeight || 4;
-  if (label.orientation === "landscape" && !isSquareish) { [lw, lh] = [lh, lw]; }
+  if (sheet !== "single") {
+    lw = layout.labelW;
+    lh = layout.labelH;
+  } else if (label.orientation === "landscape" && !isSquareish) {
+    [lw, lh] = [lh, lw];
+  }
   if (isSquareish) { const s = Math.min(lw, lh); lw = s; lh = s; }
   const labelWPt = lw * PT_PER_IN;
   const labelHPt = lh * PT_PER_IN;
 
   // Best-by date: use stored snapshot if present, else compute
-  const bestByDateStr = (label as any).best_by_date
-    ? new Date((label as any).best_by_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const bestByDateStr = label.bestByDate
+    ? new Date(label.bestByDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : new Date(Date.now() + ((label.bestByDays || 7) * 86400000)).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   // Background
@@ -274,10 +285,6 @@ export async function renderLabelPdf(
     });
   }
 
-  // Sheet layout
-  const sheet = opts.sheet || label.averyPreset || "single";
-  const layout = AVERY[sheet] || AVERY.single;
-
   if (sheet === "single") {
     const page = doc.addPage([labelWPt, labelHPt]);
     renderLabelOnPage(page, 0, 0);
@@ -308,18 +315,20 @@ export async function renderLabelPdf(
 
 /** Trigger a browser download of PDF bytes */
 export function downloadPdf(bytes: Uint8Array, filename: string) {
-  const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" });
+  const blob = new Blob([bytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Open PDF in a hidden iframe for printing */
 export function printPdf(bytes: Uint8Array) {
-  const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" });
+  const blob = new Blob([bytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const iframe = document.createElement("iframe");
   iframe.style.display = "none";

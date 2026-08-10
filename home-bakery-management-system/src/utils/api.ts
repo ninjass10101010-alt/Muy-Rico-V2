@@ -12,6 +12,8 @@ interface ApiOrderCreate {
   pickup_time?: string | null;
   items_json: { name: string; qty: number; price: number }[];
   total_cents: number;
+  subtotal_cents: number;
+  discount_cents: number;
   payment_method: string;
   payment_status: string;
   status?: string;
@@ -31,6 +33,8 @@ interface ApiOrder {
   pickup_time: string | null;
   items_json: string;
   total_cents: number;
+  subtotal_cents: number;
+  discount_cents: number;
   payment_method: string;
   payment_sub_method: string | null;
   payment_status: string;
@@ -39,6 +43,7 @@ interface ApiOrder {
   created_by: string;
   source: string;
   food_coloring: string | null;
+  inventory_deducted?: number;
 }
 
 export interface StatsResponse {
@@ -420,6 +425,32 @@ export async function enrichBarcode(
 ): Promise<{ source: "off"; product: OffProduct | null }> {
   const params = new URLSearchParams({ code });
   return apiFetch(`/api/inventory/enrich?${params.toString()}`);
+}
+
+// ─── Scan audit trail ────────────────────────────────────────────────────────
+
+export interface ScanEvent {
+  id: number;
+  inventory_id: string | null;
+  code: string;
+  action: string; // lookup|miss|bind|unbind|adjust|create|conflict|enrich_off|...
+  delta: number | null;
+  actor: string | null;
+  source: string | null;
+  meta: string | null;
+  created_at: string;
+}
+
+export async function fetchScanHistory(
+  inventoryId?: string,
+  limit = 50
+): Promise<ScanEvent[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const url = inventoryId
+    ? `/api/inventory/${encodeURIComponent(inventoryId)}/scan-history`
+    : "/api/inventory/scan-history";
+  const data = await apiFetch<{ events: ScanEvent[] }>(`${url}?${params.toString()}`);
+  return data.events;
 }
 
 // ─── Customers ───────────────────────────────────────────────────────────────

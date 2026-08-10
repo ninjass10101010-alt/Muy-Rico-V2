@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatPaymentSubMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_COLORS } from "./format";
+import { formatPaymentSubMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_COLORS, dueTier, urgencyRank } from "./format";
 
 describe("PAYMENT_METHOD_LABELS", () => {
   it("includes paypal", () => {
@@ -57,5 +57,74 @@ describe("formatPaymentSubMethod", () => {
   it("capitalizes brand and funding", () => {
     const json = JSON.stringify({ type: "card", brand: "AMEX", funding: "CREDIT", last4: "0001" });
     expect(formatPaymentSubMethod(json)).toBe("Amex Credit (…0001)");
+  });
+});
+
+describe("dueTier", () => {
+  const iso = (d: Date) => d.toISOString();
+
+  it("marks completed/cancelled orders inactive", () => {
+    expect(dueTier("2020-01-01", "completed")).toBe("inactive");
+    expect(dueTier("2020-01-01", "cancelled")).toBe("inactive");
+  });
+
+  it("marks past due dates overdue", () => {
+    const past = new Date();
+    past.setDate(past.getDate() - 1);
+    expect(dueTier(iso(past))).toBe("overdue");
+  });
+
+  it("marks today as today", () => {
+    expect(dueTier(iso(new Date()))).toBe("today");
+  });
+
+  it("marks tomorrow as tomorrow", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(dueTier(iso(tomorrow))).toBe("tomorrow");
+  });
+
+  it("marks 3 days out as this-week", () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    expect(dueTier(iso(d))).toBe("this-week");
+  });
+
+  it("marks 8 days out as future", () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 8);
+    expect(dueTier(iso(d))).toBe("future");
+  });
+
+  it("falls back to future for missing/invalid dates", () => {
+    expect(dueTier("")).toBe("future");
+    expect(dueTier("not-a-date")).toBe("future");
+  });
+});
+
+describe("urgencyRank", () => {
+  const base = { dueDate: new Date().toISOString(), status: "pending", paymentStatus: "unpaid" };
+
+  it("ranks overdue unpaid most urgent", () => {
+    const overdue = { ...base, dueDate: new Date(Date.now() - 86_400_000).toISOString() };
+    expect(urgencyRank(overdue)).toBeLessThan(urgencyRank(base));
+  });
+
+  it("ranks unpaid above paid at same due tier", () => {
+    const paid = { ...base, paymentStatus: "paid" };
+    expect(urgencyRank(base)).toBeLessThan(urgencyRank(paid));
+  });
+
+  it("ranks partial above paid at same due tier", () => {
+    const partial = { ...base, paymentStatus: "partial" };
+    const paid = { ...base, paymentStatus: "paid" };
+    expect(urgencyRank(partial)).toBeLessThan(urgencyRank(paid));
+  });
+
+  it("sinks completed/cancelled to the bottom", () => {
+    const done = { ...base, status: "completed" };
+    const cancelled = { ...base, status: "cancelled" };
+    expect(urgencyRank(done)).toBeGreaterThan(urgencyRank(base));
+    expect(urgencyRank(cancelled)).toBeGreaterThan(urgencyRank(base));
   });
 });

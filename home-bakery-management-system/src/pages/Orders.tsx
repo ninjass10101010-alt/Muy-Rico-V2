@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Tag, Trash2, Wallet } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, Tag, Trash2, Wallet } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import ProductIcon from "../components/ProductIcon";
 import Modal from "../components/ui/Modal";
-import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod } from "../utils/format";
+import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod, dueTier, urgencyRank, DUE_TIER_LABELS } from "../utils/format";
 import { generateOrderLabels, receiptHtmlUrl } from "../utils/api";
 import type { Order, OrderStatus, PaymentMethod } from "../types";
 import type { Page } from "../App";
@@ -42,7 +42,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             o.orderNumber.toLowerCase().includes(search.toLowerCase())
           : true,
       )
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort((a, b) => urgencyRank(a) - urgencyRank(b));
   }, [orders, statusFilter, sourceFilter, search]);
 
   async function updateStatus(order: Order, status: OrderStatus) {
@@ -115,6 +115,43 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         </div>
       )}
 
+      {(() => {
+        const active = orders.filter((o) => o.status !== "completed" && o.status !== "cancelled");
+        const overdue = active.filter((o) => dueTier(o.dueDate, o.status) === "overdue").length;
+        const today = active.filter((o) => dueTier(o.dueDate, o.status) === "today").length;
+        const unpaid = active.filter((o) => o.paymentStatus === "unpaid").length;
+        if (!overdue && !today && !unpaid) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-medium text-cocoa-muted">Needs attention:</span>
+            {overdue > 0 && (
+              <button
+                onClick={() => setStatusFilter("all")}
+                className="rounded-full bg-hibiscus/10 px-2.5 py-1 font-semibold text-hibiscus ring-1 ring-inset ring-hibiscus/30 transition hover:bg-hibiscus/20"
+              >
+                {overdue} Overdue
+              </button>
+            )}
+            {unpaid > 0 && (
+              <button
+                onClick={() => setStatusFilter("awaiting_payment")}
+                className="rounded-full bg-coral-light/30 px-2.5 py-1 font-semibold text-coral ring-1 ring-inset ring-coral/30 transition hover:bg-coral-light/40"
+              >
+                {unpaid} Unpaid
+              </button>
+            )}
+            {today > 0 && (
+              <button
+                onClick={() => setStatusFilter("all")}
+                className="rounded-full bg-coral-light/20 px-2.5 py-1 font-semibold text-coral ring-1 ring-inset ring-coral/20 transition hover:bg-coral-light/30"
+              >
+                {today} Due Today
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
@@ -131,20 +168,44 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               </tr>
             </thead>
             <tbody className="divide-y divide-sand-100">
-              {filtered.map((o) => (
-                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" onClick={() => { setSelected(o); setLabelGenResult(null); }}>
+              {filtered.map((o) => {
+                const tier = dueTier(o.dueDate, o.status);
+                const borderColor =
+                  tier === "overdue" ? "#c0573a" :
+                  tier === "today" ? "#f7a8a4" :
+                  tier === "tomorrow" ? "#fad9d4" :
+                  "transparent";
+                return (
+                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); }}>
                   <td className="px-4 py-3 font-medium text-cocoa">{o.orderNumber}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{o.customerName}</td>
                   <td className="px-4 py-3">
                     <Badge tone={o.source}>{o.source}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-cocoa-muted">{formatDate(o.dueDate)}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={o.paymentStatus}>
-                      {o.paymentStatus === "paid" && o.paymentMethod
-                        ? PAYMENT_METHOD_LABELS[o.paymentMethod]
-                        : o.paymentStatus}
-                    </Badge>
+                    {tier === "overdue" || tier === "today" || tier === "tomorrow" || tier === "this-week" ? (
+                      <Badge tone={tier}>
+                        {tier === "this-week" ? formatDate(o.dueDate) : DUE_TIER_LABELS[tier]}
+                      </Badge>
+                    ) : (
+                      <span className="text-cocoa-muted">{formatDate(o.dueDate)}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      {o.paymentStatus === "paid" ? (
+                        <CheckCircle2 size={14} className="text-mid-green" />
+                      ) : o.paymentStatus === "partial" ? (
+                        <Wallet size={14} className="text-coral" />
+                      ) : (
+                        <AlertCircle size={14} className="text-hibiscus" />
+                      )}
+                      <Badge tone={o.paymentStatus}>
+                        {o.paymentStatus === "paid" && o.paymentMethod
+                          ? PAYMENT_METHOD_LABELS[o.paymentMethod]
+                          : o.paymentStatus}
+                      </Badge>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <select
@@ -189,7 +250,8 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-center text-cocoa-muted">
@@ -536,8 +598,13 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 setGeneratingLabels(true);
                 setLabelGenResult(null);
                 try {
-                  await generateOrderLabels(Number(selected.id));
-                  setLabelGenResult("Labels generated! Click \"View Labels\" to open them.");
+                  const result = await generateOrderLabels(Number(selected.id));
+                  const count = result.generated || 0;
+                  setLabelGenResult(
+                    count > 0
+                      ? `${count} label${count !== 1 ? 's' : ''} generated! Click "View Labels" to open them.`
+                      : "No labels generated — all items already have labels or no matching products found."
+                  );
                   await refreshOrders();
                   await refreshLabelTemplates();
                 } catch {
