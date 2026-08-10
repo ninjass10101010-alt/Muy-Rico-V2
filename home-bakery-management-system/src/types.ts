@@ -315,3 +315,37 @@ export interface Quote {
   createdAt: string;
   updatedAt: string;
 }
+// ─── Reminders / calendar config ─────────────────────────────────────────────
+
+export interface ReminderConfig {
+  leadDays: number;
+  dayOf: boolean;
+  defaultSnoozeHours: number;
+  dayStartTime: number;
+  dayEndTime: number;
+}
+
+export const DEFAULT_REMINDER_CONFIG: ReminderConfig = {
+  leadDays: 2,
+  dayOf: true,
+  defaultSnoozeHours: 24,
+  dayStartTime: 9,
+  dayEndTime: 19,
+};
+
+export interface BusinessProfile {
+  name: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  registrationNumber: string;
+  businessType: "cottage" | "licensed";
+  acceptedMethods: Record<PaymentMethod, boolean>;
+  cashtag: string;
+  venmoHandle: string;
+  applePayEnabled: boolean;
+  stripeConnected: boolean;
+  reminders: ReminderConfig;
+}

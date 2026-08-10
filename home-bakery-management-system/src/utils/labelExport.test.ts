@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import type { LabelTemplate, BusinessProfile } from "../types";
-
+import { DEFAULT_REMINDER_CONFIG } from "../types";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function toArrayBuffer(buf: Buffer): ArrayBuffer {
@@ -81,13 +81,20 @@ function makeLabel(overrides: Partial<LabelTemplate> = {}): LabelTemplate {
 }
 
 const profile: BusinessProfile = {
-  id: "singleton",
   name: "Muy Rico",
   phone: "555-0100",
   registrationNumber: "MI-12345",
   address: "123 Main St, Detroit, MI 48201",
   website: "https://muy-rico.com",
   businessType: "cottage",
+  tagline: "",
+  email: "hi@muy-rico.com",
+  acceptedMethods: { stripe: true, paypal: false, cashapp: true, venmo: true, applepay: false, cash: true },
+  cashtag: "$muyrico",
+  venmoHandle: "muy-rico",
+  applePayEnabled: false,
+  stripeConnected: true,
+  reminders: DEFAULT_REMINDER_CONFIG,
 };
 
 async function loadPdf(bytes: Uint8Array): Promise<{ doc: PDFDocument; pages: number }> {

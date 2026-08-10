@@ -447,6 +447,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       venmoHandle: row.venmoHandle || seedProfile.venmoHandle,
       applePayEnabled: Boolean(row.applePayEnabled),
       stripeConnected: Boolean(row.stripeConnected),
+      reminders: seedProfile.reminders,
     };
   }
 

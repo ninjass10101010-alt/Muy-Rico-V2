@@ -11,6 +11,7 @@ import {
   validateLabel,
 } from "./compliance";
 import type { LabelTemplate, BusinessProfile } from "../types";
+import { DEFAULT_REMINDER_CONFIG } from "../types";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
@@ -80,6 +81,7 @@ const defaultProfile: BusinessProfile = {
   venmoHandle: "muy-rico",
   applePayEnabled: false,
   stripeConnected: true,
+  reminders: DEFAULT_REMINDER_CONFIG,
 };
 
 /* ── detectAllergens ─────────────────────────────────────────── */

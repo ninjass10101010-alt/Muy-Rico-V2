@@ -8,6 +8,7 @@ import type {
   Payment,
   Product,
 } from "../types";
+import { DEFAULT_REMINDER_CONFIG } from "../types";
 
 // DEPRECATED — fallback only. Authoritative product & inventory lists now live
 // in D1 (see orders/migrations/0003_products.sql, 0004_inventory.sql).
@@ -420,6 +421,7 @@ export const seedProfile: BusinessProfile = {
   venmoHandle: "@Muy-Rico",
   applePayEnabled: true,
   stripeConnected: false,
+  reminders: DEFAULT_REMINDER_CONFIG,
 };
 
 export function generateOrderNumber(existing: Order[]): string {
