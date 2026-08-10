@@ -33,7 +33,7 @@ Fixes the pre-existing missing type and adds the reminder config shape. No UI ye
 **Interfaces:**
 - Produces: `interface ReminderConfig`, `interface BusinessProfile`, `const DEFAULT_REMINDER_CONFIG: ReminderConfig` (all exported from `src/types.ts`). Later tasks consume these exact names.
 
-- [ ] **Step 1: Append types to `src/types.ts`**
+- [x] **Step 1: Append types to `src/types.ts`**
 
 ```ts
 // ─── Reminders / calendar config ─────────────────────────────────────────────
@@ -74,7 +74,7 @@ export interface BusinessProfile {
 
 `DEFAULT_REMINDER_CONFIG` intentionally lives in `types.ts` (not `utils/`) to avoid a circular import (`utils/reminders.ts` imports types; seedData imports the constant).
 
-- [ ] **Step 2: Add `reminders` to `seedProfile` in `src/data/seedData.ts`**
+- [x] **Step 2: Add `reminders` to `seedProfile` in `src/data/seedData.ts`**
 
 Add `DEFAULT_REMINDER_CONFIG` to the existing import from `../types` (line 2–10), then add the field to `seedProfile`:
 
@@ -97,17 +97,17 @@ export const seedProfile: BusinessProfile = {
 };
 ```
 
-- [ ] **Step 3: Verify the targeted type errors are gone**
+- [x] **Step 3: Verify the targeted type errors are gone**
 
 Run: `npx tsc --noEmit 2>&1 | grep -c "BusinessProfile"` and `npx tsc --noEmit 2>&1 | grep "TS2305" | wc -l`
 Expected: the `BusinessProfile` TS2305 count drops from 6 to 0. (Other pre-existing errors may remain — that's expected, constraint 4.)
 
-- [ ] **Step 4: Run existing test suite to confirm nothing broke**
+- [x] **Step 4: Run existing test suite to confirm nothing broke**
 
 Run: `npm test`
 Expected: all existing tests PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/types.ts src/data/seedData.ts
@@ -143,7 +143,7 @@ The heart of the reminder tiers. Pure function, TDD.
   - `function loadReminderConfig(profileReminders?: ReminderConfig): ReminderConfig`
   - `function saveReminderConfigToLocal(config: ReminderConfig): void`
 
-- [ ] **Step 1: Write the failing test file `src/utils/reminders.test.ts`**
+- [x] **Step 1: Write the failing test file `src/utils/reminders.test.ts`**
 
 ```ts
 import { describe, expect, it, beforeEach } from "vitest";
@@ -306,12 +306,12 @@ describe("localStorage persistence", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- src/utils/reminders.test.ts`
 Expected: FAIL — `Cannot find module './reminders'`.
 
-- [ ] **Step 3: Write minimal implementation `src/utils/reminders.ts`**
+- [x] **Step 3: Write minimal implementation `src/utils/reminders.ts`**
 
 ```ts
 import { DEFAULT_REMINDER_CONFIG } from "../types";
@@ -404,12 +404,12 @@ export function saveReminderConfigToLocal(config: ReminderConfig): void {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- src/utils/reminders.test.ts`
 Expected: all PASS (12 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/utils/reminders.ts src/utils/reminders.test.ts
@@ -435,7 +435,7 @@ Aggregates ingredient demand for a date window vs. current inventory.
   - `function computePrepList(orders: Order[], products: Product[], inventory: InventoryItem[], windowStart: string, windowEnd: string): PrepListResult`
   - `function packMultiplierFor(orderItem: { price: number }, product: Product): number`
 
-- [ ] **Step 1: Write the failing test file `src/utils/prepList.test.ts`**
+- [x] **Step 1: Write the failing test file `src/utils/prepList.test.ts`**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -553,12 +553,12 @@ describe("computePrepList", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- src/utils/prepList.test.ts`
 Expected: FAIL — `Cannot find module './prepList'`.
 
-- [ ] **Step 3: Write minimal implementation `src/utils/prepList.ts`**
+- [x] **Step 3: Write minimal implementation `src/utils/prepList.ts`**
 
 ```ts
 import type { InventoryItem, Order, Product } from "../types";
@@ -662,12 +662,12 @@ export function computePrepList(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- src/utils/prepList.test.ts`
 Expected: all PASS (9 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/utils/prepList.ts src/utils/prepList.test.ts
@@ -689,7 +689,7 @@ Pure month-grid builder used by the Month view.
   - `interface CalendarCell { date: Date; iso: string; inMonth: boolean; isToday: boolean }`
   - `function calendarGrid(year: number, monthIndex: number, todayIso?: string): CalendarCell[]` — always 42 cells, weeks starting Sunday, `inMonth` false for leading/trailing blanks.
 
-- [ ] **Step 1: Write the failing test `src/utils/calendarGrid.test.ts`**
+- [x] **Step 1: Write the failing test `src/utils/calendarGrid.test.ts`**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -727,12 +727,12 @@ describe("calendarGrid", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- src/utils/calendarGrid.test.ts`
 Expected: FAIL — `Cannot find module './calendarGrid'`.
 
-- [ ] **Step 3: Write minimal implementation `src/utils/calendarGrid.ts`**
+- [x] **Step 3: Write minimal implementation `src/utils/calendarGrid.ts`**
 
 ```ts
 export interface CalendarCell {
@@ -760,12 +760,12 @@ export function calendarGrid(year: number, monthIndex: number, todayIso?: string
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- src/utils/calendarGrid.test.ts`
 Expected: all PASS (5 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/utils/calendarGrid.ts src/utils/calendarGrid.test.ts
@@ -787,7 +787,7 @@ The hook that powers the bell, the dashboard widget, and the Calendar side panel
 - Produces:
   - `function useReminders(): { reminders: Reminder[]; unreadCount: number; snooze: (orderId: string, hours: number) => void; dismiss: (orderId: string) => void; markAllRead: () => void }`
 
-- [ ] **Step 1: Write the failing test `src/hooks/useReminders.test.tsx`**
+- [x] **Step 1: Write the failing test `src/hooks/useReminders.test.tsx`**
 
 ```tsx
 import { act } from "react";
@@ -868,12 +868,12 @@ describe("useReminders", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- src/hooks/useReminders.test.tsx`
 Expected: FAIL — `Cannot find module './useReminders'`.
 
-- [ ] **Step 3: Write minimal implementation `src/hooks/useReminders.ts`**
+- [x] **Step 3: Write minimal implementation `src/hooks/useReminders.ts`**
 
 ```ts
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -957,12 +957,12 @@ export function useReminders() {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- src/hooks/useReminders.test.tsx`
 Expected: all PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/hooks/useReminders.ts src/hooks/useReminders.test.tsx
@@ -982,7 +982,7 @@ git commit -m "feat(calendar): useReminders hook with dismiss + snooze"
 - Produces: `ReminderBell({ onOpenCalendar, onOpenDate }: { onOpenCalendar: () => void; onOpenDate: (isoDate: string) => void })`
 - Topbar produces: `onOpenCalendar: () => void` and `onOpenDate: (isoDate: string) => void` props.
 
-- [ ] **Step 1: Create `src/components/ReminderBell.tsx`**
+- [x] **Step 1: Create `src/components/ReminderBell.tsx`**
 
 ```tsx
 import { useEffect, useRef, useState } from "react";
@@ -1097,7 +1097,7 @@ export default function ReminderBell({
 }
 ```
 
-- [ ] **Step 2: Wire into `src/components/Topbar.tsx`**
+- [x] **Step 2: Wire into `src/components/Topbar.tsx`**
 
 Add `ReminderBell` between the search box and the **+ New Order** button, and add the two new props:
 
@@ -1161,12 +1161,12 @@ export default function Topbar({
 
 **Note:** `App.tsx` does not yet pass the new props — that lands in Task 7. Running the dev server after this task will show a TS error in the console until Task 7 completes. That's expected within this task's boundary; do not "fix" it by editing App.tsx here.
 
-- [ ] **Step 3: Verify the build still passes (App.tsx types will surface as esbuild warnings only)**
+- [x] **Step 3: Verify the build still passes (App.tsx types will surface as esbuild warnings only)**
 
 Run: `npm run build`
 Expected: build completes (esbuild ignores the missing props; vite type-checking is off). Do not gate on `tsc`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/ReminderBell.tsx src/components/Topbar.tsx
@@ -1189,7 +1189,7 @@ git commit -m "feat(calendar): reminder bell dropdown in topbar"
   - `"calendar"` added to `Page` union in `src/App.tsx`.
   - Helper exports from CalendarView for later tasks: `type CalendarViewMode = "month" | "week" | "day" | "list"`, `function ordersByIso(orders: Order[]): Map<string, Order[]>`.
 
-- [ ] **Step 1: Modify `src/App.tsx` — add the page + wire Topbar + render CalendarView**
+- [x] **Step 1: Modify `src/App.tsx` — add the page + wire Topbar + render CalendarView**
 
 Changes:
 1. `Page` union: add `| "calendar"` after `"orders"`.
@@ -1213,7 +1213,7 @@ The `setPage("calendar")` here is a no-op if already on the page; the hash hand-
 6. Render: `{page === "calendar" && <CalendarView setPage={setPage} onOpenInventory={(id) => { setInventoryHighlightId(id); setPage("inventory"); }} />}`
 6. Inventory render: `{page === "inventory" && <Inventory search={search} highlightId={inventoryHighlightId} onGoToCalendar={() => setPage("calendar")} />}` (new props implemented in Task 11 — TS/esbuild tolerant; if esbuild complains, cast `Inventory` call-site props with `as any` temporarily? NO — instead, implement the props in Task 11. Until then the dev build will error. To keep every task green, use a local stub: see Step 4 note.) — see Step 4 for the ordering fix.
 
-- [ ] **Step 2: Modify `src/components/Sidebar.tsx` — nav item + badge**
+- [x] **Step 2: Modify `src/components/Sidebar.tsx` — nav item + badge**
 
 Add `CalendarDays` to lucide imports; insert into `NAV` after `orders`:
 
@@ -1249,7 +1249,7 @@ const badge =
   item.id === "calendar" && unreadCount > 0 ? unreadCount : 0;
 ```
 
-- [ ] **Step 3: Create `src/pages/CalendarView.tsx` — shell, Month, Week, List**
+- [x] **Step 3: Create `src/pages/CalendarView.tsx` — shell, Month, Week, List**
 
 ```tsx
 import { useEffect, useMemo, useState } from "react";
@@ -1521,7 +1521,7 @@ function ListView({ byIso }: { byIso: Map<string, Order[]> }) {
 
 **Step 4 ordering note:** `App.tsx` will reference `Inventory` props `highlightId`/`onGoToCalendar` that don't exist until Task 11. To keep the build green at the end of THIS task, temporarily pass only `search` (leave the Inventory call-site unchanged in this task; do NOT add the new props until Task 11). Same for the new Topbar props — add them in this task's App edit. The `CalendarView` prop `onOpenInventory` is passed but unused until Task 11 — that's fine (it's an interface contract; `noUnusedParameters` is off in build).
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `npm run build`
 Expected: build succeeds.
@@ -1531,7 +1531,7 @@ Expected: all tests pass.
 
 Manual smoke (optional): `npm run dev`, open http://localhost:5173/, sidebar shows **Calendar**, badge appears if seed orders are due, Month/Week/List views render.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/pages/CalendarView.tsx src/App.tsx src/components/Sidebar.tsx
@@ -1553,7 +1553,7 @@ git commit -m "feat(calendar): calendar page shell with month/week/list views"
   - Day view renders a timeline for `dayStartTime`–`dayEndTime` from reminder config, plus an "unscheduled" bucket.
   - A `onOpenInventory` passthrough and a "Prep needs for this day" button that scrolls to the side panel section `id="prep-panel"`.
 
-- [ ] **Step 1: Modify `src/components/OrderModal.tsx` — optional prefill**
+- [x] **Step 1: Modify `src/components/OrderModal.tsx` — optional prefill**
 
 Change line 11:
 
@@ -1569,12 +1569,12 @@ const [dueDate, setDueDate] = useState(() => defaultDueDate ?? new Date().toISOS
 
 **Note:** this only takes effect when the modal is mounted fresh with the prop set — the caller must render `<OrderModal key={dueDate} ...>` or conditionally mount it (see Step 3).
 
-- [ ] **Step 2: Run existing tests**
+- [x] **Step 2: Run existing tests**
 
 Run: `npm test`
 Expected: all pass (OrderModal has no direct tests; compile via build next).
 
-- [ ] **Step 3: Replace the Day placeholder in `src/pages/CalendarView.tsx`**
+- [x] **Step 3: Replace the Day placeholder in `src/pages/CalendarView.tsx`**
 
 Add imports at top (merge into existing lucide import): `Plus`, `Clock`; add `useState` for `newOrderOpen` (already imported); add `Modal` to the ui imports (`import Modal from "../components/ui/Modal";`), `OrderModal` (`import OrderModal from "../components/OrderModal";`), and `loadReminderConfig` from `../utils/reminders`. Then replace:
 
@@ -1767,7 +1767,7 @@ function OrderTimelineCard({ order }: { order: Order }) {
 
 **Note:** "Open in Orders" navigation is intentionally not on this card — the lightweight read-only modal (rather than duplicating Orders.tsx's 500-line inline detail modal) is a documented simplification, reviewable here. Day-view cards focus on the schedule; full order management remains on the Orders page.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npm run build`
 Expected: build succeeds.
@@ -1777,7 +1777,7 @@ Expected: all pass.
 
 Manual: `npm run dev` → Calendar → **Day** tab → click a date with orders; unscheduled orders appear at bottom; New-order button opens OrderModal prefilled.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/CalendarView.tsx src/components/OrderModal.tsx
@@ -1795,7 +1795,7 @@ git commit -m "feat(calendar): day view timeline + prefilled new-order modal"
 - Consumes: `useReminders`, `computePrepList` (Task 3), `loadReminderConfig`, `useStore` (`products`, `inventory`, `apiUpdateInventoryItem`, `profile`), `onOpenInventory` prop.
 - Produces: the right-side panel (id `prep-panel`) with three collapsible sections. Prep window scoping: month → whole month, week → whole week, day → that day, list → reminder window (`leadDays`).
 
-- [ ] **Step 1: Replace the side-panel placeholder**
+- [x] **Step 1: Replace the side-panel placeholder**
 
 Replace:
 
@@ -1820,7 +1820,7 @@ with:
 </div>
 ```
 
-- [ ] **Step 2: Add the `SidePanel` component + helpers at the end of the file**
+- [x] **Step 2: Add the `SidePanel` component + helpers at the end of the file**
 
 ```tsx
 function SidePanel({ mode, cursor, byIso, onOpenInventory }: {
@@ -1988,14 +1988,14 @@ function ordersForWindow(byIso: Map<string, Order[]>, start: string, end: string
 
 Add `ordersForWindow` import note: it is local to this file. Add missing imports at the top of CalendarView: `computePrepList` from `../utils/prepList`, `loadReminderConfig` from `../utils/reminders`, `Modal` already imported (Task 8).
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 Run: `npm run build` → succeeds.
 Run: `npm test` → all pass.
 
 Manual: Calendar page side panel shows Reminders, day orders, and Prep list scoped per view; "Adjust +N" updates inventory; "Open inventory" jumps to Inventory page.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/pages/CalendarView.tsx
@@ -2014,7 +2014,7 @@ git commit -m "feat(calendar): side panel with reminders, day detail, prep list"
 - Consumes: `useReminders`, `Badge`, `formatCurrency`, `formatDate`, lucide `Bell`.
 - Produces: `DashboardUpcomingWidget({ onOpenCalendar, onOpenDate }: { onOpenCalendar: () => void; onOpenDate: (iso: string) => void })`
 
-- [ ] **Step 1: Create `src/components/DashboardUpcomingWidget.tsx`**
+- [x] **Step 1: Create `src/components/DashboardUpcomingWidget.tsx`**
 
 ```tsx
 import { Bell } from "lucide-react";
@@ -2075,7 +2075,7 @@ export default function DashboardUpcomingWidget({
 }
 ```
 
-- [ ] **Step 2: Wire into `src/pages/Dashboard.tsx`**
+- [x] **Step 2: Wire into `src/pages/Dashboard.tsx`**
 
 Add import: `import DashboardUpcomingWidget from "../components/DashboardUpcomingWidget";`
 
@@ -2093,14 +2093,14 @@ Insert as a new full-width card between the charts row and the "Recent orders + 
 
 `setPage` already exists in Dashboard's props. No other Dashboard changes needed (the existing "Orders needing attention" list stays).
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 Run: `npm run build` → succeeds.
 Run: `npm test` → all pass.
 
 Manual: Dashboard shows "Upcoming reminders" card with up to 3 reminders; clicking navigates to Calendar day view.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/DashboardUpcomingWidget.tsx src/pages/Dashboard.tsx
@@ -2121,7 +2121,7 @@ git commit -m "feat(calendar): dashboard upcoming reminders widget"
   - `Inventory({ search, highlightId, onGoToCalendar }: { search: string; highlightId?: string | null; onGoToCalendar?: () => void })`
   - App passes `highlightId={inventoryHighlightId}` and `onGoToCalendar={() => setPage("calendar")}`.
 
-- [ ] **Step 1: Update `src/App.tsx` Inventory call-site**
+- [x] **Step 1: Update `src/App.tsx` Inventory call-site**
 
 Replace:
 
@@ -2139,7 +2139,7 @@ with:
 
 (`inventoryHighlightId` state was added in Task 7.)
 
-- [ ] **Step 2: Update `src/pages/Inventory.tsx` — props + highlight**
+- [x] **Step 2: Update `src/pages/Inventory.tsx` — props + highlight**
 
 Change the component signature:
 
@@ -2180,7 +2180,7 @@ Attach the ref to the matching row (inside the `filtered.map`, on the `<tr>`):
 <tr key={i.id} ref={i.id === highlightId ? highlightRef : undefined} className="hover:bg-sand-50">
 ```
 
-- [ ] **Step 3: Add the prep pill to the Inventory header**
+- [x] **Step 3: Add the prep pill to the Inventory header**
 
 Add `useMemo` import and compute demand inside the component (near `totalValue`):
 
@@ -2212,7 +2212,7 @@ Add a pill in the header row, after the "Low stock" pill:
 )}
 ```
 
-- [ ] **Step 4: Add the "Upcoming demand" column**
+- [x] **Step 4: Add the "Upcoming demand" column**
 
 Add a toggleable column. Add state: `const [showDemand, setShowDemand] = useState(false);` Add a header-cell button in the `<thead>` after the "Reorder at" th:
 
@@ -2246,14 +2246,14 @@ Update the `<td colSpan={7}>` empty-state to `colSpan={showDemand ? 8 : 7}`.
 
 Add `cn` import to Inventory.tsx: `import { cn } from "../utils/cn";` and `import { computePrepList } from "../utils/prepList";` and `import { loadReminderConfig } from "../utils/reminders";`.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `npm run build` → succeeds.
 Run: `npm test` → all pass.
 
 Manual: Calendar prep "Open inventory" jumps to Inventory with the row highlighted; header pill shows prep counts and navigates back; demand column toggles and shows ⚠ on shortfalls.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/pages/Inventory.tsx src/App.tsx
@@ -2271,7 +2271,7 @@ git commit -m "feat(calendar): bridge prep list into inventory page"
 - Consumes: `useStore` (`profile`, `handleUpdateProfile`), `saveReminderConfigToLocal`, `DEFAULT_REMINDER_CONFIG`, `ReminderConfig` type.
 - Produces: a "Reminders" card in Settings editing `leadDays`, `dayOf`, `defaultSnoozeHours`, `dayStartTime`, `dayEndTime`, saved via the existing `save()` flow (which also mirrors to localStorage).
 
-- [ ] **Step 1: Add imports to `src/pages/Settings.tsx`**
+- [x] **Step 1: Add imports to `src/pages/Settings.tsx`**
 
 ```tsx
 import { saveReminderConfigToLocal } from "../utils/reminders";
@@ -2280,7 +2280,7 @@ import { DEFAULT_REMINDER_CONFIG, type ReminderConfig } from "../types";
 
 Add `Bell` to the lucide imports.
 
-- [ ] **Step 2: Add the Reminders card**
+- [x] **Step 2: Add the Reminders card**
 
 Insert a new card into the left column, after the "Business profile" card (after its closing `</div>` at the end of the card, before the next card). The card:
 
@@ -2347,7 +2347,7 @@ Insert a new card into the left column, after the "Business profile" card (after
 </div>
 ```
 
-- [ ] **Step 3: Mirror to localStorage on save**
+- [x] **Step 3: Mirror to localStorage on save**
 
 In the existing `save()` function, add a line before `await handleUpdateProfile(draft);`:
 
@@ -2366,14 +2366,14 @@ async function save() {
 
 The server drops `reminders` from the PUT body (constraint 1) but localStorage keeps it (constraint 2), and `loadReminderConfig` (Task 2) merges localStorage over profile defaults on every read.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npm run build` → succeeds.
 Run: `npm test` → all pass.
 
 Manual: Settings → Reminders → change lead days to 5 → Save → reload page → Calendar bell still respects 5-day window; Day view hours reflect the new start/end.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/Settings.tsx
@@ -2386,17 +2386,17 @@ git commit -m "feat(calendar): reminders settings card + localStorage mirror"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Run the full test suite**
+- [x] **Step 1: Run the full test suite**
 
 Run: `npm test`
 Expected: ALL tests pass (existing + 29 new).
 
-- [ ] **Step 2: Production build**
+- [x] **Step 2: Production build**
 
 Run: `npm run build`
 Expected: build succeeds, `dist/` emits the single-file bundle.
 
-- [ ] **Step 3: Dev-server manual checklist**
+- [x] **Step 3: Dev-server manual checklist**
 
 Run: `npm run dev`, open http://localhost:5173/ and verify:
 
@@ -2411,11 +2411,11 @@ Run: `npm run dev`, open http://localhost:5173/ and verify:
 9. Settings → Reminders: change lead days → Save → reload → bell respects new window; Day view hours update.
 10. Deep link: open `http://localhost:5173/#calendar/2026-06-11` → lands on that date's Day view.
 
-- [ ] **Step 4: Fix anything the checklist surfaces (iterate locally, commit as needed)**
+- [x] **Step 4: Fix anything the checklist surfaces (iterate locally, commit as needed)**
 
 Any deviations found → fix, re-run `npm test` + `npm run build`, commit with a clear message.
 
-- [ ] **Step 5: Final commit (if changes were needed)**
+- [x] **Step 5: Final commit (if changes were needed)**
 
 ```bash
 git add -A
