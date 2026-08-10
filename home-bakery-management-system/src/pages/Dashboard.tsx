@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { useStore } from "../context/StoreContext";
 import StatCard from "../components/ui/StatCard";
+import DashboardUpcomingWidget from "../components/DashboardUpcomingWidget";
 import Badge from "../components/ui/Badge";
 import ProductIcon from "../components/ProductIcon";
 import { formatCurrency, formatDate, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABELS, dueTier, urgencyRank, DUE_TIER_LABELS } from "../utils/format";
@@ -310,6 +311,14 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
           </div>
         </div>
       </div>
+
+      <DashboardUpcomingWidget
+        onOpenCalendar={() => setPage("calendar")}
+        onOpenDate={(iso) => {
+          window.location.hash = `calendar/${iso}`;
+          setPage("calendar");
+        }}
+      />
 
       {/* Recent orders + Best sellers */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
