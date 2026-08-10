@@ -8,7 +8,7 @@ import { newId } from "../utils/format";
 import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../types";
 import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 
-export default function OrderModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function OrderModal({ open, onClose, defaultDueDate }: { open: boolean; onClose: () => void; defaultDueDate?: string }) {
   const { products, customers, handleCreateCustomer, profile, apiCreateOrder, generateReceipt } = useStore();
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [customerId, setCustomerId] = useState("");
@@ -22,7 +22,7 @@ export default function OrderModal({ open, onClose }: { open: boolean; onClose: 
   const [productPick, setProductPick] = useState(products[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("paid");
-  const [dueDate, setDueDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState(() => defaultDueDate ?? new Date().toISOString().slice(0, 10));
   const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
