@@ -1,9 +1,12 @@
-import { useState, useRef, Suspense, lazy } from "react";
+import { useEffect, useMemo, useState, useRef, Suspense, lazy } from "react";
 import { History, Minus, Pencil, Plus, ScanLine, Search, Trash2, Unlink } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Modal from "../components/ui/Modal";
 import Badge from "../components/ui/Badge";
 import { formatCurrency } from "../utils/format";
+import { cn } from "../utils/cn";
+import { computePrepList } from "../utils/prepList";
+import { loadReminderConfig } from "../utils/reminders";
 import { fetchScanHistory, lookupUsdaIngredient, type ScanEvent, type UsdaCandidate } from "../utils/api";
 import type { InventoryItem } from "../types";
 
@@ -21,8 +24,12 @@ const emptyItem = (): InventoryItem => ({
   barcode: "",
 });
 
-export default function Inventory({ search }: { search: string }) {
-  const { inventory, products, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem } = useStore();
+export default function Inventory({ search, highlightId, onGoToCalendar }: {
+  search: string;
+  highlightId?: string | null;
+  onGoToCalendar?: () => void;
+}) {
+  const { inventory, products, orders, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [draft, setDraft] = useState<InventoryItem>(emptyItem());
@@ -40,6 +47,17 @@ export default function Inventory({ search }: { search: string }) {
   const [historyBusy, setHistoryBusy] = useState(false);
 
   const filtered = inventory.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()));
+
+  const highlightRef = useRef<HTMLTableRowElement | null>(null);
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = highlightRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-coral", "bg-coral-light/10");
+    const t = setTimeout(() => el.classList.remove("ring-2", "ring-coral", "bg-coral-light/10"), 2500);
+    return () => clearTimeout(t);
+  }, [highlightId]);
 
   function openNew() {
     setDraft(emptyItem());
@@ -191,6 +209,19 @@ export default function Inventory({ search }: { search: string }) {
   const totalValue = inventory.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
   const lowCount = inventory.filter((i) => i.quantity <= i.reorderLevel).length;
 
+  const { profile } = useStore();
+  const cfg = loadReminderConfig(profile?.reminders);
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const endIso = useMemo(() => {
+    const d = new Date(); d.setDate(d.getDate() + cfg.leadDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, [cfg.leadDays]);
+  const prep = useMemo(
+    () => computePrepList(orders, products, inventory, todayIso, endIso),
+    [orders, products, inventory, todayIso, endIso],
+  );
+  const [showDemand, setShowDemand] = useState(false);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -203,6 +234,15 @@ export default function Inventory({ search }: { search: string }) {
             <p className="text-xs text-hibiscus">Low stock</p>
             <p className="font-semibold text-hibiscus">{lowCount} items</p>
           </div>
+          {onGoToCalendar && (
+            <button
+              onClick={onGoToCalendar}
+              className="rounded-xl border border-palm/30 bg-white px-4 py-2.5 text-sm font-medium text-palm shadow-sm transition hover:bg-palm/5"
+            >
+              Prep for {prep.ordersCovered.length} order{prep.ordersCovered.length === 1 ? "" : "s"} ·{" "}
+              <span className="font-semibold text-hibiscus">{prep.needs.filter((n) => !n.ok).length} short</span> →
+            </button>
+          )}
         </div>
         <button
           onClick={() => setScanOpen(true)}
@@ -227,6 +267,11 @@ export default function Inventory({ search }: { search: string }) {
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Quantity</th>
                 <th className="px-4 py-3">Reorder at</th>
+                <th className="px-4 py-3">
+                  <button onClick={() => setShowDemand((v) => !v)} className="uppercase tracking-wide hover:text-cocoa" title="Toggle upcoming demand">
+                    Upcoming demand {showDemand ? "▾" : "▸"}
+                  </button>
+                </th>
                 <th className="px-4 py-3">Cost/unit</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3"></th>
@@ -236,7 +281,7 @@ export default function Inventory({ search }: { search: string }) {
               {filtered.map((i) => {
                 const low = i.quantity <= i.reorderLevel;
                 return (
-                  <tr key={i.id} className="hover:bg-sand-50">
+                  <tr key={i.id} ref={i.id === highlightId ? highlightRef : undefined} className="hover:bg-sand-50">
                     <td className="px-4 py-3 font-medium text-cocoa">
                       <div>{i.name}</div>
                       {i.barcode && i.barcode !== i.id && (
@@ -275,6 +320,19 @@ export default function Inventory({ search }: { search: string }) {
                     <td className="px-4 py-3 text-cocoa-muted">
                       {i.reorderLevel} {i.unit}
                     </td>
+                    {showDemand && (
+                      <td className="px-4 py-3">
+                        {(() => {
+                          const need = prep.needs.find((n) => n.inventoryItemId === i.id);
+                          if (!need) return <span className="text-xs text-cocoa-muted">—</span>;
+                          return (
+                            <span className={cn("text-xs font-medium", need.ok ? "text-palm" : "text-hibiscus")}>
+                              {need.ok ? "" : "⚠ "}{need.need.toFixed(1)} {i.unit}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-cocoa-muted">{formatCurrency(i.costPerUnit)}</td>
                     <td className="px-4 py-3">
                       <Badge tone={low ? "low" : "ok"}>{low ? "Low stock" : "In stock"}</Badge>
@@ -304,7 +362,7 @@ export default function Inventory({ search }: { search: string }) {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-cocoa-muted">
+                  <td colSpan={showDemand ? 8 : 7} className="px-4 py-10 text-center text-cocoa-muted">
                     No inventory items found.
                   </td>
                 </tr>

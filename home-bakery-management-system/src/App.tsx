@@ -91,7 +91,9 @@ function AdminApp() {
           {page === "products" && <Products search={search} goTo={setPage} />}
           {page === "gallery" && <Gallery />}
           {page === "homepage" && <Homepage />}
-          {page === "inventory" && <Inventory search={search} />}
+          {page === "inventory" && (
+            <Inventory search={search} highlightId={inventoryHighlightId} onGoToCalendar={() => setPage("calendar")} />
+          )}
           {page === "customers" && <Customers search={search} />}
           {page === "payments" && <Payments search={search} />}
           {page === "receipts" && <Receipts search={search} />}
