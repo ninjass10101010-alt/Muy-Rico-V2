@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StoreProvider } from "./context/StoreContext";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
@@ -16,10 +16,12 @@ import LabelDesigner from "./pages/LabelDesigner";
 import Settings from "./pages/Settings";
 import PublicOrder from "./pages/PublicOrder";
 import Quotes from "./pages/Quotes";
+import CalendarView from "./pages/CalendarView";
 
 export type Page =
   | "dashboard"
   | "orders"
+  | "calendar"
   | "quotes"
   | "products"
   | "gallery"
@@ -37,6 +39,15 @@ function AdminApp() {
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
+  const [inventoryHighlightId, setInventoryHighlightId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const m = window.location.hash.match(/^#calendar\/(\d{4}-\d{2}-\d{2})$/);
+    if (m) {
+      setPage("calendar");
+      window.location.hash = "";
+    }
+  }, []);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-sand-50 text-cocoa">
@@ -56,12 +67,26 @@ function AdminApp() {
           page={page}
           onMenuClick={() => setMobileNavOpen(true)}
           onNewOrder={() => setNewOrderOpen(true)}
+          onOpenCalendar={() => setPage("calendar")}
+          onOpenDate={(isoDate) => {
+            setPage("calendar");
+            window.location.hash = `calendar/${isoDate}`;
+          }}
           search={search}
           setSearch={setSearch}
         />
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           {page === "dashboard" && <Dashboard setPage={setPage} />}
           {page === "orders" && <Orders search={search} setPage={setPage} setLabelFilter={setLabelFilter} />}
+          {page === "calendar" && (
+            <CalendarView
+              setPage={setPage}
+              onOpenInventory={(id) => {
+                setInventoryHighlightId(id);
+                setPage("inventory");
+              }}
+            />
+          )}
           {page === "quotes" && <Quotes search={search} setPage={setPage} />}
           {page === "products" && <Products search={search} goTo={setPage} />}
           {page === "gallery" && <Gallery />}

@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   ClipboardList,
+  CalendarDays,
   Cookie,
   Images,
   Home,
@@ -15,11 +16,13 @@ import {
 import { cn } from "../utils/cn";
 import type { Page } from "../App";
 import { useStore } from "../context/StoreContext";
+import { useReminders } from "../hooks/useReminders";
 import muyRicoLogo from "../assets/muy_rico_logo_transparent.webp";
 
 const NAV: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "orders", label: "Orders", icon: ClipboardList },
+  { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "quotes", label: "Cake Quotes", icon: MessageSquareQuote },
   { id: "products", label: "Menu & Products", icon: Cookie },
   { id: "gallery", label: "Gallery", icon: Images },
@@ -42,6 +45,7 @@ export default function Sidebar({
   onNavigate?: () => void;
 }) {
   const { quotes } = useStore();
+  const { unreadCount } = useReminders();
   const pendingCount = quotes.filter((q) => q.status === "new").length;
   return (
     <div className="flex h-full w-64 flex-col bg-palm text-sand-100">
@@ -58,7 +62,9 @@ export default function Sidebar({
         {NAV.map((item) => {
           const Icon = item.icon;
           const active = page === item.id;
-          const badge = item.id === "quotes" && pendingCount > 0 ? pendingCount : 0;
+          const badge =
+            item.id === "quotes" && pendingCount > 0 ? pendingCount :
+            item.id === "calendar" && unreadCount > 0 ? unreadCount : 0;
           return (
             <button
               key={item.id}
