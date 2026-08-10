@@ -1,9 +1,11 @@
 import { Menu, Plus, Search } from "lucide-react";
 import type { Page } from "../App";
+import ReminderBell from "./ReminderBell";
 
 const TITLES: Record<Page, { title: string; subtitle: string }> = {
   dashboard: { title: "Dashboard", subtitle: "Your bakery at a glance" },
   orders: { title: "Orders", subtitle: "Track website & in-person orders" },
+  calendar: { title: "Calendar", subtitle: "Upcoming orders, reminders & prep" },
   quotes: { title: "Cake Quotes", subtitle: "Custom cake quote requests" },
   products: { title: "Menu & Products", subtitle: "Manage what you sell" },
   gallery: { title: "Gallery", subtitle: "Portfolio photos & customer showcases" },
@@ -20,12 +22,16 @@ export default function Topbar({
   page,
   onMenuClick,
   onNewOrder,
+  onOpenCalendar,
+  onOpenDate,
   search,
   setSearch,
 }: {
   page: Page;
   onMenuClick: () => void;
   onNewOrder: () => void;
+  onOpenCalendar: () => void;
+  onOpenDate: (isoDate: string) => void;
   search?: string;
   setSearch?: (v: string) => void;
 }) {
@@ -56,6 +62,7 @@ export default function Topbar({
             />
           </div>
         )}
+        <ReminderBell onOpenCalendar={onOpenCalendar} onOpenDate={onOpenDate} />
         <button
           onClick={onNewOrder}
           className="btn-primary px-3.5 py-2.5 sm:px-4"
