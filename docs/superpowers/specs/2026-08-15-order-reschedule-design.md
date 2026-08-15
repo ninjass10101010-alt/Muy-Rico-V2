@@ -42,9 +42,10 @@ adds date-specific behavior inside them.
   reflect the new date.
 - On failure (e.g. 400 past date): show a small error message next to the field and revert
   the displayed value to the saved date.
-- The order history section of the modal already renders `order_events`; the new
-  `order:pickup_changed` entries appear there with actor + timestamp automatically. No UI
-  work needed for history display.
+- History: the modal gains a small "History" section that fetches `GET /api/orders/:id`
+  (admin client gains a `fetchOrder(id)` helper — the endpoint already returns
+  `{ order, events }`) and renders recent `order_events` with actor + timestamp. The new
+  `order:pickup_changed` entries show up there; no backend change needed for this.
 - Cancelled orders: field locked (read-only display).
 
 ### Admin types (`utils/api.ts`, `context/StoreContext.tsx`, `types.ts`)
@@ -87,14 +88,18 @@ exists for per-date queries.
 
 ## Testing
 
-- `orders/tests/` (existing Vitest + worker test patterns):
-  - PATCH with new pickup_date updates the row and logs `order:pickup_changed` with old→new.
-  - PATCH with same date → no event.
-  - PATCH with past date → 400, row unchanged.
-  - PATCH with malformed date → 400.
-  - Notification fired only when the date actually changes (mock notify helpers).
-- Admin: `npm run typecheck`/build passes; manual check that changing the date updates the
-  Orders table and Calendar view after refresh.
+- New pure module `orders/workers/order-date.js` (validation + event text) with Vitest unit
+  tests in `orders/tests/order-date.test.js` (the worker itself has no fetch-level test
+  harness; validation logic is extracted pure and tested, the wiring is smoke-tested):
+  - accepts today and future dates; rejects past dates, malformed formats, empty values
+  - event text formats as `order:pickup_changed: <old> -> <new>`
+- Local smoke test via `npx wrangler dev -c orders/wrangler.toml` + curl:
+  - PATCH with a new date → 200, row updated, `order:pickup_changed` event present in
+    `GET /api/orders/:id`
+  - PATCH with past date → 400 with error, row unchanged
+  - PATCH with the same date → 200, no extra event
+- Admin: `npm run build` (typecheck + bundle) passes; manual check that changing the date
+  updates the Orders table and Calendar view after refresh.
 
 ## Docs
 
