@@ -19,6 +19,7 @@ const STATUS_STYLES: Record<string, string> = {
   converted: "bg-palm-50 text-palm ring-palm/30",
   archived: "bg-sand-100 text-cocoa-muted ring-sand-200",
   overdue: "bg-hibiscus/10 text-hibiscus ring-hibiscus/30",
+  out: "bg-hibiscus text-white ring-hibiscus",
   today: "bg-coral-light/30 text-coral ring-coral/30",
   tomorrow: "bg-coral-light/20 text-coral ring-coral/20",
   "this-week": "bg-sand-100 text-cocoa-muted ring-sand-200",

@@ -23,7 +23,7 @@ New component `src/components/InventoryLowStockWidget.tsx`, rendered in `Dashboa
 - Body: up to 8 rows, each showing:
   - Item name (truncated)
   - `quantity unit` and reorder threshold (e.g. "2 each · reorder at 5")
-  - Severity badge: "Out" (qty <= 0, hibiscus) or "Low" (coral)
+  - Severity badge: "Out" (qty <= 0, new solid-hibiscus `out` Badge tone) or "Low" (existing `low` tone, matching the Inventory page badge)
   - Inline −/+ steppers (same styling as Inventory page)
   - "Restock" button
 - If more than 8 low-stock items: footer shows "+N more — View all in Inventory" link.
