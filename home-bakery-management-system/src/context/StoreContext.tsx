@@ -335,6 +335,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       adminNotes: row.admin_notes,
       convertedOrderId: row.converted_order_id,
       items: Array.isArray(row.items) ? row.items : [],
+      inspiration: Array.isArray(row.inspiration) ? row.inspiration : [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -410,6 +411,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       nutrientClaim: Boolean(row.nutrientClaim),
       bgImage: row.bgImage || undefined,
       averyPreset: (row.averyPreset as LabelTemplate["averyPreset"]) || "single",
+      templateKind: (row.templateKind as LabelTemplate["templateKind"]) || "custom",
+      productId: row.productId || null,
       active: Boolean(row.active),
     };
   }
@@ -498,7 +501,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return result;
   }, [refreshOrders]);
 
-  const handleApiUpdateOrder = useCallback(async (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null }) => {
+  const handleApiUpdateOrder = useCallback(async (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null; pickup_date?: string }) => {
     await apiUpdateOrder(id, patch);
     await refreshOrders();
   }, [refreshOrders]);

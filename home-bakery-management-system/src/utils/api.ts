@@ -112,6 +112,7 @@ export async function updateOrder(
     payment_status?: string;
     payment_method?: string;
     payment_sub_method?: string | null;
+    pickup_date?: string;
     notes?: string;
   }
 ): Promise<{ ok: boolean }> {
@@ -119,6 +120,18 @@ export async function updateOrder(
     method: "PATCH",
     body: JSON.stringify(patch),
   });
+}
+
+export interface ApiOrderEvent {
+  id: number;
+  order_id: number;
+  created_at: string;
+  actor: string | null;
+  event: string;
+}
+
+export async function fetchOrder(id: number): Promise<{ order: ApiOrder; events: ApiOrderEvent[] }> {
+  return apiFetch(`/api/orders/${id}`);
 }
 
 export async function cancelOrder(id: number): Promise<{ ok: boolean }> {
@@ -673,6 +686,8 @@ export interface ApiLabelTemplate {
   bestByDate: string | null;
   displayOrder: number;
   active: boolean;
+  templateKind: string | null;
+  productId: string | null;
 }
 
 export interface LabelTemplateCreate {
@@ -716,6 +731,8 @@ export interface LabelTemplateCreate {
   bgImage?: string | null;
   averyPreset?: string | null;
   displayOrder?: number | null;
+  templateKind?: "product" | "order" | "custom" | null;
+  productId?: string | null;
 }
 
 export type LabelTemplateUpdate = Partial<LabelTemplateCreate>;
@@ -896,6 +913,7 @@ export interface ApiQuote {
   admin_notes: string | null;
   converted_order_id: number | null;
   items?: ApiQuoteItem[];
+  inspiration?: { product_id?: string; title?: string; image_url?: string }[];
   created_at: string;
   updated_at: string;
 }
