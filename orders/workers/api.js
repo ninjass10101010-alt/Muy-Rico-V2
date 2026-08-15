@@ -2304,6 +2304,7 @@ const LABEL_FIELDS = [
   'elements', 'website_url', 'orientation',
   'disclaimer_variant', 'product_type', 'net_weight_us', 'net_weight_metric',
   'allergen_tags', 'no_allergens_confirmed', 'nutrient_claim', 'bg_image', 'avery_preset',
+  'template_kind', 'product_id',
 ];
 
 // FDA major allergens for auto-tagging from allergen text
@@ -2373,10 +2374,16 @@ async function generateLabelsForOrder(env, orderId, body) {
     const labelId = `label_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const labelName = `${orderPrefix} - ${itemName}`;
 
+    // Clone the product's design template when one exists; else fall back to defaults.
+    const prodTemplate = await env.DB.prepare(
+      `SELECT * FROM label_templates WHERE template_kind = 'product' AND product_id = ? AND active = 1 LIMIT 1`
+    ).bind(product.id).first();
+    const t = prodTemplate;
+
     // Append food coloring disclosure to ingredients and allergens if provided
     // (only for products that can actually be tinted — e.g. not Conchas)
-    let ingredients = product.ingredients || '';
-    let allergens = product.allergens || '';
+    let ingredients = t?.ingredients || product.ingredients || '';
+    let allergens = t?.allergens || product.allergens || '';
     if (foodColoring && COLORABLE_PRODUCTS.includes(product.id)) {
       ingredients += ` Food coloring: ${foodColoring}.`;
       const dyeKeywords = ['Red 40', 'Red 3', 'Blue 1', 'Blue 2', 'Green 3', 'Yellow 5', 'Yellow 6', 'Violet 1', 'FD&C'];
@@ -2386,49 +2393,53 @@ async function generateLabelsForOrder(env, orderId, body) {
       }
     }
 
+    const bestByDays = Number(t?.best_by_days) || 7;
+
     const label = {
       id: labelId,
       name: labelName,
-      shape: 'rounded',
-      bg_color: '#FBF3E7',
-      accent_color: '#C17A3F',
-      text_color: '#4A3222',
-      business_name: profile.name || 'Muy Rico',
+      template_kind: 'order',
+      product_id: product.id,
+      shape: t?.shape || 'rounded',
+      bg_color: t?.bg_color || '#FBF3E7',
+      accent_color: t?.accent_color || '#C17A3F',
+      text_color: t?.text_color || '#4A3222',
+      business_name: t?.business_name || profile.name || 'Muy Rico',
       product_name: itemName,
-      details: product.description || '',
+      details: t?.details || product.description || '',
       ingredients,
       allergens,
-      net_weight: '',
+      net_weight: t?.net_weight || '',
       price: `$${((item.price || product.price) || 0).toFixed(2)}`,
-      show_price: 1,
-      show_best_by: 1,
-      best_by_days: 7,
-      logo_emoji: product.emoji || '🧁',
-      logo_image: product.image_url || null,
-      logo_size: 16,
-      font: "'Cormorant Garamond', Georgia, serif",
-      business_id_mode: 'registration',
-      address: profile.address || '',
-      phone_number: profile.phone || '',
-      registration_number: profile.registration_number || '',
-      show_disclaimer: 1,
-      label_width: 3,
-      label_height: 4,
+      show_price: t?.show_price ?? 1,
+      show_best_by: t?.show_best_by ?? 1,
+      best_by_days: bestByDays,
+      logo_emoji: t?.logo_emoji || product.emoji || '🧁',
+      logo_image: t?.logo_image || product.image_url || null,
+      logo_size: Number(t?.logo_size) || 16,
+      font: t?.font || "'Cormorant Garamond', Georgia, serif",
+      business_id_mode: t?.business_id_mode || 'registration',
+      address: t?.address || profile.address || '',
+      phone_number: t?.phone_number || profile.phone || '',
+      registration_number: t?.registration_number || profile.registration_number || '',
+      show_disclaimer: t?.show_disclaimer ?? 1,
+      label_width: Number(t?.label_width) || 3,
+      label_height: Number(t?.label_height) || 4,
       display_order: 0,
-      elements: null,
-      website_url: profile.website || 'https://muy-rico.com',
-      orientation: 'portrait',
-      disclaimer_variant: 'standard',
-      product_type: 'standard',
-      net_weight_us: '',
-      net_weight_metric: '',
-      allergen_tags: JSON.stringify(parseAllergenTags(allergens)),
-      no_allergens_confirmed: 0,
-      nutrient_claim: 0,
-      bg_image: null,
-      avery_preset: 'single',
+      elements: t?.elements || null,
+      website_url: t?.website_url || profile.website || 'https://muy-rico.com',
+      orientation: t?.orientation || 'portrait',
+      disclaimer_variant: t?.disclaimer_variant || 'standard',
+      product_type: t?.product_type || 'standard',
+      net_weight_us: t?.net_weight_us || '',
+      net_weight_metric: t?.net_weight_metric || '',
+      allergen_tags: t?.allergen_tags || JSON.stringify(parseAllergenTags(allergens)),
+      no_allergens_confirmed: t?.no_allergens_confirmed || 0,
+      nutrient_claim: t?.nutrient_claim || 0,
+      bg_image: t?.bg_image || null,
+      avery_preset: t?.avery_preset || 'single',
       active: 1,
-      best_by_date: new Date(Date.now() + (7 * 86400000)).toISOString().slice(0, 10),
+      best_by_date: new Date(Date.now() + (bestByDays * 86400000)).toISOString().slice(0, 10),
     };
 
     const cols = ['id', ...LABEL_FIELDS, 'active'];
@@ -2513,6 +2524,7 @@ async function createLabelTemplate(request, env, actor) {
   const binds = [body.id];
   for (const f of LABEL_FIELDS) {
     let val = getBodyField(body, f) ?? null;
+    if (f === 'template_kind') val = val || 'custom';
     if (f === 'show_price' || f === 'show_best_by' || f === 'show_disclaimer') val = val ? 1 : 0;
     if (f === 'best_by_days' || f === 'label_width' || f === 'label_height' || f === 'display_order') val = val === null || val === '' ? 0 : Number(val);
     if (f === 'elements' && typeof val === 'object' && val !== null) val = JSON.stringify(val);
@@ -2606,8 +2618,19 @@ const QUOTE_FIELDS = [
   'toppings', 'dietary', 'reference_image_url',
   'comments', 'desired_date', 'budget',
   'quoted_price', 'admin_notes', 'converted_order_id',
+  'inspiration',
   'created_at', 'updated_at',
 ];
+
+function parseQuoteInspiration(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
 
 function rowToQuote(r) {
   return {
@@ -2624,6 +2647,7 @@ function rowToQuote(r) {
     frosting: r.frosting,
     toppings: r.toppings ? JSON.parse(r.toppings) : [],
     dietary: r.dietary ? JSON.parse(r.dietary) : [],
+    inspiration: parseQuoteInspiration(r.inspiration),
     reference_image_url: r.reference_image_url,
     comments: r.comments,
     desired_date: r.desired_date,
@@ -2665,12 +2689,44 @@ async function createQuote(request, env, ctx) {
     const toppings = Array.isArray(body.toppings) ? JSON.stringify(body.toppings) : '[]';
     const dietary = Array.isArray(body.dietary) ? JSON.stringify(body.dietary) : '[]';
 
+    // Optional inspiration list: [{ product_id, title, image_url }] — any value may
+    // be a string or null. Never rejects the quote; bad input degrades to [].
+    let inspiration = [];
+    if (body.inspiration !== undefined) {
+      if (!Array.isArray(body.inspiration)) {
+        console.warn('createQuote: inspiration is not an array, ignoring:', body.inspiration);
+      } else {
+        try {
+          inspiration = body.inspiration
+            .slice(0, 24)
+            .map((e) => {
+              if (typeof e === 'string') return { title: e };
+              if (e && typeof e === 'object') {
+                const title = e.title != null ? String(e.title) : '';
+                if (!title.trim()) return null;
+                return {
+                  product_id: e.product_id != null ? String(e.product_id) : undefined,
+                  title,
+                  image_url: e.image_url != null ? String(e.image_url) : undefined,
+                };
+              }
+              return null;
+            })
+            .filter((e) => e !== null);
+        } catch (err) {
+          console.warn('createQuote: invalid inspiration field, ignoring:', err);
+          inspiration = [];
+        }
+      }
+    }
+    const inspirationJson = inspiration.length ? JSON.stringify(inspiration) : null;
+
     const result = await env.DB.prepare(`
       INSERT INTO cake_quotes
         (customer_name, email, phone, language, occasion, serving_size,
          cake_flavor, filling, frosting, toppings, dietary,
-         reference_image_url, comments, desired_date, budget)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         reference_image_url, comments, desired_date, budget, inspiration)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.customer_name.trim(),
       body.email.trim().toLowerCase(),
@@ -2687,6 +2743,7 @@ async function createQuote(request, env, ctx) {
       body.comments || null,
       body.desired_date || null,
       body.budget || null,
+      inspirationJson,
     ).run();
 
     const quoteId = result.meta.last_row_id;
@@ -2970,11 +3027,17 @@ async function notifyQuoteCreated(env, body, id) {
     body.frosting && `🍦 ${body.frosting}`,
   ].filter(Boolean).join(' · ');
 
+  const inspirationTitles = (Array.isArray(body.inspiration) ? body.inspiration : [])
+    .map((e) => (typeof e === 'string' ? e : e && e.title != null ? String(e.title) : ''))
+    .filter(Boolean)
+    .join(', ');
+
   const msg = [
     `💬 New Quote #${id}`,
     `👤 ${body.customer_name}`,
     `📧 ${body.email}` + (body.phone ? ` · ${body.phone}` : ''),
     `📋 ${itemsDetail}`,
+    inspirationTitles ? `🎨 ${inspirationTitles.slice(0, 200)}` : '',
     body.desired_date ? `📅 Wants by: ${body.desired_date}` : '',
     body.comments ? `💭 "${body.comments.slice(0, 120)}"` : '',
   ].filter(Boolean).join('\n');
@@ -2990,6 +3053,7 @@ async function notifyQuoteCreated(env, body, id) {
     <tr><td style="padding: 6px 0; color: #555;"><strong>Email</strong></td><td style="padding: 6px 0;">${body.email}</td></tr>
     <tr><td style="padding: 6px 0; color: #555;"><strong>Cake</strong></td><td style="padding: 6px 0;">${body.cake_flavor}</td></tr>
     ${body.occasion ? `<tr><td style="padding: 6px 0; color: #555;"><strong>Occasion</strong></td><td style="padding: 6px 0;">${body.occasion}</td></tr>` : ''}
+    ${inspirationTitles ? `<tr><td style="padding: 6px 0; color: #555;"><strong>Inspiración</strong></td><td style="padding: 6px 0;">${inspirationTitles.slice(0, 300)}</td></tr>` : ''}
     ${body.comments ? `<tr><td style="padding: 6px 0; color: #555;"><strong>Comments</strong></td><td style="padding: 6px 0;">${body.comments.slice(0, 200)}</td></tr>` : ''}
   </table>
   <p style="color: #999; font-size: 12px; margin-top: 16px;">Quote #${id} · Muy Rico Bakery</p>
