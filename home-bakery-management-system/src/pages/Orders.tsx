@@ -5,7 +5,8 @@ import Badge from "../components/ui/Badge";
 import ProductIcon from "../components/ProductIcon";
 import Modal from "../components/ui/Modal";
 import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod, dueTier, urgencyRank, DUE_TIER_LABELS } from "../utils/format";
-import { generateOrderLabels, receiptHtmlUrl } from "../utils/api";
+import { generateOrderLabels, receiptHtmlUrl, fetchOrder } from "../utils/api";
+import type { ApiOrderEvent } from "../utils/api";
 import type { Order, OrderStatus, PaymentMethod } from "../types";
 import type { Page } from "../App";
 
@@ -31,6 +32,9 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [labelGenResult, setLabelGenResult] = useState<string | null>(null);
   const [relinkOrderId, setRelinkOrderId] = useState<string | null>(null);
   const [relinkSearch, setRelinkSearch] = useState("");
+  const [orderEvents, setOrderEvents] = useState<ApiOrderEvent[]>([]);
+  const [dueEdit, setDueEdit] = useState<string | null>(null);
+  const [dueError, setDueError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return orders
@@ -53,6 +57,25 @@ export default function Orders({ search, setPage, setLabelFilter }: {
       }
     } catch (err) {
       console.error("Failed to update order:", err);
+    }
+  }
+
+  async function saveDueDate() {
+    if (!selected || !dueEdit) return;
+    try {
+      await apiUpdateOrder(Number(selected.id), { pickup_date: dueEdit });
+      setDueError(null);
+      await refreshOrders();
+      setSelected((prev) => (prev && prev.id === selected.id ? { ...prev, dueDate: dueEdit } : prev));
+      setDueEdit(null);
+      fetchOrder(Number(selected.id)).then((r) => setOrderEvents(r.events)).catch(() => {});
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setDueError(
+        msg.includes("past")
+          ? "Pickup date cannot be in the past."
+          : "Could not save the date. Please try again."
+      );
     }
   }
 
@@ -176,7 +199,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   tier === "tomorrow" ? "#fad9d4" :
                   "transparent";
                 return (
-                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); }}>
+                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setOrderEvents([]); fetchOrder(Number(o.id)).then((r) => setOrderEvents(r.events)).catch(() => {}); }}>
                   <td className="px-4 py-3 font-medium text-cocoa">{o.orderNumber}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{o.customerName}</td>
                   <td className="px-4 py-3">
@@ -577,9 +600,43 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 </ul>
               )}
             </div>
-            <div className="flex items-center justify-between text-xs text-cocoa-muted">
-              <span>Ordered {formatDate(selected.createdAt)}</span>
-              <span>Due {formatDate(selected.dueDate)}</span>
+            {orderEvents.length > 0 && (
+              <div className="space-y-1 rounded-xl border border-sand-100 p-3">
+                <p className="text-xs font-semibold uppercase text-cocoa-muted/60">History</p>
+                <ul className="space-y-1">
+                  {orderEvents.slice(-8).reverse().map((e) => (
+                    <li key={e.id} className="flex items-start justify-between gap-2 text-xs text-cocoa-muted">
+                      <span className="break-all">{e.event}</span>
+                      <span className="shrink-0">{formatDateTime(e.created_at)}{e.actor ? ` · ${e.actor}` : ""}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-cocoa-muted">
+                <span>Ordered {formatDate(selected.createdAt)}</span>
+                <span className="flex items-center gap-1.5">
+                  Due{" "}
+                  {selected.status === "cancelled" ? (
+                    formatDate(selected.dueDate)
+                  ) : (
+                    <input
+                      type="date"
+                      min={new Date().toISOString().slice(0, 10)}
+                      value={dueEdit ?? selected.dueDate.slice(0, 10)}
+                      onChange={(e) => { setDueEdit(e.target.value); setDueError(null); }}
+                      className="input text-xs"
+                    />
+                  )}
+                  {dueEdit !== null && dueEdit !== selected.dueDate.slice(0, 10) && (
+                    <button onClick={saveDueDate} className="text-xs font-semibold text-palm hover:underline">
+                      Save
+                    </button>
+                  )}
+                </span>
+              </div>
+              {dueError && <p className="text-xs text-hibiscus">{dueError}</p>}
             </div>
             <button
               onClick={() => {
