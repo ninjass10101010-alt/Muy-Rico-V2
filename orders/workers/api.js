@@ -62,6 +62,7 @@ const CORS = {
 
 import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
 import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode } from './enrich-lib.js';
+import { validatePickupDate, pickupChangeEvent } from './order-date.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -135,7 +136,7 @@ export default {
       if (om) {
         const id = Number(om[1]);
         if (method === 'GET')    return await getOrder(id, env, actorName);
-        if (method === 'PATCH')  return await updateOrder(id, request, env, actorName);
+        if (method === 'PATCH')  return await updateOrder(id, request, env, ctx, actorName);
         if (method === 'DELETE') {
           const permanent = url.searchParams.get('permanent') === 'true';
           return permanent
@@ -523,6 +524,55 @@ async function notifyEmail(env, msg, id, info = {}) {
   } catch (e) { console.error('Email notify failed:', e); }
 }
 
+async function notifyOrderRescheduled(env, order, oldDate, newDate) {
+  const customer = (order.customer_name || '').trim();
+  const msg = [
+    `📅 Pickup date moved — MR-${order.id}`,
+    `👤 ${customer}`,
+    `📅 ${oldDate} → ${newDate}`,
+  ].join('\n');
+
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+  if (env.EMAIL_RECIPIENT && env.RESEND_API_KEY) {
+    await notifyRescheduleEmail(env, order, oldDate, newDate, msg);
+  }
+}
+
+async function notifyRescheduleEmail(env, order, oldDate, newDate, msg) {
+  try {
+    const emails = String(env.EMAIL_RECIPIENT).split(',').map(e => e.trim()).filter(Boolean);
+    const html = `<div style="font-family: sans-serif; max-width: 480px; padding: 16px;">
+  <h2 style="color: #333;">📅 Order #${order.id} — Pickup Date Moved</h2>
+  <table style="width: 100%; border-collapse: collapse;">
+    <tr><td style="padding: 6px 0; color: #555; width: 110px;"><strong>Customer</strong></td><td style="padding: 6px 0;">${order.customer_name || ''}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>Previous pickup</strong></td><td style="padding: 6px 0;">${oldDate}</td></tr>
+    <tr><td style="padding: 6px 0; color: #555;"><strong>New pickup</strong></td><td style="padding: 6px 0;">${newDate}</td></tr>
+  </table>
+  <p style="color: #999; font-size: 12px; margin-top: 16px;">Order #${order.id} · Muy Rico Bakery</p>
+</div>`;
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + env.RESEND_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || "orders@muy-rico.com",
+        to: emails,
+        subject: `📅 Order #${order.id} — Pickup Date Moved`,
+        text: msg,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Resend email failed:", res.status, err);
+    }
+  } catch (e) { console.error('Email notify failed:', e); }
+}
+
 async function listOrders(request, env, actor) {
   const sp = new URL(request.url).searchParams;
   const status  = sp.get('status');
@@ -568,7 +618,7 @@ async function getOrder(id, env, actor) {
   return json({ order, events }, 200);
 }
 
-async function updateOrder(id, request, env, actor) {
+async function updateOrder(id, request, env, ctx, actor) {
   const body = await request.json();
   const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring', 'customer_id'];
   const sets = [], binds = [];
@@ -580,6 +630,20 @@ async function updateOrder(id, request, env, actor) {
     sets.push(`${f} = ?`); binds.push(body[f]);
   }
   if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+
+  // Pickup date move: validate first, and capture the old date for the audit event.
+  let pickupMoved = null;
+  let orderForNotify = null;
+  if (body.pickup_date !== undefined) {
+    const check = validatePickupDate(body.pickup_date);
+    if (!check.ok) return json({ error: check.error }, 400);
+    const existing = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+    if (!existing) return json({ error: 'Not found' }, 404);
+    if (existing.pickup_date !== body.pickup_date) {
+      pickupMoved = { old: existing.pickup_date, new: body.pickup_date };
+      orderForNotify = existing;
+    }
+  }
 
   binds.push(id);
   const r = await env.DB.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
@@ -605,6 +669,13 @@ async function updateOrder(id, request, env, actor) {
   await env.DB.prepare(`
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:updated')
   `).bind(id, actor).run();
+
+  if (pickupMoved) {
+    await env.DB.prepare(
+      'INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)'
+    ).bind(id, actor, pickupChangeEvent(pickupMoved.old, pickupMoved.new)).run();
+    ctx.waitUntil(notifyOrderRescheduled(env, orderForNotify, pickupMoved.old, pickupMoved.new));
+  }
 
   return json({ ok: true }, 200);
 }
