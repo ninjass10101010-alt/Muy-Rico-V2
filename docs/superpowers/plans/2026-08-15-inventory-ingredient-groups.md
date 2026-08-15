@@ -16,7 +16,7 @@
 - No new dependencies.
 - Run worker commands from the repo root (the plan shows exact commands).
 - Verify SPA with `npm test` + `npm run build` in `home-bakery-management-system/`; worker with `npm test` in `orders/` and `node --check`.
-- Migration run command (repo convention): `npx wrangler d1 execute muy-rico-orders --file=orders/migrations/0041_inventory_ingredient_groups.sql` (add `--remote` for production).
+- Migration run command: from `orders/`, `npx wrangler d1 execute muy-rico-orders -c wrangler.toml --file=migrations/0041_inventory_ingredient_groups.sql` (add `--remote` for production, `--local` for the local dev DB).
 
 ---
 
@@ -37,9 +37,9 @@
 -- concrete inventoryItemId values; "make active" rewrites those ids to the
 -- new active item. Deduction/label/cost/prep engines are untouched.
 --
--- Run:
---   npx wrangler d1 execute muy-rico-orders --file=orders/migrations/0041_inventory_ingredient_groups.sql
---   npx wrangler d1 execute muy-rico-orders --remote --file=orders/migrations/0041_inventory_ingredient_groups.sql
+-- Run (from orders/):
+--   npx wrangler d1 execute muy-rico-orders -c wrangler.toml --file=migrations/0041_inventory_ingredient_groups.sql
+--   npx wrangler d1 execute muy-rico-orders -c wrangler.toml --remote --file=migrations/0041_inventory_ingredient_groups.sql
 
 CREATE TABLE IF NOT EXISTS ingredient_groups (
   id              TEXT PRIMARY KEY,
@@ -55,22 +55,24 @@ ALTER TABLE inventory ADD COLUMN group_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_inventory_group ON inventory(group_id);
 
 -- Backfill: every existing active item becomes its own 1:1 group.
-INSERT INTO ingredient_groups (id, name, category, active_item_id)
+-- OR IGNORE makes re-runs safe (groups already created are left alone).
+INSERT OR IGNORE INTO ingredient_groups (id, name, category, active_item_id)
   SELECT 'grp_' || id, name, category, id FROM inventory WHERE active = 1;
 UPDATE inventory SET group_id = 'grp_' || id WHERE group_id IS NULL;
 ```
 
 - [ ] **Step 2: Verify against the local D1 database**
 
-Run: `npx wrangler d1 execute muy-rico-orders --local --file=orders/migrations/0041_inventory_ingredient_groups.sql`
-Expected: applies cleanly (repeat `--local` runs are idempotent thanks to `IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`).
+Run: `cd orders && npx wrangler d1 execute muy-rico-orders -c wrangler.toml --local --file=migrations/0041_inventory_ingredient_groups.sql`
+Expected: applies cleanly. (Re-runs are safe: `IF NOT EXISTS` / `INSERT OR IGNORE` / `WHERE group_id IS NULL` make every statement idempotent.)
 
 - [ ] **Step 3: Spot-check the backfill**
 
 Run:
 ```bash
-npx wrangler d1 execute muy-rico-orders --local --command="SELECT id, name, active_item_id FROM ingredient_groups ORDER BY name LIMIT 5"
-npx wrangler d1 execute muy-rico-orders --local --command="SELECT COUNT(*) AS n FROM inventory WHERE group_id IS NULL"
+cd orders
+npx wrangler d1 execute muy-rico-orders -c wrangler.toml --local --command="SELECT id, name, active_item_id FROM ingredient_groups ORDER BY name LIMIT 5"
+npx wrangler d1 execute muy-rico-orders -c wrangler.toml --local --command="SELECT COUNT(*) AS n FROM inventory WHERE group_id IS NULL"
 ```
 Expected: groups named after the seed items (e.g. `All-Purpose Flour`), each `active_item_id` equal to its own item id, and `n` = 0.
 
@@ -243,14 +245,21 @@ Change the INSERT column list and bind:
 
 - [ ] **Step 5: Keep `updateInventoryItem` consistent when `group_id` changes**
 
-In `updateInventoryItem` (api.js:2064), before building the UPDATE, add a guard that clears the old group's `active_item_id` when the item was its active member and is being moved:
+In `updateInventoryItem` (api.js:2064), right after `const body = await request.json();` and before the `const sets = []` loop, add validation + a guard that clears the old group's `active_item_id` when the item was its active member and is being moved:
 
 ```js
-  // Moving an item out of a group: if it was the group's active item, clear the
-  // group's active_item_id so the group stays consistent (its active must be a member).
+  // Group assignment validation + consistency: moving an item out of a group
+  // whose active member it was must clear the group's active_item_id so the
+  // group stays consistent (its active must be a member).
   if (body.group_id !== undefined) {
+    if (body.group_id !== null) {
+      const grp = await env.DB.prepare(
+        'SELECT id FROM ingredient_groups WHERE id = ? AND active = 1'
+      ).bind(body.group_id).first();
+      if (!grp) return json({ error: 'Ingredient group not found' }, 400);
+    }
     const prev = await env.DB.prepare('SELECT group_id FROM inventory WHERE id = ?').bind(id).first();
-    if (prev && prev.group_id && prev.group_id !== (body.group_id || null)) {
+    if (prev && prev.group_id && prev.group_id !== body.group_id) {
       await env.DB.prepare(
         `UPDATE ingredient_groups SET active_item_id = NULL, updated_at = datetime('now')
          WHERE id = ? AND active_item_id = ?`
@@ -258,8 +267,6 @@ In `updateInventoryItem` (api.js:2064), before building the UPDATE, add a guard 
     }
   }
 ```
-
-Place this right after `const body = await request.json();` and before the `const sets = []` loop.
 
 - [ ] **Step 6: Add the three handler functions**
 
@@ -277,7 +284,7 @@ async function listInventoryGroups(env) {
   const { results: items } = await env.DB.prepare(
     'SELECT * FROM inventory WHERE active = 1'
   ).all();
-  const { results: prods } = await env.DB.prepare('SELECT id, name, recipe FROM products').all();
+  const { results: prods } = await env.DB.prepare('SELECT id, name, recipe FROM products WHERE active = 1').all();
 
   const groupsOut = groups.map((g) => {
     const members = items.filter((i) => i.group_id === g.id);
@@ -350,12 +357,10 @@ async function updateInventoryGroup(id, request, env, actor) {
       return json({ error: 'active_item_id cannot be null; assign a member item' }, 400);
     }
     if (newActiveId !== oldActiveId) {
-      {
-        const member = await env.DB.prepare(
-          'SELECT id FROM inventory WHERE id = ? AND group_id = ? AND active = 1'
-        ).bind(newActiveId, id).first();
-        if (!member) return json({ error: 'Item is not an active member of this group' }, 400);
-      }
+      const member = await env.DB.prepare(
+        'SELECT id FROM inventory WHERE id = ? AND group_id = ? AND active = 1'
+      ).bind(newActiveId, id).first();
+      if (!member) return json({ error: 'Item is not an active member of this group' }, 400);
       const { results: members } = await env.DB.prepare(
         'SELECT id FROM inventory WHERE group_id = ?'
       ).bind(id).all();
@@ -398,12 +403,27 @@ async function updateInventoryGroup(id, request, env, actor) {
 }
 ```
 
-- [ ] **Step 7: Syntax-check the worker and run the existing worker tests**
+- [ ] **Step 7: Clear a dangling active pointer when an item is deactivated**
 
-Run: `node --check orders/workers/api.js && cd orders && npm test`
+Update `deleteInventoryItem` (api.js:2120) so deactivating an item that was its group's active member clears the group's `active_item_id`:
+
+```js
+async function deleteInventoryItem(id, env, actor) {
+  const r = await env.DB.prepare(`UPDATE inventory SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  await env.DB.prepare(
+    `UPDATE ingredient_groups SET active_item_id = NULL, updated_at = datetime('now') WHERE active_item_id = ?`
+  ).bind(id).run();
+  return json({ ok: true }, 200);
+}
+```
+
+- [ ] **Step 8: Syntax-check the worker and run the existing worker tests**
+
+Run: `cd orders && node --check workers/api.js && npm test`
 Expected: no syntax errors; all worker tests pass.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add orders/workers/api.js orders/workers/groups-lib.js
@@ -820,6 +840,9 @@ import type { IngredientGroup, InventoryItem } from "../types";
 // Activates `item` as the group's active ingredient, then re-saves the label
 // fields (ingredients + allergens) of every affected product so the swap is
 // reflected in the stored label data immediately.
+//
+// Callers MUST pass a store-shaped InventoryItem with its label fields
+// (ingredients_label, allergens, unit_weight) — see the note below.
 export function useIngredientGroups() {
   const { products, inventory, apiUpdateGroup, apiUpdateProduct, refreshProducts, refreshInventory } = useStore();
 
@@ -827,6 +850,13 @@ export function useIngredientGroups() {
     const res = await apiUpdateGroup(group.id, { active_item_id: item.id });
     const affected = (res && res.affectedProductIds) || [];
     const memberIds = new Set(group.members.map((m) => m.id));
+    // Compose against a virtual inventory that includes the newly activated item
+    // with the caller's data. The store snapshot may not contain it yet (e.g. it
+    // was just created), and composing without it would silently DROP the
+    // ingredient from the affected products' labels.
+    const invById = new Map(inventory.map((x) => [x.id, x]));
+    invById.set(item.id, item);
+    const composedInventory = [...invById.values()];
     let relabeled = 0;
     for (const pid of affected) {
       const prod = products.find((p) => p.id === pid);
@@ -839,7 +869,7 @@ export function useIngredientGroups() {
           memberIds.has(r.inventoryItemId) ? { ...r, inventoryItemId: item.id } : r
         ),
       };
-      const composed = composeLabelFromRecipe(patched, inventory);
+      const composed = composeLabelFromRecipe(patched, composedInventory);
       await apiUpdateProduct(pid, { ingredients: composed.ingredients, allergens: composed.allergens });
       relabeled += 1;
     }
@@ -855,6 +885,8 @@ export function useIngredientGroups() {
   return { activateItem };
 }
 ```
+
+**Caller contract:** `item` must be a full store-shaped `InventoryItem` (its `ingredients_label` / `allergens` / `unit_weight` are what gets composed into the affected products' labels). Callers that only have an API-shaped item must convert it (see Task 9, which builds the full object before calling).
 
 - [ ] **Step 3: Verify compile**
 
@@ -938,6 +970,14 @@ Add after `unbind` (line 166):
 ```
 
 Add `IngredientGroup` to the `types` import at the top (`import type { InventoryItem, IngredientGroup } from "../types";`).
+
+Also add a label for the new audit action in `scanActionLabel` (bottom of the file):
+
+```tsx
+    case "enrich_off_skipped": return "Enrich skipped";
+    case "group_activate": return "Group switch";
+    default: return action;
+```
 
 - [ ] **Step 4: Show "used in" + active/make-active in the row**
 
@@ -1108,27 +1148,61 @@ Add state near the other useState (line 52):
   const [swapMsg, setSwapMsg] = useState("");
 ```
 
-- [ ] **Step 2: Add the swap action**
+Reset them so a stale choice can never leak into the next scanned item:
+- In the modal-open reset effect (inside the `if (!open) return;` block, line 169), add `setGroupChoice({ kind: "none" }); setMakeActiveChecked(false); setSwapMsg("");` alongside the other resets.
+- In `handleCode`'s miss branch (where `setBindPick(null); setBindSearch("");` is called, line 124), add `setGroupChoice({ kind: "none" }); setMakeActiveChecked(false);`.
+
+- [ ] **Step 2: Add the swap action + an API→store item converter**
 
 After `unbindCurrent` (line 418):
 
 ```tsx
+  // Convert an API-shaped inventory row into the store shape with parsed
+  // allergens — needed so activateItem composes label fields correctly.
+  const apiItemToStoreShape = useCallback((it: ApiInventoryItem): InventoryItem => {
+    let allergens: string[] = [];
+    try {
+      const p = JSON.parse(it.allergens || "[]");
+      if (Array.isArray(p)) allergens = p;
+    } catch { /* ignore */ }
+    return {
+      id: it.id,
+      name: it.name,
+      category: it.category,
+      quantity: Number(it.quantity) || 0,
+      unit: it.unit,
+      reorderLevel: Number(it.reorder_level) || 0,
+      costPerUnit: Number(it.cost_per_unit) || 0,
+      supplier: it.supplier || "",
+      ingredients_label: it.ingredients_label || undefined,
+      allergens: allergens.length ? allergens : undefined,
+      unit_weight: typeof it.unit_weight === "number" ? it.unit_weight : undefined,
+      active: !!it.active,
+      barcode: it.barcode || null,
+    };
+  }, []);
+
   // Swap a scanned (non-active) member in as the group's active ingredient.
+  // Pass the STORE-shaped item (with label fields) so the hook can re-compose
+  // the affected products' labels correctly.
   const swapToItem = useCallback(async (group: IngredientGroup, it: ApiInventoryItem) => {
     setBusy(true);
     setErrMsg("");
     try {
-      const r = await activateItem(group, it as any);
+      const fullItem = inventory.find((x) => x.id === it.id) ?? apiItemToStoreShape(it);
+      const r = await activateItem(group, fullItem);
       setSwapMsg(r.message);
     } catch (e: any) {
       setErrMsg(String(e?.message || "Switch failed"));
     } finally {
       setBusy(false);
     }
-  }, [activateItem]);
+  }, [activateItem, inventory, apiItemToStoreShape]);
 ```
 
 Add `IngredientGroup` to the `import type { InventoryItem } from "../types";` line → `import type { IngredientGroup, InventoryItem } from "../types";`.
+
+Also reset the stale banner when a different item opens: in `enterAdjustForItem` (line 82), add `setSwapMsg("");` as the first statement.
 
 - [ ] **Step 3: Pass group props into `NewItemPanel`**
 
@@ -1188,7 +1262,23 @@ Replace `createNewItem` (line 344) with:
       if (groupChoice.kind === "existing" && groupId && makeActiveChecked) {
         const grp = groups.find((g) => g.id === groupId);
         if (grp) {
-          const r = await activateItem(grp, { id: payload.id, name: nm } as any);
+          // Full store-shaped item (label fields included) so the hook can
+          // re-compose affected products' labels correctly.
+          const fullItem: InventoryItem = {
+            id: payload.id,
+            name: nm,
+            category: payload.category,
+            quantity: payload.quantity ?? 0,
+            unit: payload.unit,
+            reorderLevel: payload.reorder_level ?? 0,
+            costPerUnit: payload.cost_per_unit ?? 0,
+            supplier: payload.supplier || "",
+            ingredients_label: payload.ingredients_label,
+            allergens: Array.isArray(payload.allergens) ? payload.allergens : undefined,
+            unit_weight: payload.unit_weight ?? undefined,
+            barcode: payload.barcode || null,
+          };
+          const r = await activateItem(grp, fullItem);
           setSwapMsg(r.message);
         }
       }
@@ -1360,7 +1450,13 @@ git commit -m "feat(admin): scan flow asks ingredient group + offers swap"
 
 - [ ] **Step 1: Add the store access + grouping memo**
 
-Add to the destructure (line 37): `groups` from `useStore`. Add a memo after `composedLabelPreview` (line 50):
+Add `groups` to the `useStore()` destructure (line 37). Add the import after the `composeLabelFromRecipe` import (line 8):
+
+```tsx
+import { isActiveMember } from "../utils/ingredientGroups";
+```
+
+Add a memo after `composedLabelPreview` (line 50):
 
 ```tsx
   const groupedInventory = useMemo(() => {
@@ -1465,7 +1561,7 @@ Expected: succeeds; postbuild copies bundle to `admin/index.html`.
 
 - [ ] **Step 4: Migration (production)**
 
-Run: `npx wrangler d1 execute muy-rico-orders --remote --file=orders/migrations/0041_inventory_ingredient_groups.sql`
+Run: `cd orders && npx wrangler d1 execute muy-rico-orders -c wrangler.toml --remote --file=migrations/0041_inventory_ingredient_groups.sql`
 Expected: applies cleanly.
 
 - [ ] **Step 5: Worker deploy**
