@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronDown, Tag, Trash2, Wallet } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
@@ -35,6 +35,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [orderEvents, setOrderEvents] = useState<ApiOrderEvent[]>([]);
   const [dueEdit, setDueEdit] = useState<string | null>(null);
   const [dueError, setDueError] = useState<string | null>(null);
+  const eventsFetchId = useRef<number | null>(null);
 
   const filtered = useMemo(() => {
     return orders
@@ -68,7 +69,11 @@ export default function Orders({ search, setPage, setLabelFilter }: {
       await refreshOrders();
       setSelected((prev) => (prev && prev.id === selected.id ? { ...prev, dueDate: dueEdit } : prev));
       setDueEdit(null);
-      fetchOrder(Number(selected.id)).then((r) => setOrderEvents(r.events)).catch(() => {});
+      eventsFetchId.current = Number(selected.id);
+      fetchOrder(Number(selected.id)).then((r) => {
+        if (eventsFetchId.current !== Number(selected.id)) return;
+        setOrderEvents(r.events);
+      }).catch(() => {});
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setDueError(
@@ -200,7 +205,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   tier === "tomorrow" ? "#fad9d4" :
                   "transparent";
                 return (
-                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setOrderEvents([]); fetchOrder(Number(o.id)).then((r) => setOrderEvents(r.events)).catch(() => {}); }}>
+                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setOrderEvents([]); eventsFetchId.current = Number(o.id); fetchOrder(Number(o.id)).then((r) => { if (eventsFetchId.current !== Number(o.id)) return; setOrderEvents(r.events); }).catch(() => {}); }}>
                   <td className="px-4 py-3 font-medium text-cocoa">{o.orderNumber}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{o.customerName}</td>
                   <td className="px-4 py-3">
