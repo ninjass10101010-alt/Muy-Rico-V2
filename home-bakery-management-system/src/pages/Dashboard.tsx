@@ -10,7 +10,6 @@ import {
   CalendarClock,
   CheckCircle2,
   AlertCircle,
-  AlertTriangle,
 } from "lucide-react";
 import {
   Bar,
@@ -28,6 +27,7 @@ import {
 import { useStore } from "../context/StoreContext";
 import StatCard from "../components/ui/StatCard";
 import DashboardUpcomingWidget from "../components/DashboardUpcomingWidget";
+import InventoryLowStockWidget from "../components/InventoryLowStockWidget";
 import Badge from "../components/ui/Badge";
 import ProductIcon from "../components/ProductIcon";
 import { formatCurrency, formatDate, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABELS, dueTier, urgencyRank, DUE_TIER_LABELS } from "../utils/format";
@@ -399,50 +399,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
         </div>
       </div>
 
-      {/* Low stock alerts */}
-      {stats.lowStock.length > 0 && (
-        <div className="rounded-xl border border-hibiscus-light/30 bg-hibiscus-light/10 p-5">
-          {(() => {
-            const critical = stats.lowStock.filter((i) => i.quantity <= 0);
-            const low = stats.lowStock.filter((i) => i.quantity > 0);
-            return (
-              <>
-                {critical.length > 0 && (
-                  <div className="mb-3">
-                    <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-hibiscus">
-                      <AlertTriangle size={16} /> Critical ({critical.length})
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {critical.map((i) => (
-                        <span key={i.id} className="flex items-center gap-1.5 rounded-full bg-hibiscus/15 px-3 py-1.5 text-xs font-medium text-hibiscus ring-1 ring-inset ring-hibiscus/30">
-                          {i.name} — {i.quantity} {i.unit} left
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {low.length > 0 && (
-                  <div>
-                    <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-coral">
-                      <PackageX size={16} /> Low ({low.length})
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {low.map((i) => (
-                        <span key={i.id} className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-coral shadow-sm ring-1 ring-inset ring-coral/20">
-                          {i.name} — {i.quantity} {i.unit} left
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-          <button onClick={() => setPage("inventory")} className="mt-3 text-xs font-medium text-hibiscus hover:underline">
-            Manage inventory →
-          </button>
-        </div>
-      )}
+      <InventoryLowStockWidget onManageInventory={() => setPage("inventory")} />
     </div>
   );
 }
