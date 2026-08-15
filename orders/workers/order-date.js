@@ -2,6 +2,10 @@ export function validatePickupDate(value, now = new Date()) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return { ok: false, error: 'Invalid pickup_date format (expected YYYY-MM-DD)' };
   }
+  const parsed = new Date(value + 'T00:00:00Z');
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    return { ok: false, error: 'Invalid pickup_date format (expected YYYY-MM-DD)' };
+  }
   const today = now.toISOString().slice(0, 10);
   if (value < today) {
     return { ok: false, error: 'Pickup date cannot be in the past' };
