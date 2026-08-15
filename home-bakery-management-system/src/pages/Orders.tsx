@@ -76,6 +76,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
           ? "Pickup date cannot be in the past."
           : "Could not save the date. Please try again."
       );
+      setDueEdit(null);
     }
   }
 
@@ -629,7 +630,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       className="input text-xs"
                     />
                   )}
-                  {dueEdit !== null && dueEdit !== selected.dueDate.slice(0, 10) && (
+                  {dueEdit !== null && dueEdit !== "" && dueEdit !== selected.dueDate.slice(0, 10) && (
                     <button onClick={saveDueDate} className="text-xs font-semibold text-palm hover:underline">
                       Save
                     </button>
