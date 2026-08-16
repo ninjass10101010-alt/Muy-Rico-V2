@@ -2045,6 +2045,7 @@ async function listInventoryGroups(env) {
       id: g.id,
       name: g.name,
       category: g.category,
+      active: g.active,
       active_item_id: g.active_item_id,
       active_item: active,
       members,
