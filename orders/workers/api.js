@@ -63,6 +63,7 @@ const CORS = {
 import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
 import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode } from './enrich-lib.js';
 import { validatePickupDate, pickupChangeEvent } from './order-date.js';
+import { rewriteRecipeForGroup } from './groups-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -131,6 +132,12 @@ export default {
       // External-source enrichment lookups
       if (path === '/api/inventory/lookup-ingredient' && method === 'GET') return await lookupIngredientUsda(request, env);
       if (path === '/api/inventory/enrich' && method === 'GET') return await enrichInventoryOff(request, env, actorName);
+
+      // Ingredient groups (must precede the /api/inventory/:id regex below)
+      if (path === '/api/inventory/groups' && method === 'GET') return await listInventoryGroups(env);
+      if (path === '/api/inventory/groups' && method === 'POST') return await createInventoryGroup(request, env);
+      const igm = path.match(/^\/api\/inventory\/groups\/([A-Za-z0-9_-]+)$/);
+      if (igm && method === 'PATCH') return await updateInventoryGroup(igm[1], request, env, actorName);
 
       const om = path.match(/^\/api\/orders\/(\d+)$/);
       if (om) {
@@ -1818,6 +1825,7 @@ const INVENTORY_FIELDS = [
   'reorder_level', 'cost_per_unit', 'supplier',
   'ingredients_label', 'allergens', 'unit_weight',
   'active', 'barcode', 'nutrition_source', 'nutrition_fetched_at',
+  'group_id',
 ];
 
 function parseAllergens(v) {
@@ -2010,6 +2018,135 @@ async function itemScanHistory(id, request, env) {
   return json({ events: results }, 200);
 }
 
+// ─── Ingredient groups ───────────────────────────────────────────────────────
+
+// GET /api/inventory/groups — groups with member items and the products that
+// reference any member (used for the "used in" display + swap prompts).
+async function listInventoryGroups(env) {
+  const { results: groups } = await env.DB.prepare(
+    'SELECT * FROM ingredient_groups WHERE active = 1 ORDER BY name ASC'
+  ).all();
+  const { results: items } = await env.DB.prepare(
+    'SELECT * FROM inventory WHERE active = 1'
+  ).all();
+  const { results: prods } = await env.DB.prepare('SELECT id, name, recipe FROM products WHERE active = 1').all();
+
+  const groupsOut = groups.map((g) => {
+    const members = items.filter((i) => i.group_id === g.id);
+    const memberIds = new Set(members.map((m) => m.id));
+    const usedBy = prods
+      .filter((p) => {
+        const recipe = safeJsonParse(p.recipe, []);
+        return recipe.some((r) => r && r.inventoryItemId && memberIds.has(r.inventoryItemId));
+      })
+      .map((p) => p.name);
+    const active = members.find((m) => m.id === g.active_item_id) || null;
+    return {
+      id: g.id,
+      name: g.name,
+      category: g.category,
+      active_item_id: g.active_item_id,
+      active_item: active,
+      members,
+      used_by: usedBy,
+    };
+  });
+  return json({ groups: groupsOut }, 200);
+}
+
+// POST /api/inventory/groups — create an ingredient group.
+async function createInventoryGroup(request, env) {
+  const body = await request.json();
+  const name = String(body.name || '').trim();
+  if (!name) return json({ error: 'Missing required field: name' }, 400);
+  const id = typeof body.id === 'string' && body.id ? body.id : `grp_${Date.now().toString(36)}`;
+  const category = body.category || null;
+  const activeItemId = body.active_item_id || null;
+  try {
+    await env.DB.prepare(
+      'INSERT INTO ingredient_groups (id, name, category, active_item_id) VALUES (?, ?, ?, ?)'
+    ).bind(id, name, category, activeItemId).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id }, 201);
+}
+
+// PATCH /api/inventory/groups/:id — rename / recategorize / set the active item.
+// Setting a new active item rewrites every product recipe line that references
+// any member of the group to the new active id (all-or-nothing via batch).
+async function updateInventoryGroup(id, request, env, actor) {
+  const body = await request.json();
+  const group = await env.DB.prepare('SELECT * FROM ingredient_groups WHERE id = ?').bind(id).first();
+  if (!group) return json({ error: 'Not found' }, 404);
+
+  const sets = [];
+  const binds = [];
+  const stmts = [];
+  let newActiveId = group.active_item_id;
+  const oldActiveId = group.active_item_id;
+
+  if (body.name !== undefined) {
+    const name = String(body.name || '').trim();
+    if (!name) return json({ error: 'name must be a non-empty string' }, 400);
+    sets.push('name = ?'); binds.push(name);
+  }
+  if (body.category !== undefined) {
+    sets.push('category = ?'); binds.push(body.category || null);
+  }
+
+  const affectedProductIds = [];
+  if (body.active_item_id !== undefined) {
+    newActiveId = body.active_item_id || null;
+    if (newActiveId === null) {
+      return json({ error: 'active_item_id cannot be null; assign a member item' }, 400);
+    }
+    if (newActiveId !== oldActiveId) {
+      const member = await env.DB.prepare(
+        'SELECT id FROM inventory WHERE id = ? AND group_id = ? AND active = 1'
+      ).bind(newActiveId, id).first();
+      if (!member) return json({ error: 'Item is not an active member of this group' }, 400);
+      const { results: members } = await env.DB.prepare(
+        'SELECT id FROM inventory WHERE group_id = ?'
+      ).bind(id).all();
+      const memberIds = new Set(members.map((m) => m.id));
+      const { results: prods } = await env.DB.prepare('SELECT id, recipe FROM products').all();
+      for (const p of prods) {
+        const recipe = safeJsonParse(p.recipe, []);
+        const rewritten = rewriteRecipeForGroup(recipe, memberIds, newActiveId);
+        if (JSON.stringify(rewritten) !== JSON.stringify(recipe)) {
+          affectedProductIds.push(p.id);
+          stmts.push(env.DB.prepare(
+            `UPDATE products SET recipe = ?, updated_at = datetime('now') WHERE id = ?`
+          ).bind(JSON.stringify(rewritten), p.id));
+        }
+      }
+      sets.push('active_item_id = ?'); binds.push(newActiveId);
+    }
+  }
+
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  stmts.push(env.DB.prepare(
+    `UPDATE ingredient_groups SET ${sets.join(', ')} WHERE id = ?`
+  ).bind(...binds));
+
+  await env.DB.batch(stmts);
+
+  if (newActiveId !== oldActiveId) {
+    logScanEvent(env, {
+      inventory_id: newActiveId,
+      code: 'group:' + id,
+      action: 'group_activate',
+      meta: { groupId: id, from: oldActiveId, to: newActiveId, affected: affectedProductIds },
+      source: 'manual',
+      actor,
+    });
+  }
+  return json({ ok: true, affectedProductIds }, 200);
+}
+
 async function createInventory(request, env, actor) {
   const body = await request.json();
   if (!body.id || !body.name || !body.category || !body.unit) {
@@ -2023,8 +2160,8 @@ async function createInventory(request, env, actor) {
       INSERT INTO inventory
         (id, name, category, quantity, unit, reorder_level, cost_per_unit, supplier,
          ingredients_label, allergens, unit_weight, active, barcode,
-         nutrition_source, nutrition_fetched_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         nutrition_source, nutrition_fetched_at, group_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.id,
       body.name,
@@ -2041,6 +2178,7 @@ async function createInventory(request, env, actor) {
       body.barcode || null,
       body.nutrition_source || null,
       body.nutrition_fetched_at || null,
+      body.group_id || null,
     ).run();
   } catch (err) {
     const msg = String(err);
@@ -2063,6 +2201,26 @@ async function createInventory(request, env, actor) {
 
 async function updateInventoryItem(id, request, env, actor) {
   const body = await request.json();
+
+  // Group assignment validation + consistency: moving an item out of a group
+  // whose active member it was must clear the group's active_item_id so the
+  // group stays consistent (its active must be a member).
+  if (body.group_id !== undefined) {
+    if (body.group_id !== null) {
+      const grp = await env.DB.prepare(
+        'SELECT id FROM ingredient_groups WHERE id = ? AND active = 1'
+      ).bind(body.group_id).first();
+      if (!grp) return json({ error: 'Ingredient group not found' }, 400);
+    }
+    const prev = await env.DB.prepare('SELECT group_id FROM inventory WHERE id = ?').bind(id).first();
+    if (prev && prev.group_id && prev.group_id !== body.group_id) {
+      await env.DB.prepare(
+        `UPDATE ingredient_groups SET active_item_id = NULL, updated_at = datetime('now')
+         WHERE id = ? AND active_item_id = ?`
+      ).bind(prev.group_id, id).run();
+    }
+  }
+
   const sets = [];
   const binds = [];
   for (const f of INVENTORY_FIELDS) {
@@ -2120,6 +2278,9 @@ async function updateInventoryItem(id, request, env, actor) {
 async function deleteInventoryItem(id, env, actor) {
   const r = await env.DB.prepare(`UPDATE inventory SET active = 0, updated_at = datetime('now') WHERE id = ?`).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  await env.DB.prepare(
+    `UPDATE ingredient_groups SET active_item_id = NULL, updated_at = datetime('now') WHERE active_item_id = ?`
+  ).bind(id).run();
   return json({ ok: true }, 200);
 }
 
