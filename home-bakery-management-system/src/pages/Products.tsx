@@ -6,9 +6,9 @@ import ProductIcon from "../components/ProductIcon";
 import { formatCurrency } from "../utils/format";
 import { calcRecipeCost } from "../utils/cost";
 import { composeLabelFromRecipe } from "../utils/label";
+import { isActiveMember } from "../utils/ingredientGroups";
 import { uploadImage } from "../utils/api";
 import type { FlavorGroup, PackSize, Product } from "../types";
-import type { Page } from "../App";
 
 const EMOJI_CHOICES = ["🧁", "🎂", "🍪", "🥐", "🍞", "🍩", "🥧", "🍫", "🥯", "🍰"];
 
@@ -28,8 +28,14 @@ const emptyProduct = (): Product => ({
   auto_generate_label: true,
 });
 
-export default function Products({ search, goTo }: { search: string; goTo: (p: Page) => void }) {
-  const { products, apiCreateProduct, apiUpdateProduct, apiDeleteProduct, inventory } = useStore();
+export default function Products({
+  search,
+  onOpenLabels,
+}: {
+  search: string;
+  onOpenLabels: (productId: string) => void;
+}) {
+  const { products, apiCreateProduct, apiUpdateProduct, apiDeleteProduct, inventory, groups } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<Product>(emptyProduct());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,6 +49,20 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
     () => composeLabelFromRecipe(draft, inventory),
     [draft, inventory],
   );
+
+  const groupedInventory = useMemo(() => {
+    const buckets = new Map<string | null, typeof inventory[number][]>();
+    for (const it of inventory) {
+      const key = it.groupId || null;
+      const arr = buckets.get(key) || [];
+      arr.push(it);
+      buckets.set(key, arr);
+    }
+    return [...buckets.entries()].map(([key, items]) => ({
+      group: key ? groups.find((g) => g.id === key) || null : null,
+      items,
+    }));
+  }, [inventory, groups]);
 
   function normalizeFlavors(p: Product): FlavorGroup[] {
     if (Array.isArray((p as any).flavor_groups) && (p as any).flavor_groups.length) {
@@ -182,7 +202,7 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
                 <Pencil size={13} /> Edit
               </button>
               <button
-                onClick={() => goTo("labels")}
+                onClick={() => onOpenLabels(p.id)}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-sand-200 py-1.5 text-xs font-medium text-cocoa-muted hover:bg-sand-50"
               >
                 <TagIcon size={13} /> Label
@@ -569,34 +589,50 @@ export default function Products({ search, goTo }: { search: string; goTo: (p: P
               Recipe — link ingredients so inventory auto-deducts when this order is completed
             </p>
             <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-sand-100 p-2">
-              {inventory.map((item) => {
-                const rec = draft.recipe.find((r) => r.inventoryItemId === item.id);
-                return (
-                  <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg bg-sand-50 px-3 py-2">
-                    <label className="flex items-center gap-2 text-sm text-cocoa-muted">
-                      <input type="checkbox" checked={!!rec} onChange={() => toggleRecipe(item.id)} />
-                      {item.name}
-                      {item.barcode && item.barcode !== item.id && (
-                        <span className="rounded bg-sand-100 px-1.5 py-0.5 font-mono text-[10px] text-cocoa-muted" title="Scanned barcode bound to this ingredient">
-                          {item.barcode}
-                        </span>
-                      )}
-                    </label>
-                    {rec && (
-                      <div className="flex items-center gap-1 text-xs text-cocoa-muted">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={rec.qtyPerUnit}
-                          onChange={(e) => updateRecipeQty(item.id, Number(e.target.value))}
-                          className="w-16 rounded-md border border-sand-200 px-1.5 py-1 text-right"
-                        />
-                        {item.unit}/unit
-                      </div>
+              {groupedInventory.map(({ group, items }) => (
+                <div key={group?.id ?? "__standalone__"} className="rounded-lg bg-sand-50 p-2">
+                  <div className="flex items-center justify-between px-1 pb-1 text-[11px] font-medium text-cocoa-muted">
+                    <span>{group?.name ?? "Standalone"}</span>
+                    {group?.activeItemId && (
+                      <span className="text-palm">
+                        active: {items.find((i) => i.id === group.activeItemId)?.name ?? ""}
+                      </span>
                     )}
                   </div>
-                );
-              })}
+                  {items.map((item) => {
+                    const rec = draft.recipe.find((r) => r.inventoryItemId === item.id);
+                    const active = group ? isActiveMember(item, group) : false;
+                    return (
+                      <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
+                        <label className="flex items-center gap-2 text-sm text-cocoa-muted">
+                          <input type="checkbox" checked={!!rec} onChange={() => toggleRecipe(item.id)} />
+                          {item.name}
+                          {active && (
+                            <span className="rounded bg-palm/10 px-1.5 py-0.5 text-[10px] text-palm">active</span>
+                          )}
+                          {item.barcode && item.barcode !== item.id && (
+                            <span className="rounded bg-sand-100 px-1.5 py-0.5 font-mono text-[10px] text-cocoa-muted" title="Scanned barcode bound to this ingredient">
+                              {item.barcode}
+                            </span>
+                          )}
+                        </label>
+                        {rec && (
+                          <div className="flex items-center gap-1 text-xs text-cocoa-muted">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={rec.qtyPerUnit}
+                              onChange={(e) => updateRecipeQty(item.id, Number(e.target.value))}
+                              className="w-16 rounded-md border border-sand-200 px-1.5 py-1 text-right"
+                            />
+                            {item.unit}/unit
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
             <button
               onClick={save}
