@@ -8,13 +8,17 @@ import {
   updateInventoryItem,
   enrichBarcode,
   createInventoryItem,
+  createInventoryGroup,
   type ApiInventoryItem,
   type InventoryItemCreate,
   type OffProduct,
 } from "../utils/api";
 import { useStore } from "../context/StoreContext";
 import { sanitizeBarcode } from "../utils/barcode";
-import type { InventoryItem } from "../types";
+import type { IngredientGroup, InventoryItem } from "../types";
+import { GroupPicker, type GroupChoice } from "./GroupPicker";
+import { useIngredientGroups } from "../hooks/useIngredientGroups";
+import { isActiveMember } from "../utils/ingredientGroups";
 
 type Mode = "scanning" | "adjust" | "bind" | "preview" | "conflict" | "error" | "suggestCreate" | "manualCreate";
 
@@ -38,8 +42,34 @@ function computeRecognized(it: ApiInventoryItem): RecognizedInfo | null {
   return { sourceLabel, fetchedAt: it.nutrition_fetched_at || null };
 }
 
+// Convert an API-shaped inventory row into the store shape with parsed
+// allergens — needed so activateItem composes label fields correctly.
+function apiItemToStoreShape(it: ApiInventoryItem): InventoryItem {
+  let allergens: string[] = [];
+  try {
+    const p = JSON.parse(it.allergens || "[]");
+    if (Array.isArray(p)) allergens = p;
+  } catch { /* ignore */ }
+  return {
+    id: it.id,
+    name: it.name,
+    category: it.category,
+    quantity: Number(it.quantity) || 0,
+    unit: it.unit,
+    reorderLevel: Number(it.reorder_level) || 0,
+    costPerUnit: Number(it.cost_per_unit) || 0,
+    supplier: it.supplier || "",
+    ingredients_label: it.ingredients_label || undefined,
+    allergens: allergens.length ? allergens : undefined,
+    unit_weight: typeof it.unit_weight === "number" ? it.unit_weight : undefined,
+    active: !!it.active,
+    barcode: it.barcode || null,
+  };
+}
+
 export default function ScanModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { inventory, refreshInventory } = useStore();
+  const { inventory, groups, refreshInventory } = useStore();
+  const { activateItem } = useIngredientGroups();
   const [mode, setMode] = useState<Mode>("scanning");
   const [code, setCode] = useState<string>("");
   const [item, setItem] = useState<ApiInventoryItem | null>(null);
@@ -58,6 +88,9 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState("Uncategorized");
   const [newUnit, setNewUnit] = useState("ea");
+  const [groupChoice, setGroupChoice] = useState<GroupChoice>({ kind: "none" });
+  const [makeActiveChecked, setMakeActiveChecked] = useState(false);
+  const [swapMsg, setSwapMsg] = useState("");
 
   // Session-level trail of the last few scans (code + action) shown under the viewfinder.
   const [sessionScans, setSessionScans] = useState<{ code: string; action: string }[]>([]);
@@ -80,6 +113,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
   }, []);
 
   const enterAdjustForItem = useCallback((it: ApiInventoryItem) => {
+    setSwapMsg("");
     setItem(it);
     setCountValue(countModeRef.current === "set" ? (Number(it.quantity) || 0) : 0);
     setRecognized(computeRecognized(it));
@@ -123,6 +157,8 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
         setRecognized(null);
         setBindPick(null);
         setBindSearch("");
+        setGroupChoice({ kind: "none" });
+        setMakeActiveChecked(false);
         let product: OffProduct | null = null;
         try {
           const er = await enrichBarcode(c);
@@ -176,6 +212,9 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     setErrMsg("");
     setScanWarn("");
     setSessionScans([]);
+    setGroupChoice({ kind: "none" });
+    setMakeActiveChecked(false);
+    setSwapMsg("");
     lastDecodedRef.current = null;
 
     (async () => {
@@ -363,8 +402,51 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
       if (offProduct.unitWeightLb != null) payload.unit_weight = offProduct.unitWeightLb;
     }
     try {
+      let groupId: string | null = null;
+      if (groupChoice.kind === "existing") {
+        groupId = groupChoice.id;
+      } else if (groupChoice.kind === "new" && groupChoice.name.trim()) {
+        const g = await createInventoryGroup({
+          name: groupChoice.name.trim(),
+          category: newCategory.trim() || null,
+          active_item_id: makeActiveChecked ? payload.id : null,
+        });
+        groupId = g.id;
+      }
+      if (groupId) payload.group_id = groupId;
+
       await createInventoryItem(payload);
       await refreshInventory();
+
+      if (groupChoice.kind === "existing" && groupId && makeActiveChecked) {
+        const grp = groups.find((g) => g.id === groupId);
+        if (grp) {
+          // Full store-shaped item (label fields included) so the hook can
+          // re-compose affected products' labels correctly.
+          const fullItem: InventoryItem = {
+            id: payload.id,
+            name: nm,
+            category: payload.category,
+            quantity: payload.quantity ?? 0,
+            unit: payload.unit,
+            reorderLevel: payload.reorder_level ?? 0,
+            costPerUnit: payload.cost_per_unit ?? 0,
+            supplier: payload.supplier || "",
+            ingredients_label: payload.ingredients_label,
+            allergens: Array.isArray(payload.allergens) ? payload.allergens : undefined,
+            unit_weight: payload.unit_weight ?? undefined,
+            barcode: payload.barcode || null,
+          };
+          // Guard: activating a label-less item would silently drop it from
+          // the affected products' stored labels — declining skips only the
+          // activation (the item is already saved above).
+          const hasLabelData = !!(payload.ingredients_label || (Array.isArray(payload.allergens) && payload.allergens.length));
+          if (hasLabelData || window.confirm("This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?")) {
+            const r = await activateItem(grp, fullItem);
+            setSwapMsg(r.message);
+          }
+        }
+      }
     } catch (e: any) {
       const status = e?.status ?? 0;
       const body = e?.body ?? null;
@@ -393,7 +475,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     } finally {
       setBusy(false);
     }
-  }, [newName, newCategory, newUnit, offProduct, code, gotoAdjust, refreshInventory]);
+  }, [newName, newCategory, newUnit, offProduct, code, groupChoice, makeActiveChecked, groups, activateItem, gotoAdjust, refreshInventory]);
 
   // Clear the barcode from the item currently in the count stepper.
   const unbindCurrent = useCallback(async () => {
@@ -416,6 +498,29 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
       setBusy(false);
     }
   }, [item, refreshInventory, focusManual]);
+
+  // Swap a scanned (non-active) member in as the group's active ingredient.
+  // Pass the STORE-shaped item (with label fields) so the hook can re-compose
+  // the affected products' labels correctly.
+  const swapToItem = useCallback(async (group: IngredientGroup, it: ApiInventoryItem) => {
+    setBusy(true);
+    setErrMsg("");
+    try {
+      const fullItem = inventory.find((x) => x.id === it.id) ?? apiItemToStoreShape(it);
+      // Guard: activating a label-less item would silently drop it from the
+      // affected products' stored labels — warn and let the user back out.
+      const hasLabelData = !!(fullItem.ingredients_label || (fullItem.allergens && fullItem.allergens.length));
+      if (!hasLabelData) {
+        if (!window.confirm("This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?")) return;
+      }
+      const r = await activateItem(group, fullItem);
+      setSwapMsg(r.message);
+    } catch (e: any) {
+      setErrMsg(String(e?.message || "Switch failed"));
+    } finally {
+      setBusy(false);
+    }
+  }, [activateItem, inventory, apiItemToStoreShape]);
 
   // 409 conflict: free the code from the item that owns it, then retry the pending action.
   const unbindConflictAndRebind = useCallback(async () => {
@@ -512,6 +617,9 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
         {mode === "adjust" && item && (
           <AdjustPanel
             item={item}
+            group={item.group_id ? groups.find((g) => g.id === item.group_id) || null : null}
+            swapMsg={swapMsg}
+            onSwap={swapToItem}
             recognized={recognized}
             countMode={countMode}
             countValue={countValue}
@@ -549,6 +657,11 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
             unit={newUnit}
             setUnit={setNewUnit}
             categories={categories}
+            groups={groups}
+            groupChoice={groupChoice}
+            setGroupChoice={setGroupChoice}
+            makeActive={makeActiveChecked}
+            setMakeActive={setMakeActiveChecked}
             onAdd={createNewItem}
             onBind={() => { setMode("bind"); setBindPick(null); setBindSearch(""); }}
             onCancel={() => { setMode("scanning"); focusManual(); }}
@@ -615,8 +728,11 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
   );
 }
 
-function AdjustPanel({ item, recognized, countMode, countValue, setCountValue, onSwitchMode, onSave, onCancel, onUnbind, busy }: {
+function AdjustPanel({ item, group, swapMsg, onSwap, recognized, countMode, countValue, setCountValue, onSwitchMode, onSave, onCancel, onUnbind, busy }: {
   item: ApiInventoryItem;
+  group: IngredientGroup | null;
+  swapMsg: string;
+  onSwap: (group: IngredientGroup, item: ApiInventoryItem) => void;
   recognized: RecognizedInfo | null;
   countMode: "add" | "set";
   countValue: number;
@@ -627,6 +743,8 @@ function AdjustPanel({ item, recognized, countMode, countValue, setCountValue, o
   onUnbind: () => void;
   busy: boolean;
 }) {
+  const active = group ? isActiveMember(apiItemToStoreShape(item), group) : false;
+  const activeName = group ? group.members.find((m) => m.id === group.activeItemId)?.name : "";
   const current = Number(item.quantity) || 0;
   const delta = countMode === "add" ? countValue : countValue - current;
   const newTotal = current + delta;
@@ -645,6 +763,33 @@ function AdjustPanel({ item, recognized, countMode, countValue, setCountValue, o
         </div>
         <Badge tone="stone">{item.category}</Badge>
       </div>
+
+      {group && active && (
+        <div className="mt-3 rounded-lg border border-palm/30 bg-palm/5 px-3 py-2 text-sm text-stone-700">
+          <CheckCircle2 className="mr-1.5 inline h-4 w-4 text-palm" />
+          Active for <strong>{group.name}</strong>
+          {group.usedBy.length ? ` · used in ${group.usedBy.join(", ")}` : ""}.
+        </div>
+      )}
+      {group && !active && (
+        <div className="mt-3 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p>
+            <strong>{group.name}</strong> currently uses{" "}
+            <strong>{activeName || "no active item"}</strong>. Use <strong>{item.name}</strong> for every
+            product in this group instead?
+          </p>
+          <button
+            onClick={() => onSwap(group, item)}
+            disabled={busy}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+          >
+            <Check className="w-3.5 h-3.5" /> Switch to {item.name}
+          </button>
+        </div>
+      )}
+      {swapMsg && (
+        <div className="mt-3 rounded-lg border border-palm/30 bg-palm/5 px-3 py-2 text-sm text-palm">{swapMsg}</div>
+      )}
 
       {outOfStock && (
         <div className="mt-3 rounded-lg border border-hibiscus-light/40 bg-hibiscus-light/10 px-3 py-2 text-sm text-hibiscus">
@@ -802,7 +947,7 @@ function BindPanel({ code, search, setSearch, matches, pick, setPick, onBind, on
   );
 }
 
-function NewItemPanel({ code, offProduct, name, setName, category, setCategory, unit, setUnit, categories, onAdd, onBind, onCancel, busy }: {
+function NewItemPanel({ code, offProduct, name, setName, category, setCategory, unit, setUnit, categories, groups, groupChoice, setGroupChoice, makeActive, setMakeActive, onAdd, onBind, onCancel, busy }: {
   code: string;
   offProduct: OffProduct | null;
   name: string;
@@ -812,6 +957,11 @@ function NewItemPanel({ code, offProduct, name, setName, category, setCategory, 
   unit: string;
   setUnit: (s: string) => void;
   categories: string[];
+  groups: IngredientGroup[];
+  groupChoice: GroupChoice;
+  setGroupChoice: (c: GroupChoice) => void;
+  makeActive: boolean;
+  setMakeActive: (b: boolean) => void;
   onAdd: () => void;
   onBind: () => void;
   onCancel: () => void;
@@ -876,6 +1026,18 @@ function NewItemPanel({ code, offProduct, name, setName, category, setCategory, 
             </datalist>
           </Field>
         </div>
+        <GroupPicker
+          groups={groups}
+          choice={groupChoice}
+          setChoice={setGroupChoice}
+          makeActive={makeActive}
+          setMakeActive={setMakeActive}
+          canMakeActive={
+            groupChoice.kind === "new" ||
+            (groupChoice.kind === "existing" &&
+              !(groups.find((g) => g.id === groupChoice.id)?.activeItemId))
+          }
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
