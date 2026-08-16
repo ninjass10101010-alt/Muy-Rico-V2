@@ -11,6 +11,7 @@ import type {
   BusinessProfile,
   Customer,
   FlavorGroup,
+  IngredientGroup,
   InventoryItem,
   LabelTemplate,
   Order,
@@ -22,7 +23,7 @@ import type {
   Receipt,
 } from "../types";
 import { newId } from "../utils/format";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, apiMergeCustomers, apiRelinkOrder, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt, type ApiQuote } from "../utils/api";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt, type ApiQuote, type ApiIngredientGroup } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -37,6 +38,10 @@ interface StoreContextValue {
   apiCreateInventoryItem: (item: Parameters<typeof apiCreateInventoryItem>[0]) => Promise<{ id: string }>;
   apiUpdateInventoryItem: (id: string, patch: Parameters<typeof apiUpdateInventoryItem>[1]) => Promise<void>;
   apiDeleteInventoryItem: (id: string) => Promise<void>;
+  groups: IngredientGroup[];
+  refreshGroups: () => Promise<void>;
+  apiCreateGroup: (g: Parameters<typeof apiCreateInventoryGroupApi>[0]) => Promise<{ id: string }>;
+  apiUpdateGroup: (id: string, patch: Parameters<typeof apiUpdateInventoryGroupApi>[1]) => Promise<{ ok: boolean; affectedProductIds: string[] }>;
   customers: Customer[];
   handleCreateCustomer: (c: Parameters<typeof apiCreateCustomer>[0]) => Promise<{ ok: boolean; id: string }>;
   handleUpdateCustomer: (id: string, patch: Parameters<typeof apiUpdateCustomer>[1]) => Promise<void>;
@@ -79,6 +84,7 @@ const StoreContext = createContext<StoreContextValue | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [groups, setGroups] = useState<IngredientGroup[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -216,10 +222,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       unit_weight: typeof row.unit_weight === "number" ? row.unit_weight : undefined,
       active: !!row.active,
       barcode: row.barcode || null,
+      groupId: row.group_id || null,
       nutritionSource: row.nutrition_source || undefined,
       nutritionFetchedAt: row.nutrition_fetched_at || undefined,
     };
   }
+
+  function apiToIngredientGroup(row: ApiIngredientGroup): IngredientGroup {
+    return {
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      activeItemId: row.active_item_id,
+      active: !!row.active,
+      members: (row.members || []).map(apiToInventoryItem),
+      usedBy: row.used_by || [],
+    };
+  }
+
+  const refreshGroups = useCallback(async () => {
+    try {
+      const rows = await fetchInventoryGroups();
+      setGroups(rows.map(apiToIngredientGroup));
+    } catch (err) {
+      console.warn("Failed to fetch ingredient groups from API:", err);
+      setGroups([]);
+    }
+  }, []);
 
   const refreshInventory = useCallback(async () => {
     try {
@@ -476,8 +505,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refreshLabelTemplates(),
       refreshProfile(),
       refreshQuotes(),
+      refreshGroups(),
     ]);
-  }, [refreshOrders, refreshProducts, refreshInventory, refreshCustomers, refreshPayments, refreshReceipts, refreshLabelTemplates, refreshProfile, refreshQuotes]);
+  }, [refreshOrders, refreshProducts, refreshInventory, refreshCustomers, refreshPayments, refreshReceipts, refreshLabelTemplates, refreshProfile, refreshQuotes, refreshGroups]);
 
   useEffect(() => {
     let cancelled = false;
@@ -547,6 +577,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await apiDeleteInventoryItem(id);
     await refreshInventory();
   }, [refreshInventory]);
+
+  const handleCreateGroup = useCallback(async (g: Parameters<typeof apiCreateInventoryGroupApi>[0]) => {
+    const result = await apiCreateInventoryGroupApi(g);
+    await refreshGroups();
+    await refreshInventory();
+    return result;
+  }, [refreshGroups, refreshInventory]);
+
+  const handleUpdateGroup = useCallback(async (id: string, patch: Parameters<typeof apiUpdateInventoryGroupApi>[1]) => {
+    const result = await apiUpdateInventoryGroupApi(id, patch);
+    await refreshGroups();
+    return result;
+  }, [refreshGroups]);
 
   const handleCreateCustomer = useCallback(async (c: Parameters<typeof apiCreateCustomer>[0]) => {
     const result = await apiCreateCustomer(c);
@@ -677,6 +720,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       apiCreateInventoryItem: handleApiCreateInventoryItem,
       apiUpdateInventoryItem: handleApiUpdateInventoryItem,
       apiDeleteInventoryItem: handleApiDeleteInventoryItem,
+      groups,
+      refreshGroups,
+      apiCreateGroup: handleCreateGroup,
+      apiUpdateGroup: handleUpdateGroup,
       customers,
       handleCreateCustomer,
       handleUpdateCustomer,
@@ -713,7 +760,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       handleMergeCustomers,
       handleRelinkOrder,
     }),
-    [products, inventory, customers, orders, payments, receipts, labelTemplates, refreshLabelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, apiDeductInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt, quotes, refreshQuotes, handleUpdateQuote, handleConvertQuote, handleDeleteQuote, handleMergeCustomers, handleRelinkOrder],
+    [products, inventory, customers, orders, payments, receipts, labelTemplates, refreshLabelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, apiDeductInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, groups, refreshGroups, handleCreateGroup, handleUpdateGroup, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt, quotes, refreshQuotes, handleUpdateQuote, handleConvertQuote, handleDeleteQuote, handleMergeCustomers, handleRelinkOrder],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
