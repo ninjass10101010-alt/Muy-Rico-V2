@@ -8,7 +8,10 @@ import { cn } from "../utils/cn";
 import { computePrepList } from "../utils/prepList";
 import { loadReminderConfig } from "../utils/reminders";
 import { fetchScanHistory, lookupUsdaIngredient, type ScanEvent, type UsdaCandidate } from "../utils/api";
-import type { InventoryItem } from "../types";
+import type { InventoryItem, IngredientGroup } from "../types";
+import { GroupPicker, type GroupChoice } from "../components/GroupPicker";
+import { useIngredientGroups } from "../hooks/useIngredientGroups";
+import { isActiveMember } from "../utils/ingredientGroups";
 
 const ScanModal = lazy(() => import("../components/ScanModal"));
 
@@ -29,7 +32,8 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
   highlightId?: string | null;
   onGoToCalendar?: () => void;
 }) {
-  const { inventory, products, orders, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem } = useStore();
+  const { inventory, products, orders, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem, groups, apiCreateGroup } = useStore();
+  const { activateItem } = useIngredientGroups();
   const [modalOpen, setModalOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [draft, setDraft] = useState<InventoryItem>(emptyItem());
@@ -45,6 +49,9 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
   const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
   const [historyEvents, setHistoryEvents] = useState<ScanEvent[]>([]);
   const [historyBusy, setHistoryBusy] = useState(false);
+  const [groupChoice, setGroupChoice] = useState<GroupChoice>({ kind: "none" });
+  const [makeActiveChecked, setMakeActiveChecked] = useState(false);
+  const [groupStatus, setGroupStatus] = useState("");
 
   const filtered = inventory.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -69,6 +76,9 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     setUsdaErr("");
     setUsdaDemo(false);
     setUsdaBusy(false);
+    setGroupChoice({ kind: "none" });
+    setMakeActiveChecked(false);
+    setGroupStatus("");
     setModalOpen(true);
   }
 
@@ -82,13 +92,16 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     setUsdaErr("");
     setUsdaDemo(false);
     setUsdaBusy(false);
+    setGroupChoice(i.groupId ? { kind: "existing", id: i.groupId } : { kind: "none" });
+    setMakeActiveChecked(false);
+    setGroupStatus("");
     setModalOpen(true);
   }
 
   async function save() {
     if (!draft.name.trim()) return;
     const allergens = allergensText.split(",").map((s) => s.trim()).filter(Boolean);
-    const payload: Record<string, any> = {
+    const basePayload: Record<string, any> = {
       name: draft.name,
       category: draft.category,
       quantity: draft.quantity,
@@ -104,11 +117,30 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
       nutrition_fetched_at: draft.nutritionFetchedAt,
     };
     try {
+      const itemId = editingId || `inv_${Date.now().toString(36)}`;
+      let groupId: string | null = null;
+      if (groupChoice.kind === "existing") {
+        groupId = groupChoice.id;
+      } else if (groupChoice.kind === "new" && groupChoice.name.trim()) {
+        const g = await apiCreateGroup({
+          name: groupChoice.name.trim(),
+          category: draft.category || null,
+          active_item_id: makeActiveChecked ? itemId : null,
+        });
+        groupId = g.id;
+      }
+      basePayload.group_id = groupId;
       if (editingId) {
-        await apiUpdateInventoryItem(editingId, payload);
+        await apiUpdateInventoryItem(editingId, basePayload);
       } else {
-        const newId = `inv_${Date.now().toString(36)}`;
-        await apiCreateInventoryItem({ ...payload, id: newId, active: draft.active ?? true } as any);
+        await apiCreateInventoryItem({ ...basePayload, id: itemId, active: draft.active ?? true } as any);
+      }
+      if (groupChoice.kind === "existing" && groupId && makeActiveChecked) {
+        const grp = groups.find((g) => g.id === groupId);
+        if (grp) {
+          const r = await activateItem(grp, { ...draft, id: itemId } as InventoryItem);
+          setGroupStatus(r.message);
+        }
       }
       setModalOpen(false);
     } catch (err: any) {
@@ -162,6 +194,17 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     } catch (err: any) {
       console.error("Unbind failed:", err);
       alert(`Failed to unbind: ${err.message || err}`);
+    }
+  }
+
+  async function makeActive(item: InventoryItem, group: IngredientGroup) {
+    const activeName = group.members.find((m) => m.id === group.activeItemId)?.name || "no active item";
+    if (!confirm(`${group.name} currently uses ${activeName}. Make "${item.name}" the active one? Every product using ${group.name} will switch to it.`)) return;
+    try {
+      const r = await activateItem(group, item);
+      setGroupStatus(r.message);
+    } catch (err: any) {
+      alert(`Failed to switch: ${err.message || err}`);
     }
   }
 
@@ -258,6 +301,10 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
         </button>
       </div>
 
+      {groupStatus && (
+        <div className="rounded-lg bg-palm/10 px-3 py-2 text-sm text-palm">{groupStatus}</div>
+      )}
+
       <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
@@ -284,6 +331,32 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
                   <tr key={i.id} ref={i.id === highlightId ? highlightRef : undefined} className="hover:bg-sand-50">
                     <td className="px-4 py-3 font-medium text-cocoa">
                       <div>{i.name}</div>
+                      {(() => {
+                        const grp = i.groupId ? groups.find((g) => g.id === i.groupId) || null : null;
+                        if (!grp) {
+                          return <div className="mt-0.5 text-[10px] text-cocoa-muted">Standalone</div>;
+                        }
+                        const active = isActiveMember(i, grp);
+                        return (
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                            <span className="rounded bg-sand-100 px-1.5 py-0.5 text-[10px] text-cocoa-muted">{grp.name}</span>
+                            <span className="text-[10px] text-cocoa-muted">
+                              used in: {grp.usedBy.length ? grp.usedBy.join(", ") : "—"}
+                            </span>
+                            {active ? (
+                              <Badge tone="ok">active</Badge>
+                            ) : (
+                              <button
+                                onClick={() => makeActive(i, grp)}
+                                title={`Make ${i.name} the active ${grp.name}`}
+                                className="rounded border border-palm/30 px-1.5 py-0.5 text-[10px] font-medium text-palm hover:bg-palm/5"
+                              >
+                                Make active
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {i.barcode && i.barcode !== i.id && (
                         <div className="mt-0.5 flex items-center gap-1">
                           <span className="rounded bg-sand-100 px-1.5 py-0.5 font-mono text-[10px] text-cocoa-muted">{i.barcode}</span>
@@ -444,6 +517,19 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
               )}
             </div>
           </Field>
+
+          <GroupPicker
+            groups={groups}
+            choice={groupChoice}
+            setChoice={setGroupChoice}
+            makeActive={makeActiveChecked}
+            setMakeActive={setMakeActiveChecked}
+            canMakeActive={
+              groupChoice.kind === "new" ||
+              (groupChoice.kind === "existing" &&
+                !(groups.find((g) => g.id === groupChoice.id)?.activeItemId))
+            }
+          />
 
           <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
             <p className="mb-2 text-xs font-medium text-cocoa">Label info (used to auto-generate product labels)</p>
@@ -613,6 +699,7 @@ function scanActionLabel(action: string): string {
     case "enrich_off_miss": return "Enrich miss";
     case "enrich_off_failed": return "Enrich failed";
     case "enrich_off_skipped": return "Enrich skipped";
+    case "group_activate": return "Group switch";
     default: return action;
   }
 }
