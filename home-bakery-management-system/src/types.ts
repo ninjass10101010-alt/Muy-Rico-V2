@@ -82,8 +82,19 @@ export interface InventoryItem {
   unit_weight?: number;
   active?: boolean;
   barcode?: string | null;
+  groupId?: string | null;
   nutritionSource?: string;
   nutritionFetchedAt?: string;
+}
+
+export interface IngredientGroup {
+  id: string;
+  name: string;
+  category: string | null;
+  activeItemId: string | null;
+  active: boolean;
+  members: InventoryItem[];
+  usedBy: string[];
 }
 
 export interface Customer {
@@ -281,6 +292,8 @@ export interface LabelTemplate {
   bgImage?: string;
   averyPreset: AveryPreset;
   active?: boolean;
+  templateKind?: "product" | "order" | "custom";
+  productId?: string | null;
 }
 
 export interface QuoteItem {
@@ -312,6 +325,7 @@ export interface Quote {
   adminNotes: string | null;
   convertedOrderId: number | null;
   items: QuoteItem[];
+  inspiration?: { product_id?: string; title?: string; image_url?: string }[];
   createdAt: string;
   updatedAt: string;
 }

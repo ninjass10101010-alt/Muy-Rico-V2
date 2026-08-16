@@ -311,6 +311,7 @@ export interface ApiInventoryItem {
   unit_weight?: number | null;
   active: number;
   barcode?: string | null;
+  group_id?: string | null;
   nutrition_source?: string | null;
   nutrition_fetched_at?: string | null;
   created_at?: string;
@@ -331,6 +332,7 @@ export interface InventoryItemCreate {
   unit_weight?: number | null;
   active?: boolean;
   barcode?: string | null;
+  group_id?: string | null;
   nutrition_source?: string | null;
   nutrition_fetched_at?: string | null;
 }
@@ -395,6 +397,47 @@ export async function adjustInventoryQuantity(
   } catch (err: any) {
     return { error: err?.message || "Adjust failed" };
   }
+}
+
+// ─── Ingredient groups ─────────────────────────────────────────────────────────
+
+export interface ApiIngredientGroup {
+  id: string;
+  name: string;
+  category: string | null;
+  active_item_id: string | null;
+  active: number;
+  members: ApiInventoryItem[];
+  used_by: string[];
+}
+
+export interface IngredientGroupCreate {
+  id?: string;
+  name: string;
+  category?: string | null;
+  active_item_id?: string | null;
+}
+
+export async function fetchInventoryGroups(): Promise<ApiIngredientGroup[]> {
+  const data = await apiFetch<{ groups: ApiIngredientGroup[] }>("/api/inventory/groups");
+  return data.groups;
+}
+
+export async function createInventoryGroup(g: IngredientGroupCreate): Promise<{ ok: boolean; id: string }> {
+  return apiFetch("/api/inventory/groups", {
+    method: "POST",
+    body: JSON.stringify(g),
+  });
+}
+
+export async function updateInventoryGroup(
+  id: string,
+  patch: { name?: string; category?: string | null; active_item_id?: string | null }
+): Promise<{ ok: boolean; affectedProductIds: string[] }> {
+  return apiFetch(`/api/inventory/groups/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 // ─── Inventory enrichment (USDA FoodData Central + Open Food Facts) ──────────
