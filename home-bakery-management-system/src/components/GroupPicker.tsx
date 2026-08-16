@@ -27,6 +27,7 @@ export function GroupPicker({ groups, choice, setChoice, makeActive, setMakeActi
           if (v === "") setChoice({ kind: "none" });
           else if (v === "__new__") setChoice({ kind: "new", name: "" });
           else setChoice({ kind: "existing", id: v });
+          setMakeActive(false);
         }}
         className="w-full rounded-lg border border-stone-300 px-3 py-2"
       >

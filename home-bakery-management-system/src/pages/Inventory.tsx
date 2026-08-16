@@ -138,6 +138,16 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
       if (groupChoice.kind === "existing" && groupId && makeActiveChecked) {
         const grp = groups.find((g) => g.id === groupId);
         if (grp) {
+          const hasLabelData = !!(draft.ingredients_label || (Array.isArray(draft.allergens) && draft.allergens.length));
+          if (!hasLabelData) {
+            const ok = confirm(
+              "This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?",
+            );
+            if (!ok) {
+              setModalOpen(false);
+              return;
+            }
+          }
           const r = await activateItem(grp, { ...draft, id: itemId } as InventoryItem);
           setGroupStatus(r.message);
         }
@@ -199,7 +209,11 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
 
   async function makeActive(item: InventoryItem, group: IngredientGroup) {
     const activeName = group.members.find((m) => m.id === group.activeItemId)?.name || "no active item";
-    if (!confirm(`${group.name} currently uses ${activeName}. Make "${item.name}" the active one? Every product using ${group.name} will switch to it.`)) return;
+    let msg = `${group.name} currently uses ${activeName}. Make "${item.name}" the active one? Every product using ${group.name} will switch to it.`;
+    if (!item.ingredients_label && !(item.allergens && item.allergens.length)) {
+      msg += " This item has no label data yet. Products that auto-generate labels will not include it until label data is added.";
+    }
+    if (!confirm(msg)) return;
     try {
       const r = await activateItem(group, item);
       setGroupStatus(r.message);
