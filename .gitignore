@@ -11,3 +11,6 @@ workers/.wrangler/
 .dev.vars
 orders/.dev.vars
 workers/.dev.vars
+
+# Brainstorming mockups
+.superpowers/

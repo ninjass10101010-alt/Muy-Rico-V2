@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON RUINS — The Lost City Ops Portal (Interactive)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Oswald:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0a11;
+    --panel: #10101a;
+    --panel2: #141422;
+    --line: #23233a;
+    --line2: #2e2e4a;
+    --red: #ff2e4d;
+    --cyan: #21e6ff;
+    --magenta: #e86cff;
+    --gold: #EDAA31;
+    --green: #3dffa2;
+    --text: #d8d8e6;
+    --dim: #6d6d8a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Chakra Petch', sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+
+  .note { max-width: 1180px; margin: 34px auto 14px; padding: 0 20px; display: flex; gap: 14px; align-items: flex-start; }
+  .note .h { font-size: 21px; font-weight: 700; letter-spacing: 1px; color: #fff; margin-bottom: 5px; }
+  .note .h b { color: var(--cyan); text-shadow: 0 0 14px rgba(33,230,255,.7); }
+  .note p { color: var(--dim); line-height: 1.5; font-size: 13px; }
+  .vote { display: flex; gap: 10px; margin: 0 0 8px 0; }
+  .vote .btn { cursor: pointer; user-select: none; border: 1px solid var(--line2); border-radius: 8px; padding: 8px 16px; font-weight: 700; letter-spacing: 1px; font-size: 12px; color: var(--text); background: var(--panel2); transition: all .15s; }
+  .vote .btn:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 14px rgba(33,230,255,.35); }
+  .vote .btn.sel { border-color: var(--cyan); color: #06131a; background: var(--cyan); box-shadow: 0 0 20px rgba(33,230,255,.8); }
+
+  .shell { max-width: 1180px; margin: 0 auto; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.6); }
+
+  /* top bar */
+  .top { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; background: radial-gradient(1200px 300px at 20% -100%, rgba(255,46,77,.14), transparent), var(--panel); border-bottom: 1px solid var(--line); }
+  .logo { display: flex; align-items: center; gap: 18px; }
+  .logo img { height: 78px; width: auto; display: block; filter: drop-shadow(0 0 4px rgba(255,255,255,.4)) drop-shadow(0 0 22px rgba(255,46,77,.35)); }
+  .logo small { display: block; font-size: 9.5px; letter-spacing: 4.5px; color: var(--cyan); text-shadow: 0 0 10px rgba(33,230,255,.8); font-family: 'Chakra Petch', sans-serif; font-weight: 600; margin-top: 1px; }
+  .aztec-trim { height: 7px; background: repeating-linear-gradient(90deg, var(--magenta) 0 16px, var(--bg) 16px 32px); opacity: .8; }
+
+  .layout { display: flex; }
+
+  /* sidebar */
+  .side { width: 196px; flex-shrink: 0; background: #0d0d16; border-right: 1px solid var(--line); padding: 18px 12px; display: flex; flex-direction: column; min-height: 720px; }
+  .side .item { padding: 10px 12px; margin-bottom: 5px; border-radius: 7px; color: var(--dim); font-weight: 600; letter-spacing: 1.2px; font-size: 12px; cursor: pointer; transition: all .15s; background: none; border: none; text-align: left; width: 100%; font-family: inherit; }
+  .side .item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+  .side .item.active { color: var(--magenta); background: #1a1026; box-shadow: inset 2px 0 0 var(--magenta); text-shadow: 0 0 8px rgba(232,108,255,.9); font-weight: 700; }
+  .side .spacer { flex: 1; }
+  .side .muyrico { border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 10px; color: var(--dim); letter-spacing: 1px; text-align: center; }
+  .side .muyrico b { display: block; color: var(--text); font-size: 12px; letter-spacing: 2px; margin-bottom: 3px; }
+  .side .out { margin-top: 8px; text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 1px; padding: 7px; border-radius: 6px; cursor: pointer; background: none; border: none; width: 100%; font-family: inherit; }
+  .side .out:hover { color: var(--red); }
+
+  /* main */
+  .main { flex: 1; padding: 22px 26px 26px; min-width: 0; }
+  .page-h { font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 3px; font-size: 19px; color: var(--cyan); text-shadow: 0 0 16px rgba(33,230,255,.65); display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .page-h .tag { font-family: 'Chakra Petch', sans-serif; font-size: 10px; letter-spacing: 2px; color: var(--dim); text-shadow: none; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 20px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+  .stat { background: linear-gradient(160deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; }
+  .stat::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); opacity: .9; }
+  .stat .k { font-size: 9.5px; letter-spacing: 2px; color: var(--dim); font-weight: 600; }
+  .stat .v { font-size: 22px; font-weight: 700; margin-top: 5px; color: var(--accent); text-shadow: 0 0 12px var(--glow); letter-spacing: .5px; }
+  .stat .s { font-size: 10.5px; color: var(--dim); margin-top: 3px; }
+
+  .quick { display: flex; align-items: center; justify-content: space-between; gap: 14px; background: linear-gradient(120deg, #1c1508, #0c0c15); border: 1px solid var(--gold); border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; box-shadow: 0 0 22px rgba(237,170,49,.22); }
+  .quick .t { font-weight: 700; font-size: 14px; letter-spacing: 1px; color: #fff; }
+  .quick .t i { color: var(--gold); font-style: normal; text-shadow: 0 0 10px rgba(237,170,49,.9); }
+  .quick .d { font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .btn-neon { background: var(--cyan); color: #06131a; font-weight: 700; letter-spacing: 1.5px; font-size: 11px; padding: 9px 18px; border-radius: 7px; white-space: nowrap; box-shadow: 0 0 20px rgba(33,230,255,.75); cursor: pointer; border: none; font-family: inherit; }
+  .btn-neon:hover { background: #5cecff; }
+  .btn-red { background: var(--red); color: #1a0509; box-shadow: 0 0 20px rgba(255,46,77,.75); }
+  .btn-ghost { border: 1px solid var(--line2); color: var(--dim); font-weight: 700; letter-spacing: 1.5px; font-size: 11px; padding: 9px 18px; border-radius: 7px; white-space: nowrap; cursor: pointer; background: none; font-family: inherit; }
+  .btn-ghost:hover { color: var(--text); border-color: var(--dim); }
+
+  .table-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .table-panel .hd { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .table-panel .hd .ttl { font-weight: 700; letter-spacing: 1.5px; font-size: 12px; }
+  .table-panel .hd .link { color: var(--cyan); font-size: 11px; letter-spacing: 1px; cursor: pointer; text-shadow: 0 0 8px rgba(33,230,255,.6); background: none; border: none; font-family: inherit; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; font-size: 9px; letter-spacing: 2px; color: var(--dim); padding: 9px 16px; font-weight: 600; }
+  td { padding: 11px 16px; border-top: 1px solid var(--line); }
+  td .oid { color: var(--cyan); font-weight: 600; }
+  .badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; padding: 3px 10px; border-radius: 20px; }
+  .b-conf { background: #1c0f2b; color: var(--magenta); box-shadow: 0 0 10px rgba(232,108,255,.35); }
+  .b-prod { background: #0f2430; color: var(--cyan); box-shadow: 0 0 10px rgba(33,230,255,.3); }
+  .b-done { background: #0f2430; color: var(--green); }
+  .b-q { background: #241c0a; color: var(--gold); box-shadow: 0 0 10px rgba(237,170,49,.3); }
+  .rowlink { color: var(--cyan); font-size: 10px; letter-spacing: 1px; cursor: pointer; background: none; border: none; font-family: inherit; text-shadow: 0 0 8px rgba(33,230,255,.5); }
+  .rowlink:hover { color: #5cecff; }
+
+  .split2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .cal { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .cal .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .cal .hd b { letter-spacing: 1.5px; font-size: 12px; }
+  .cal .hd span { color: var(--dim); font-size: 10px; letter-spacing: 1px; }
+  .calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+  .calgrid .dow { font-size: 8.5px; color: var(--dim); letter-spacing: 1px; padding: 3px 0; }
+  .calgrid .day { font-size: 11px; padding: 5px 0; border-radius: 5px; color: var(--text); position: relative; cursor: pointer; }
+  .calgrid .day.blank { cursor: default; }
+  .calgrid .day.off { color: #3c3c55; cursor: not-allowed; }
+  .calgrid .day.pick { border: 1px solid var(--red); color: #fff; box-shadow: 0 0 10px rgba(255,46,77,.5); font-weight: 700; }
+  .calgrid .day.done { color: var(--green); }
+  .calgrid .day.today { border: 1px dashed var(--cyan); }
+  .calgrid .day.sel { background: var(--cyan); color: #06131a; box-shadow: 0 0 14px rgba(33,230,255,.8); font-weight: 800; }
+  .legend { margin-top: 10px; font-size: 9.5px; color: var(--dim); letter-spacing: .8px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+  .rec { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .rec .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 11.5px; }
+  .rec .row:last-child { border-bottom: none; }
+  .rec .dl { color: var(--cyan); font-size: 10.5px; letter-spacing: 1px; cursor: pointer; }
+
+  .divider { border: none; border-top: 1px dashed var(--line2); margin: 34px 0; }
+
+  /* PLACE ORDER */
+  .pkgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+  .pkg { background: linear-gradient(160deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 10px; padding: 16px; position: relative; transition: all .15s; cursor: pointer; }
+  .pkg:hover { border-color: var(--cyan); box-shadow: 0 0 22px rgba(33,230,255,.22); transform: translateY(-2px); }
+  .pkg.selected { border-color: var(--accent, var(--cyan)); box-shadow: 0 0 26px var(--glow, rgba(33,230,255,.4)); }
+  .pkg .tag { position: absolute; top: -8px; right: 12px; background: var(--red); color: #fff; font-size: 8.5px; letter-spacing: 1.5px; font-weight: 700; padding: 3px 9px; border-radius: 4px; box-shadow: 0 0 12px rgba(255,46,77,.7); }
+  .pkg .icon { width: 40px; height: 40px; border-radius: 8px; background: #191933; border: 1px solid var(--accent, var(--cyan)); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; box-shadow: 0 0 14px var(--glow, rgba(33,230,255,.35)); }
+  .pkg h4 { font-size: 13.5px; letter-spacing: .8px; color: #fff; margin-bottom: 4px; }
+  .pkg .desc { font-size: 10.5px; color: var(--dim); line-height: 1.45; margin-bottom: 10px; }
+  .pkg .price { font-family: 'Oswald', sans-serif; font-size: 20px; color: var(--accent, var(--cyan)); text-shadow: 0 0 12px var(--glow, rgba(33,230,255,.5)); letter-spacing: 1px; }
+  .pkg .opts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .chip { font-size: 9px; letter-spacing: .8px; border: 1px solid var(--line2); border-radius: 20px; padding: 3px 9px; color: var(--dim); }
+
+  .order-form { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .order-form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .field label { display: block; font-size: 9px; letter-spacing: 2px; color: var(--dim); font-weight: 600; margin-bottom: 6px; }
+  .field .box { background: #0d0d16; border: 1px solid var(--line2); border-radius: 7px; padding: 10px 12px; font-size: 12px; color: var(--text); }
+  .field .box.sel { border-color: var(--cyan); box-shadow: 0 0 12px rgba(33,230,255,.3); }
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .foot .tot { font-size: 12px; color: var(--dim); letter-spacing: 1px; }
+  .foot .tot b { font-family: 'Oswald', sans-serif; font-size: 22px; color: var(--cyan); text-shadow: 0 0 14px rgba(33,230,255,.6); margin-left: 8px; }
+
+  .deco { position: relative; }
+  .deco svg.leaf { position: absolute; right: -30px; top: 8px; opacity: .07; pointer-events: none; }
+
+  /* chips for history filter */
+  .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .fchip { border: 1px solid var(--line2); border-radius: 20px; padding: 6px 14px; font-size: 10px; letter-spacing: 1.2px; color: var(--dim); cursor: pointer; background: none; font-family: inherit; font-weight: 600; }
+  .fchip:hover { color: var(--text); }
+  .fchip.on { background: var(--magenta); border-color: var(--magenta); color: #1a051a; box-shadow: 0 0 14px rgba(232,108,255,.5); }
+
+  /* calendar page */
+  .cal-big { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .cal-big .calgrid .day { padding: 11px 0; font-size: 12.5px; }
+  .pickbar { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; background: #0f2430; border: 1px solid var(--cyan); border-radius: 8px; padding: 10px 14px; }
+  .pickbar .t { font-size: 12px; letter-spacing: 1px; color: var(--cyan); text-shadow: 0 0 8px rgba(33,230,255,.6); font-weight: 700; }
+
+  /* toast */
+  #toast { position: fixed; bottom: 26px; right: 26px; background: var(--panel2); border: 1px solid var(--cyan); color: var(--text); padding: 12px 18px; border-radius: 8px; font-size: 12px; letter-spacing: .6px; box-shadow: 0 0 24px rgba(33,230,255,.4); opacity: 0; transform: translateY(10px); transition: all .25s; pointer-events: none; z-index: 99; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <div style="flex:1">
+    <div class="h">NEON RUINS — <b>v6 · interactive</b></div>
+    <p>The sidebar now works — click through <b>Mission Control, Place Order, Calendar, Order History, Receipts</b>. Try: clicking a calendar day, filtering order history, picking a package, or the Order Again button. Click a vote below when it feels right.</p>
+    <div class="vote" style="margin-top:12px">
+      <div class="btn" data-choice="love" onclick="toggleSelect(this)">LOVE IT — KEEP GOING</div>
+      <div class="btn" data-choice="tweak" onclick="toggleSelect(this)">CLOSE — NEEDS TWEAKS</div>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="top">
+    <div>
+      <div class="logo">
+        <img src="assets/tlc-letters.png" alt="THE LOST CITY">
+        <div><small>SUPPLY OPS PORTAL · POWERED BY MUY RICO</small></div>
+      </div>
+    </div>
+  </div>
+  <div class="aztec-trim"></div>
+  <div class="layout">
+    <div class="side">
+      <button class="item active" data-view="mission" onclick="switchView('mission')">◈ MISSION CONTROL</button>
+      <button class="item" data-view="order" onclick="switchView('order')">◈ PLACE ORDER</button>
+      <button class="item" data-view="calendar" onclick="switchView('calendar')">◈ CALENDAR</button>
+      <button class="item" data-view="history" onclick="switchView('history')">◈ ORDER HISTORY</button>
+      <button class="item" data-view="receipts" onclick="switchView('receipts')">◈ RECEIPTS</button>
+      <div class="spacer"></div>
+      <div class="muyrico"><b>MUY RICO</b>BAKERY SUPPLY · HOLLAND, MI</div>
+      <button class="out" onclick="toast('Signed out — this is a design mockup')">▸ SIGN OUT</button>
+    </div>
+    <div class="main deco">
+      <svg class="leaf" width="150" height="150" viewBox="0 0 200 200" fill="none" stroke="#e86cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M100,180 C100,140 100,100 100,40"/><path d="M100,180 C40,180 10,120 10,70 C10,20 60,10 100,40 C140,10 190,20 190,70 C190,120 160,180 100,180 Z"/><path d="M100,70 C70,60 40,55 20,50"/><path d="M100,100 C60,95 30,95 15,90"/><path d="M100,130 C60,130 30,135 20,140"/><path d="M100,70 C130,60 160,55 180,50"/><path d="M100,100 C140,95 170,95 185,90"/><path d="M100,130 C140,130 170,135 180,140"/><path d="M20,50 C30,65 50,70 70,70"/><path d="M15,90 C30,105 50,110 70,110"/><path d="M20,140 C40,145 60,145 70,140"/><path d="M180,50 C170,65 150,70 130,70"/><path d="M185,90 C170,105 150,110 130,110"/><path d="M180,140 C160,145 140,145 130,140"/>
+      </svg>
+
+      <!-- ============ MISSION CONTROL ============ -->
+      <section id="view-mission">
+        <div class="page-h">Mission Control <span class="tag">SAT · AUG 15 · 2026</span></div>
+        <div class="sub">WELCOME BACK, CPL. GARCIA — 3 ACTIVE MISSIONS · NEXT PICKUP IN 6 DAYS</div>
+
+        <div class="stats">
+          <div class="stat" style="--accent:#ff2e4d; --glow:rgba(255,46,77,.55)"><div class="k">NEXT PICKUP</div><div class="v">AUG 21</div><div class="s">Laser Tag Party Pack ×2 · 4:00 PM</div></div>
+          <div class="stat" style="--accent:#EDAA31; --glow:rgba(237,170,49,.55)"><div class="k">OPEN ORDERS</div><div class="v">3</div><div class="s">1 in production · 2 confirmed</div></div>
+          <div class="stat" style="--accent:#21e6ff; --glow:rgba(33,230,255,.55)"><div class="k">YTD SPEND</div><div class="v">$1,240</div><div class="s">12 missions · avg $103</div></div>
+        </div>
+
+        <div class="quick">
+          <div>
+            <div class="t">QUICK REORDER — <i>LASER TAG PARTY PACK</i></div>
+            <div class="d">$86 · 2 doz themed cupcakes + quarter sheet · last ordered AUG 8</div>
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn-ghost" onclick="switchView('history')">VIEW</button><button class="btn-neon" onclick="reorderLaser()">ORDER AGAIN</button></div>
+        </div>
+
+        <div class="split2">
+          <div class="table-panel">
+            <div class="hd"><div class="ttl">ACTIVE MISSIONS</div><button class="link" onclick="switchView('history')">VIEW ALL ▸</button></div>
+            <table>
+              <tr><th>ORDER</th><th>PACKAGE</th><th>PICKUP</th><th>STATUS</th><th>TOTAL</th></tr>
+              <tr><td class="oid">#LC-1042</td><td>Laser Tag Party Pack ×2</td><td>Aug 21</td><td><span class="badge b-conf">CONFIRMED</span></td><td>$172</td></tr>
+              <tr><td class="oid">#LC-1043</td><td>GI Joe Sheet Cake</td><td>Sep 5</td><td><span class="badge b-prod">IN PRODUCTION</span></td><td>$64</td></tr>
+              <tr><td class="oid">#LC-1044</td><td>Mini Golf Neon Cupcakes</td><td>Sep 12</td><td><span class="badge b-q">AWAITING PICKUP SLOT</span></td><td>$48</td></tr>
+              <tr><td class="oid">#LC-1031</td><td>Tiki Temple Cupcakes</td><td>Aug 8</td><td><span class="badge b-done">DELIVERED</span></td><td>$96</td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="cal">
+              <div class="hd"><b>PICKUP CALENDAR</b><span>AUG 2026</span></div>
+              <div class="calgrid">
+                <div class="dow">S</div><div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+                <div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day">1</div>
+                <div class="day off">2</div><div class="day">3</div><div class="day">4</div><div class="day">5</div><div class="day">6</div><div class="day">7</div><div class="day done">8</div>
+                <div class="day off">9</div><div class="day">10</div><div class="day">11</div><div class="day">12</div><div class="day">13</div><div class="day">14</div><div class="day today">15</div>
+                <div class="day off">16</div><div class="day">17</div><div class="day">18</div><div class="day">19</div><div class="day">20</div><div class="day pick">21</div><div class="day">22</div>
+                <div class="day off">23</div><div class="day">24</div><div class="day">25</div><div class="day">26</div><div class="day">27</div><div class="day">28</div><div class="day">29</div>
+                <div class="day off">30</div><div class="day">31</div>
+              </div>
+              <div class="legend"><span><i style="background:#ff2e4d;box-shadow:0 0 6px #ff2e4d"></i>PICKUP</span><span><i style="background:#3dffa2"></i>DELIVERED</span><span><i style="background:#21e6ff"></i>TODAY</span></div>
+            </div>
+            <div class="rec" style="margin-top:14px">
+              <div class="hd" style="display:flex;justify-content:space-between;margin-bottom:4px"><b style="letter-spacing:1.5px;font-size:12px">LATEST RECEIPTS</b><button class="dl" style="background:none;border:none;font-family:inherit" onclick="switchView('receipts')">ALL ▸</button></div>
+              <div class="row"><span>#LC-1042 · Laser Tag Party Pack</span><span>$172</span></div>
+              <div class="row"><span>#LC-1038 · GI Joe Sheet Cake</span><span>$64</span></div>
+              <div class="row"><span>#LC-1031 · Tiki Temple Cupcakes</span><span>$96</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PLACE ORDER ============ -->
+      <section id="view-order" hidden>
+        <div class="page-h">Place Order <span class="tag">NEW MISSION</span></div>
+        <div class="sub">PICK A PACKAGE · CHOOSE OPTIONS · SET PICKUP DATE (MIN 7 DAYS OUT) · PAY WITH CARD</div>
+
+        <div class="pkgs">
+          <div class="pkg" data-pkg="Laser Tag Party Pack" data-price="86" style="--accent:#ff2e4d; --glow:rgba(255,46,77,.5)" onclick="pickPkg(this)">
+            <div class="tag">MOST ORDERED</div>
+            <div class="icon"><span style="font-size:17px">◉</span></div>
+            <h4>LASER TAG PARTY PACK</h4>
+            <div class="desc">2 dozen themed cupcakes + quarter sheet cake. Laser-tag toppers, red-neon buttercream blast.</div>
+            <div class="price">$86</div>
+            <div class="opts"><span class="chip">FLAVOR</span><span class="chip">SIZE 2 DOZ</span><span class="chip">TOPPER SET</span></div>
+          </div>
+          <div class="pkg" data-pkg="Mini Golf Neon Cupcakes" data-price="48" style="--accent:#21e6ff; --glow:rgba(33,230,255,.5)" onclick="pickPkg(this)">
+            <div class="icon"><span style="font-size:17px">✜</span></div>
+            <h4>MINI GOLF NEON CUPCAKES</h4>
+            <div class="desc">1 dozen cupcakes with neon-green golf course + monstera toppers. Tiki putter picks.</div>
+            <div class="price">$48</div>
+            <div class="opts"><span class="chip">FLAVOR</span><span class="chip">SIZE 1 DOZ</span><span class="chip">NEON COLORS</span></div>
+          </div>
+          <div class="pkg" data-pkg="Tiki Temple Sheet Cake" data-price="110" style="--accent:#e86cff; --glow:rgba(232,108,255,.5)" onclick="pickPkg(this)">
+            <div class="icon"><span style="font-size:17px">✇</span></div>
+            <h4>TIKI TEMPLE SHEET CAKE</h4>
+            <div class="desc">Full sheet with carved tiki mask + Aztec step pattern in fondant. Feeds 40.</div>
+            <div class="price">$110</div>
+            <div class="opts"><span class="chip">FLAVOR</span><span class="chip">FULL SHEET</span><span class="chip">CUSTOM TEXT</span></div>
+          </div>
+        </div>
+
+        <div class="order-form">
+          <div class="row">
+            <div class="field"><label>PICKUP DATE — MIN 7 DAYS</label><div class="box sel" id="pickupDateBox">FRI · AUG 28 · 4:00 PM ▾</div></div>
+            <div class="field"><label>PICKUP BY</label><div class="box">CPL. GARCIA · ARCADE OPS</div></div>
+          </div>
+          <div class="foot">
+            <div class="tot" id="orderTotal">SELECT A PACKAGE <b>$0.00</b></div>
+            <div style="display:flex;gap:10px"><button class="btn-ghost" onclick="toast('Draft saved (mockup)')">SAVE DRAFT</button><button class="btn-neon btn-red" onclick="submitOrder()">SUBMIT MISSION ▸</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CALENDAR ============ -->
+      <section id="view-calendar" hidden>
+        <div class="page-h">Calendar <span class="tag">AUG 2026</span></div>
+        <div class="sub">PICKUP DATES GLOW RED · CLICK AN OPEN DAY TO START AN ORDER FOR THAT DATE</div>
+
+        <div class="cal-big">
+          <div class="hd"><b>AUGUST 2026</b><span>7-DAY LEAD TIME · CLOSED SUNDAYS</span></div>
+          <div class="calgrid">
+            <div class="dow">S</div><div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div><div class="dow">F</div><div class="dow">S</div>
+            <div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day blank"></div><div class="day">1</div>
+            <div class="day off">2</div><div class="day">3</div><div class="day">4</div><div class="day">5</div><div class="day">6</div><div class="day">7</div><div class="day done">8</div>
+            <div class="day off">9</div><div class="day">10</div><div class="day">11</div><div class="day">12</div><div class="day">13</div><div class="day">14</div><div class="day today">15</div>
+            <div class="day off">16</div><div class="day">17</div><div class="day">18</div><div class="day">19</div><div class="day">20</div><div class="day pick">21</div><div class="day">22</div>
+            <div class="day off">23</div><div class="day open" data-d="24" onclick="pickDay(this)">24</div><div class="day open" data-d="25" onclick="pickDay(this)">25</div><div class="day open" data-d="26" onclick="pickDay(this)">26</div><div class="day open" data-d="27" onclick="pickDay(this)">27</div><div class="day open" data-d="28" onclick="pickDay(this)">28</div><div class="day open" data-d="29" onclick="pickDay(this)">29</div>
+            <div class="day off">30</div><div class="day open" data-d="31" onclick="pickDay(this)">31</div>
+          </div>
+          <div class="legend"><span><i style="background:#ff2e4d;box-shadow:0 0 6px #ff2e4d"></i>PICKUP SCHEDULED</span><span><i style="background:#3dffa2"></i>DELIVERED</span><span><i style="background:#21e6ff"></i>TODAY</span><span><i style="background:#3c3c55"></i>CLOSED</span><span><i style="background:#21e6ff;opacity:.4"></i>CLICK TO PICK</span></div>
+          <div class="pickbar" id="pickbar" style="display:none">
+            <div class="t" id="pickbarText">PICKED: MON · AUG 24</div>
+            <button class="btn-neon" onclick="gotoOrder()">ORDER FOR THIS DATE ▸</button>
+          </div>
+        </div>
+
+        <div class="split2" style="margin-top:14px">
+          <div class="table-panel">
+            <div class="hd"><div class="ttl">UPCOMING PICKUPS</div></div>
+            <table>
+              <tr><th>DATE</th><th>PACKAGE</th><th>ORDER</th></tr>
+              <tr><td>FRI · AUG 21 · 4 PM</td><td>Laser Tag Party Pack ×2</td><td class="oid">#LC-1042</td></tr>
+              <tr><td>SAT · SEP 5 · 2 PM</td><td>GI Joe Sheet Cake</td><td class="oid">#LC-1043</td></tr>
+              <tr><td>SAT · SEP 12 · 4 PM</td><td>Mini Golf Neon Cupcakes</td><td class="oid">#LC-1044</td></tr>
+            </table>
+          </div>
+          <div class="rec">
+            <div class="hd" style="display:flex;justify-content:space-between;margin-bottom:4px"><b style="letter-spacing:1.5px;font-size:12px">DELIVERY NOTES</b></div>
+            <div class="row"><span style="color:var(--dim);font-size:10.5px;line-height:1.5">Pickups at Muy Rico, Holland MI — or arcade drop-off on orders over $100. Text 24h before with final guest counts for event packs.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ORDER HISTORY ============ -->
+      <section id="view-history" hidden>
+        <div class="page-h">Order History <span class="tag">12 MISSIONS LOGGED</span></div>
+        <div class="sub">FILTER BY STATUS · REORDER ANY PAST PACKAGE IN ONE CLICK</div>
+
+        <div class="filters">
+          <button class="fchip on" data-f="all" onclick="filterHist(this)">ALL</button>
+          <button class="fchip" data-f="CONFIRMED" onclick="filterHist(this)">CONFIRMED</button>
+          <button class="fchip" data-f="IN PRODUCTION" onclick="filterHist(this)">IN PRODUCTION</button>
+          <button class="fchip" data-f="AWAITING" onclick="filterHist(this)">AWAITING</button>
+          <button class="fchip" data-f="DELIVERED" onclick="filterHist(this)">DELIVERED</button>
+        </div>
+
+        <div class="table-panel">
+          <table id="histTable">
+            <tr><th>ORDER</th><th>PACKAGE</th><th>ORDERED</th><th>PICKUP</th><th>STATUS</th><th>TOTAL</th><th></th></tr>
+            <tr data-st="CONFIRMED"><td class="oid">#LC-1042</td><td>Laser Tag Party Pack ×2</td><td>Aug 12</td><td>Aug 21</td><td><span class="badge b-conf">CONFIRMED</span></td><td>$172</td><td><button class="rowlink" onclick="toast('Reschedule request sent (mockup)')">RESCHEDULE</button></td></tr>
+            <tr data-st="IN PRODUCTION"><td class="oid">#LC-1043</td><td>GI Joe Sheet Cake</td><td>Aug 3</td><td>Sep 5</td><td><span class="badge b-prod">IN PRODUCTION</span></td><td>$64</td><td><button class="rowlink" onclick="toast('Order details (mockup)')">DETAILS</button></td></tr>
+            <tr data-st="AWAITING"><td class="oid">#LC-1044</td><td>Mini Golf Neon Cupcakes</td><td>Aug 10</td><td>Sep 12</td><td><span class="badge b-q">AWAITING PICKUP SLOT</span></td><td>$48</td><td><button class="rowlink" onclick="toast('Pickup slot requested (mockup)')">PICK SLOT</button></td></tr>
+            <tr data-st="DELIVERED"><td class="oid">#LC-1031</td><td>Tiki Temple Cupcakes</td><td>Jul 28</td><td>Aug 8</td><td><span class="badge b-done">DELIVERED</span></td><td>$96</td><td><button class="rowlink" onclick="reorder('Tiki Temple Cupcakes',96)">REORDER</button></td></tr>
+            <tr data-st="DELIVERED"><td class="oid">#LC-1035</td><td>Mini Golf Neon Cupcakes ×2</td><td>Jul 10</td><td>Jul 18</td><td><span class="badge b-done">DELIVERED</span></td><td>$96</td><td><button class="rowlink" onclick="reorder('Mini Golf Neon Cupcakes',48)">REORDER</button></td></tr>
+            <tr data-st="DELIVERED"><td class="oid">#LC-1028</td><td>GI Joe Sheet Cake</td><td>Jun 18</td><td>Jun 27</td><td><span class="badge b-done">DELIVERED</span></td><td>$64</td><td><button class="rowlink" onclick="reorder('GI Joe Sheet Cake',64)">REORDER</button></td></tr>
+            <tr data-st="DELIVERED"><td class="oid">#LC-1022</td><td>Laser Tag Party Pack</td><td>May 28</td><td>Jun 6</td><td><span class="badge b-done">DELIVERED</span></td><td>$86</td><td><button class="rowlink" onclick="reorderLaser()">REORDER</button></td></tr>
+            <tr data-st="DELIVERED"><td class="oid">#LC-1017</td><td>Tiki Temple Sheet Cake</td><td>May 5</td><td>May 15</td><td><span class="badge b-done">DELIVERED</span></td><td>$110</td><td><button class="rowlink" onclick="reorder('Tiki Temple Sheet Cake',110)">REORDER</button></td></tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============ RECEIPTS ============ -->
+      <section id="view-receipts" hidden>
+        <div class="page-h">Receipts <span class="tag">FOR YOUR RECORDS</span></div>
+        <div class="sub">EVERY PAID ORDER GETS A RECEIPT — DOWNLOAD PDF OR VIEW DETAILS</div>
+
+        <div class="stats" style="grid-template-columns:repeat(2,1fr);max-width:560px">
+          <div class="stat" style="--accent:#EDAA31; --glow:rgba(237,170,49,.55)"><div class="k">YTD SPEND</div><div class="v">$1,240</div><div class="s">12 missions · 2026</div></div>
+          <div class="stat" style="--accent:#21e6ff; --glow:rgba(33,230,255,.55)"><div class="k">LAST 30 DAYS</div><div class="v">$332</div><div class="s">3 receipts issued</div></div>
+        </div>
+
+        <div class="table-panel">
+          <table>
+            <tr><th>RECEIPT</th><th>ORDER</th><th>DATE</th><th>METHOD</th><th>TOTAL</th><th></th></tr>
+            <tr><td class="oid">#R-1042</td><td>Laser Tag Party Pack ×2</td><td>Aug 12, 2026</td><td>CARD •••• 4242</td><td>$172.00</td><td><button class="rowlink" onclick="toast('Receipt download (mockup)')">DOWNLOAD</button></td></tr>
+            <tr><td class="oid">#R-1043</td><td>GI Joe Sheet Cake</td><td>Aug 3, 2026</td><td>CARD •••• 4242</td><td>$64.00</td><td><button class="rowlink" onclick="toast('Receipt download (mockup)')">DOWNLOAD</button></td></tr>
+            <tr><td class="oid">#R-1044</td><td>Mini Golf Neon Cupcakes</td><td>Aug 10, 2026</td><td>CARD •••• 4242</td><td>$48.00</td><td><button class="rowlink" onclick="toast('Receipt download (mockup)')">DOWNLOAD</button></td></tr>
+            <tr><td class="oid">#R-1031</td><td>Tiki Temple Cupcakes</td><td>Jul 28, 2026</td><td>CARD •••• 4242</td><td>$96.00</td><td><button class="rowlink" onclick="toast('Receipt download (mockup)')">DOWNLOAD</button></td></tr>
+            <tr><td class="oid">#R-1035</td><td>Mini Golf Neon Cupcakes ×2</td><td>Jul 10, 2026</td><td>PAYPAL</td><td>$96.00</td><td><button class="rowlink" onclick="toast('Receipt download (mockup)')">DOWNLOAD</button></td></tr>
+            <tr><td class="oid">#R-1028</td><td>GI Joe Sheet Cake</td><td>Jun 18, 2026</td><td>CARD •••• 4242</td><td>$64.00</td><td><button class="rowlink" onclick="toast('Receipt download (mockup)')">DOWNLOAD</button></td></tr>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  function toggleSelect(el) {
+    document.querySelectorAll('.vote .btn').forEach(b => b.classList.remove('sel'));
+    el.classList.add('sel');
+  }
+
+  function switchView(name) {
+    ['mission','order','calendar','history','receipts'].forEach(v => {
+      document.getElementById('view-' + v).hidden = (v !== name);
+    });
+    document.querySelectorAll('.side .item').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === name);
+    });
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function pickPkg(el) {
+    const sel = document.querySelectorAll('.pkg.selected');
+    if (el.classList.contains('selected')) { el.classList.remove('selected'); }
+    else { document.querySelectorAll('.pkg').forEach(p => p.classList.remove('selected')); el.classList.add('selected'); }
+    updateTotal();
+  }
+
+  function updateTotal() {
+    const sel = document.querySelector('.pkg.selected');
+    const tot = document.getElementById('orderTotal');
+    if (sel) {
+      tot.innerHTML = sel.dataset.pkg.toUpperCase() + ' <b>$' + sel.dataset.price + '.00</b>';
+    } else {
+      tot.innerHTML = 'SELECT A PACKAGE <b>$0.00</b>';
+    }
+  }
+
+  function reorder(name, price) {
+    document.querySelectorAll('.pkg').forEach(p => {
+      p.classList.toggle('selected', p.dataset.pkg === name);
+    });
+    updateTotal();
+    switchView('order');
+    toast(name + ' loaded — adjust options & date');
+  }
+
+  function reorderLaser() { reorder('Laser Tag Party Pack', 86); }
+
+  function submitOrder() {
+    const sel = document.querySelector('.pkg.selected');
+    if (!sel) { toast('Pick a package first'); return; }
+    const d = document.getElementById('pickupDateBox').textContent.trim().replace(' ▾','');
+    toast('Mission submitted: ' + sel.dataset.pkg + ' · pickup ' + d + ' (mockup)');
+  }
+
+  function pickDay(el) {
+    document.querySelectorAll('#view-calendar .day.sel').forEach(d => d.classList.remove('sel'));
+    el.classList.add('sel');
+    const bar = document.getElementById('pickbar');
+    bar.style.display = 'flex';
+    document.getElementById('pickbarText').textContent = 'PICKED: AUG ' + el.dataset.d + ' · 4:00 PM SLOT';
+  }
+
+  function gotoOrder() {
+    const d = document.querySelector('#view-calendar .day.sel');
+    const day = d ? d.dataset.d : '28';
+    document.getElementById('pickupDateBox').textContent = 'AUG ' + day + ' · 4:00 PM ▾';
+    switchView('order');
+  }
+
+  function filterHist(el) {
+    document.querySelectorAll('.fchip').forEach(c => c.classList.remove('on'));
+    el.classList.add('on');
+    const f = el.dataset.f;
+    document.querySelectorAll('#histTable tr[data-st]').forEach(r => {
+      r.style.display = (f === 'all' || r.dataset.st === f) ? '' : 'none';
+    });
+  }
+</script>
+</body>
+</html>
