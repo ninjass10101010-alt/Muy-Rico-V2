@@ -9,12 +9,12 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Solicitud de Cotización — Muy Rico | Holland, MI" />
   <meta property="og:description" content="Solicita una cotización personalizada para tu pastel." />
-  <meta property="og:image" content="hero-conchas.webp" />
+  <meta property="og:image" content="hero-bolillos.webp" />
 
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Solicitud de Cotización — Muy Rico | Holland, MI" />
   <meta property="twitter:description" content="Solicita una cotización personalizada para tu pastel." />
-  <meta property="twitter:image" content="hero-conchas.webp" />
+  <meta property="twitter:image" content="hero-bolillos.webp" />
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
 
@@ -199,6 +199,70 @@
     .item-label { font-weight: 600; color: var(--color-text); }
     .item-card-body { display: flex; flex-direction: column; gap: 12px; }
     .remove-item-btn:hover { color: var(--clay) !important; }
+
+    /* ── Inspiration gallery picker ── */
+    #inspiration-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+    }
+    .inspiration-card {
+      position: relative;
+      flex: 1 1 140px;
+      max-width: 170px;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.6rem;
+      background: var(--paper);
+      border: 2px solid transparent;
+      border-radius: var(--r-widget, 14px);
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .inspiration-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(30, 70, 54, 0.08);
+    }
+    .inspiration-card .gallery-card-img { border-radius: calc(var(--r-media, 12px) - 2px); }
+    .inspiration-card.selected {
+      border-color: var(--clay);
+      box-shadow: 0 0 0 3px rgba(188, 85, 72, 0.15);
+    }
+    .inspiration-card-title {
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--forest);
+      line-height: 1.3;
+      padding: 0 0.15rem 0.2rem;
+    }
+    .inspiration-card.selected .inspiration-card-title { color: var(--clay); }
+    .inspiration-card .inspiration-check {
+      position: absolute;
+      top: 0.7rem;
+      right: 0.7rem;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: var(--clay);
+      color: var(--cream);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+    .inspiration-card.selected .inspiration-check { display: flex; }
+    #inspiration-count {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--forest-soft);
+      margin: 0.85rem 0 0;
+    }
   </style>
 </head>
 <body>
@@ -438,6 +502,20 @@
               <img id="preview-img" src="" alt="Preview" style="max-width: 100%; max-height: 200px; border-radius: 12px; border: 1px solid var(--hairline);">
               <p id="preview-filename" class="form-help" style="margin-top: 4px;"></p>
             </div>
+          </div>
+
+          <!-- Inspiration gallery -->
+          <div class="form-section" id="inspiration-section">
+            <h2 class="form-section-title lang-fade" data-es="Inspiración" data-en="Inspiration">Inspiration</h2>
+            <p class="form-help lang-fade"
+               data-es="Explora nuestros trabajos anteriores para inspirarte. Estas fotos son inspiración para tu pedido personalizado — no son artículos que puedas comprar directamente."
+               data-en="Browse our past work for ideas. These photos are inspiration for your custom order — they are not items you can purchase directly.">
+               Browse our past work for ideas. These photos are inspiration for your custom order — they are not items you can purchase directly.
+            </p>
+            <div id="inspiration-grid">
+              <p class="form-help lang-fade" style="margin-bottom: 0;" data-es="Cargando galería…" data-en="Loading gallery…">Loading gallery…</p>
+            </div>
+            <p id="inspiration-count">0 selected</p>
           </div>
 
           <!-- Comments & budget -->
@@ -839,12 +917,14 @@
   function initializeQuoteForm() {
     const params = new URLSearchParams(window.location.search);
     const type = params.get('type') || 'cake';
+    const inspirationId = params.get('inspiration');
     const container = document.getElementById('items-container');
     const card = createItemCard(type);
     container.appendChild(card);
     updateAddButtonVisibility();
     initCustomQtyToggles();
     applyLangToDOM(currentLang);
+    loadInspirationGallery(inspirationId);
   }
 
   // ─── Form submission ────────────────────────────────────────────────────
@@ -918,6 +998,7 @@
           desired_date: document.getElementById('desired_date').value || null,
           budget: document.getElementById('budget').value.trim() || null,
           items,
+          inspiration: selectedInspiration,
         }),
       });
       const data = await res.json();
@@ -935,6 +1016,123 @@
       submitBtn.textContent = currentLang === 'es' ? 'Enviar Solicitud' : 'Submit Quote Request';
     }
   });
+
+  // ─── Inspiration gallery picker ─────────────────────────────────────────
+  let selectedInspiration = [];
+
+  function updateInspirationCount() {
+    const el = document.getElementById('inspiration-count');
+    if (!el) return;
+    const n = selectedInspiration.length;
+    el.textContent = currentLang === 'es'
+      ? `${n} seleccionada${n === 1 ? '' : 's'}`
+      : `${n} selected`;
+  }
+
+  function toggleInspiration(ph, card) {
+    const idx = selectedInspiration.findIndex(s => s.id === ph.id);
+    if (idx >= 0) {
+      selectedInspiration.splice(idx, 1);
+      card.classList.remove('selected');
+      card.setAttribute('aria-pressed', 'false');
+    } else {
+      selectedInspiration.push({
+        id: ph.id,
+        product_id: ph.product_id,
+        title: (currentLang === 'es' && ph.title_es) ? ph.title_es : (ph.title || ''),
+        image_url: ph.image_url,
+      });
+      card.classList.add('selected');
+      card.setAttribute('aria-pressed', 'true');
+    }
+    updateInspirationCount();
+  }
+
+  function renderInspirationGrid(photos) {
+    const grid = document.getElementById('inspiration-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    if (!photos.length) {
+      const empty = document.createElement('p');
+      empty.className = 'gallery-empty lang-fade';
+      empty.setAttribute('data-es', 'La galería llegará pronto.');
+      empty.setAttribute('data-en', 'The gallery is coming soon.');
+      empty.textContent = 'The gallery is coming soon.';
+      grid.appendChild(empty);
+      applyLangToDOM(currentLang);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    photos.forEach(ph => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'inspiration-card';
+      card.dataset.photoId = String(ph.id);
+      card.setAttribute('aria-pressed', 'false');
+      const img = document.createElement('img');
+      img.className = 'gallery-card-img';
+      img.src = ph.image_url;
+      img.alt = ph.title_es || ph.title || 'Muy Rico';
+      img.loading = 'lazy';
+      const title = document.createElement('span');
+      title.className = 'inspiration-card-title lang-fade';
+      title.setAttribute('data-es', ph.title_es || ph.title || '');
+      title.setAttribute('data-en', ph.title || '');
+      title.textContent = ph.title || '';
+      const check = document.createElement('span');
+      check.className = 'inspiration-check';
+      check.textContent = '✓';
+      card.appendChild(img);
+      card.appendChild(title);
+      card.appendChild(check);
+      card.addEventListener('click', () => toggleInspiration(ph, card));
+      frag.appendChild(card);
+    });
+    grid.appendChild(frag);
+    applyLangToDOM(currentLang);
+  }
+
+  async function loadInspirationGallery(preselectId) {
+    const grid = document.getElementById('inspiration-grid');
+    updateInspirationCount();
+    try {
+      const res = await fetch('/api/gallery');
+      if (!res.ok) throw new Error('gallery fetch failed');
+      const data = await res.json();
+      const photos = data.photos || [];
+      renderInspirationGrid(photos);
+      if (preselectId && grid) {
+        const match = photos.find(ph => String(ph.id) === preselectId);
+        if (match) {
+          const card = Array.from(grid.querySelectorAll('.inspiration-card'))
+            .find(c => c.dataset.photoId === String(match.id));
+          if (card) {
+            toggleInspiration(match, card);
+            const section = document.getElementById('inspiration-section');
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(err);
+      if (grid) {
+        grid.innerHTML = '';
+        const fail = document.createElement('p');
+        fail.className = 'gallery-empty lang-fade';
+        fail.setAttribute('data-es', 'No se pudo cargar la galería.');
+        fail.setAttribute('data-en', 'Could not load the gallery.');
+        fail.textContent = 'Could not load the gallery.';
+        grid.appendChild(fail);
+        applyLangToDOM(currentLang);
+      }
+    }
+  }
+
+  const _setLang = setLang;
+  setLang = function (lang) {
+    _setLang(lang);
+    updateInspirationCount();
+  };
 
   // Initialize form on DOM ready
   document.addEventListener('DOMContentLoaded', () => {

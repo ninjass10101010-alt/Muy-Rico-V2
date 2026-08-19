@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Galería — Muy Rico | Holland, MI</title>
-  <meta name="description" content="Browse past creations from Muy Rico. Love a design? Request it on your next order." />
+  <meta name="description" content="Browse the Muy Rico portfolio of past creations for design inspiration, then request a quote for your custom cake." />
 
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Galería — Muy Rico | Holland, MI" />
-  <meta property="og:description" content="Inspiration from past creations. Love a design? Request it on your order." />
-  <meta property="og:image" content="hero-conchas.webp" />
+  <meta property="og:description" content="Inspiration from our portfolio of past creations. Request a quote for your custom cake." />
+  <meta property="og:image" content="hero-bolillos.webp" />
 
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Galería — Muy Rico | Holland, MI" />
-  <meta property="twitter:description" content="Inspiration from past creations. Love a design? Request it on your order." />
-  <meta property="twitter:image" content="hero-conchas.webp" />
+  <meta property="twitter:description" content="Inspiration from our portfolio of past creations. Request a quote for your custom cake." />
+  <meta property="twitter:image" content="hero-bolillos.webp" />
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
 
@@ -95,10 +95,11 @@
             <span class="es-italic lang-fade" data-es="La Galería" data-en="The Gallery">The Gallery</span>
             <span class="title-sibling lang-fade" data-es="The Gallery" data-en="La Galería">La Galería</span>
           </h1>
+
           <p class="section-intro gallery-hero-desc lang-fade"
-             data-es="Inspiración de creaciones pasadas. ¿Te gusta un diseño? Pídelo en tu pedido."
-             data-en="Inspiration from past creations. Love a design? Request it on your order.">
-            Inspiración de creaciones pasadas. ¿Te gusta un diseño? Pídelo en tu pedido.
+             data-es="Nuestro portafolio de creaciones pasadas. Encuentra inspiración y solicita una cotización para tu pastel personalizado."
+             data-en="Our portfolio of past creations. Find inspiration and request a quote for your custom cake.">
+            Nuestro portafolio de creaciones pasadas. Encuentra inspiración y solicita una cotización para tu pastel personalizado.
           </p>
         </div>
         <div id="gallery-root" class="gallery-albums" aria-live="polite"></div>
@@ -254,14 +255,14 @@
             ${g.photos.map(ph => {
               const title = ph.title;
               const titleEs = ph.title_es || ph.title;
-              const href = `order.html?product=${encodeURIComponent(ph.product_id)}&design=${encodeURIComponent(ph.title)}#tile-${encodeURIComponent(ph.product_id)}`;
+              const href = `quote.html?inspiration=${encodeURIComponent(ph.id)}`;
               return `
                 <article class="gallery-card">
                   <img class="gallery-card-img" src="${escapeHtml(ph.image_url)}" alt="${escapeHtml(title)}" loading="lazy" />
                   <div class="gallery-card-body">
                     <h3 class="gallery-card-title lang-fade" data-es="${escapeHtml(titleEs)}" data-en="${escapeHtml(title)}">${escapeHtml(title)}</h3>
                     <a class="gallery-request-btn lang-fade" href="${href}"
-                       data-es="Pedir este diseño" data-en="Request this design">Request this design</a>
+                       data-es="Solicitar cotización" data-en="Request a quote">Request a quote</a>
                   </div>
                 </article>`;
             }).join('')}

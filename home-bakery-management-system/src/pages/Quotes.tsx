@@ -250,6 +250,30 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               ))}
             </div>
 
+            {/* Inspiration */}
+            {selected.inspiration && selected.inspiration.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-cocoa-muted">Inspiration</h3>
+                <div className="flex flex-wrap gap-2">
+                  {selected.inspiration.map((insp, idx) => (
+                    <div key={idx} className="flex items-center gap-2 rounded-xl bg-cream-deep/50 p-2">
+                      {insp.image_url && (
+                        <img
+                          src={insp.image_url}
+                          alt={insp.title || "Inspiration"}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                          className="h-10 w-10 rounded-lg border border-sand-200 object-cover"
+                        />
+                      )}
+                      <span className="text-sm font-medium text-cocoa">{insp.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Comments */}
             {selected.comments && (
               <div className="rounded-xl bg-coral-light/20 p-3 text-sm italic text-cocoa">
