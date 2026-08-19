@@ -298,37 +298,44 @@
 
   <main id="quote-page">
 
-    <!-- Hero -->
-    <section class="hero quote-hero">
-      <div class="hero-overlay">
-        <nav class="desktop-nav" id="desktop-nav">
-          <a href="index.html" class="logo-link">
-            <img class="logo" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
-          </a>
-          <div class="nav-links">
-            <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
-            <a href="order.html" data-es="Ordenar" data-en="Order">Order</a>
-            <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
-            <a href="quote.html" class="active" data-es="Cotizar" data-en="Quote">Quote</a>
-            <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
-            <div class="lang-switch" role="tablist" aria-label="Select language">
-              <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
-              <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
-            </div>
-          </div>
-        </nav>
-
-        <div class="hero-content">
-          <span class="eyebrow-text lang-fade" data-es="Pasteles Personalizados" data-en="Custom Cakes">Pasteles Personalizados</span>
-          <h1 class="hero-headline-top lang-fade" data-es="Solicita tu" data-en="Request Your">Solicita tu</h1>
-          <h1 class="hero-headline-bottom lang-fade" data-es="Cotización" data-en="Quote">Cotización</h1>
-          <p class="hero-description lang-fade"
-             data-es="Cuéntanos sobre el pastel de tus sueños y te enviaremos una cotización personalizada en 1-2 días hábiles."
-             data-en="Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.">
-             Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.
-          </p>
+    <!-- Masthead (desktop) -->
+    <header class="masthead">
+      <a href="index.html" class="masthead-brand" aria-label="Muy Rico Home">
+        <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
+        <span data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
+      </a>
+      <nav class="masthead-nav" aria-label="Primary">
+        <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+        <a href="order.html" data-es="Ordenar" data-en="Order">Order</a>
+        <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+        <a href="quote.html" class="active" data-es="Cotizar" data-en="Quote">Quote</a>
+        <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+      </nav>
+      <div class="masthead-actions">
+        <div class="lang-switch" role="tablist" aria-label="Select language">
+          <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
+          <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
         </div>
       </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero-section">
+      <div class="hero-eyebrow">
+        <div class="eyebrow-line"></div>
+        <span class="eyebrow-text lang-fade" data-es="Pasteles Personalizados" data-en="Custom Cakes">Pasteles Personalizados</span>
+        <div class="eyebrow-line" style="background:linear-gradient(to left, var(--color-accent-coral), transparent);"></div>
+      </div>
+      <h1 class="hero-headline">
+        <span class="hero-headline-top lang-fade" data-es="Solicita tu" data-en="Request Your">Solicita tu</span>
+        <span class="hero-headline-bottom lang-fade" data-es="Cotización" data-en="Quote">Cotización</span>
+      </h1>
+      <svg class="hero-divider" viewBox="0 0 180 24" fill="none" aria-hidden="true"><path d="M0 12 Q45 0 90 12 T180 12" stroke="var(--color-accent-coral)" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="90" cy="12" r="4" fill="var(--color-bright-hibiscus)"/></svg>
+      <p class="hero-description lang-fade"
+         data-es="Cuéntanos sobre el pastel de tus sueños y te enviaremos una cotización personalizada en 1-2 días hábiles."
+         data-en="Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.">
+         Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.
+      </p>
     </section>
 
     <!-- Quote Form Section -->
