@@ -10,13 +10,13 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Muy Rico — Authentic Mexican Bakery | Holland, MI" />
   <meta property="og:description" content="Conchas, homemade flour tortillas, cookies, and custom cakes baked to order in Holland, Michigan." />
-  <meta property="og:image" content="hero-conchas.webp" />
+  <meta property="og:image" content="hero-bolillos.webp" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Muy Rico — Authentic Mexican Bakery" />
   <meta property="twitter:description" content="Conchas, tortillas, cookies, and cakes baked to order with family love in Holland, Michigan." />
-  <meta property="twitter:image" content="hero-conchas.webp" />
+  <meta property="twitter:image" content="hero-bolillos.webp" />
 
   <!-- Favicon: MR monogram -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
@@ -40,7 +40,7 @@
     "name": "Muy Rico",
     "description": "Muy Rico is a family-run Mexican home bakery in Holland, Michigan — conchas, flour tortillas, cookies, and custom cakes baked to order with family love.",
     "url": "https://muy-rico.com/",
-    "image": "https://muy-rico.com/hero-conchas.webp",
+    "image": "https://muy-rico.com/hero-bolillos.webp",
     "telephone": "+1-616-218-3582",
     "email": "bexgarcia0208@gmail.com",
     "areaServed": { "@type": "City", "name": "Holland, Michigan" },
@@ -555,12 +555,15 @@
       if (!content) return;
       if (content.hero_image && content.hero_image.image_url) {
         const img = document.getElementById('hero-img');
-        if (img && img.src !== content.hero_image.image_url) {
-          const newSrc = content.hero_image.image_url;
+        const resolved = new URL(content.hero_image.image_url, location.href).href;
+        if (img && img.src !== resolved) {
           const preloader = new Image();
-          preloader.onload = () => { img.src = newSrc; };
+          preloader.onload = () => {
+            img.src = resolved;
+            try { localStorage.setItem('heroImg', resolved); } catch (e) {}
+          };
           preloader.onerror = () => { /* keep default */ };
-          preloader.src = newSrc;
+          preloader.src = resolved;
         }
       }
       if (content.story_image && content.story_image.image_url) {
@@ -641,6 +644,22 @@
     const saved = (() => { try { return localStorage.getItem('lang'); } catch (e) { return null; } })();
     currentLang = (saved === 'es' || saved === 'en') ? saved : 'en';
     applyLangToDOM(currentLang);
+
+    // Restore the dashboard hero image synchronously so reloads don't flash
+    // the baked-in default before /api/site hydration swaps it in.
+    const savedHero = (() => { try { return localStorage.getItem('heroImg'); } catch (e) { return null; } })();
+    if (savedHero) {
+      const heroImg = document.getElementById('hero-img');
+      if (heroImg && heroImg.src !== savedHero) {
+        heroImg.onerror = () => {
+          heroImg.onerror = null;
+          try { localStorage.removeItem('heroImg'); } catch (e) {}
+          heroImg.src = 'hero-bolillos.webp';
+        };
+        heroImg.src = savedHero;
+      }
+    }
+
     initReveals();
     loadSite();
     loadFeatured();

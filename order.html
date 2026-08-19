@@ -11,13 +11,13 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Ordenar — Muy Rico | Holland, MI" />
   <meta property="og:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
-  <meta property="og:image" content="hero-conchas.webp" />
+  <meta property="og:image" content="hero-bolillos.webp" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Ordenar — Muy Rico | Holland, MI" />
   <meta property="twitter:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
-  <meta property="twitter:image" content="hero-conchas.webp" />
+  <meta property="twitter:image" content="hero-bolillos.webp" />
 
   <!-- Favicon: MR monogram -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
@@ -495,6 +495,212 @@
       margin-top: 0.1rem; letter-spacing: 0.02em;
     }
     .pack-unit-price { font-size: 0.72rem; color: var(--color-text-muted); }
+
+    /* ── Adults-only bachelor-party section ── */
+    .adults-inner {
+      max-width: var(--shell-max);
+      margin: 0 auto;
+      position: relative;
+    }
+    .adults-eyebrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      margin-bottom: 1.2rem;
+      flex-wrap: wrap;
+    }
+    .adults-eyebrow-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--forest-soft);
+      font-weight: 600;
+    }
+    .adults-18-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.18rem 0.7rem;
+      border-radius: 50px;
+      background: rgba(188, 85, 72, 0.1);
+      border: 1px solid rgba(188, 85, 72, 0.35);
+      color: var(--clay);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+    .adults-title {
+      font-family: var(--font-serif);
+      font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+      font-weight: 500;
+      color: var(--forest);
+      line-height: 1.15;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .adults-warning {
+      max-width: 560px;
+      margin: 0 auto 1.4rem;
+      font-size: 0.92rem;
+      line-height: 1.7;
+      color: var(--color-text-muted);
+      text-align: center;
+    }
+    .adults-note {
+      max-width: 560px;
+      margin: 0 auto 2rem;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: var(--color-text-muted);
+      text-align: center;
+      font-style: italic;
+    }
+    .adults-cta { text-align: center; }
+
+    /* Unlocked state */
+    .adult-banner {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      max-width: 640px;
+      margin: 0 auto 2.4rem;
+      padding: 1rem 1.4rem;
+      border-radius: 14px;
+      background: rgba(188, 85, 72, 0.08);
+      border: 1px solid rgba(188, 85, 72, 0.3);
+      color: var(--clay);
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.5;
+      text-align: left;
+    }
+    .adults-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.4rem;
+      max-width: var(--shell-max);
+      margin: 0 auto;
+    }
+    .adult-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: 14px;
+      padding: 1.5rem;
+      text-align: left;
+    }
+    .adult-card-emoji { font-size: 2.2rem; line-height: 1; }
+    .adult-card-name {
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--forest);
+      line-height: 1.25;
+    }
+    .adult-card-desc {
+      font-size: 0.85rem;
+      color: var(--color-text-muted);
+      line-height: 1.6;
+      flex: 1;
+    }
+    .adult-card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      margin-top: auto;
+      flex-wrap: wrap;
+    }
+    .adult-card-price {
+      font-family: var(--font-serif);
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--forest);
+    }
+    .adult-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.28rem 0.7rem;
+      border-radius: 50px;
+      background: rgba(188, 85, 72, 0.1);
+      border: 1px solid rgba(188, 85, 72, 0.35);
+      color: var(--clay);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* Age-gate modal */
+    .adult-gate-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 60;
+    }
+    .adult-gate-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(92vw, 460px);
+      background: var(--cream);
+      border: 1px solid var(--hairline);
+      border-radius: 18px;
+      padding: 2.2rem 2rem;
+      box-shadow: 0 20px 60px rgba(30, 70, 54, 0.18);
+      text-align: center;
+    }
+    .adult-gate-emoji { font-size: 2.4rem; margin-bottom: 0.6rem; }
+    .adult-gate-title {
+      font-family: var(--font-serif);
+      font-size: 1.7rem;
+      font-weight: 500;
+      color: var(--forest);
+      margin-bottom: 0.8rem;
+      line-height: 1.2;
+    }
+    .adult-gate-text {
+      font-size: 0.88rem;
+      color: var(--color-text-muted);
+      line-height: 1.65;
+      margin-bottom: 1.4rem;
+    }
+    .adult-check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.7rem;
+      text-align: left;
+      margin: 0 auto 1.6rem;
+      max-width: 360px;
+      cursor: pointer;
+    }
+    .adult-check-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      margin: 0.1rem 0 0;
+      accent-color: var(--forest);
+      cursor: pointer;
+    }
+    .adult-check-label {
+      font-size: 0.85rem;
+      color: var(--color-text-cocoa);
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .adult-gate-actions {
+      display: flex;
+      gap: 0.8rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .adult-gate-actions .btn { min-width: 130px; }
+
   /* ── Pastel overrides for menu page ── */
   .product-tile { background: var(--tint-card); }
   .product-tile:nth-child(6n+1) { --tint-card: #E6F2E4; }
@@ -966,6 +1172,77 @@
         </p>
       </section>
 
+      <!-- ADULTS ONLY (18+) -->
+      <section class="boutiques-section" id="adults-only" style="padding:4rem 4rem 5rem;">
+        <div class="adults-inner">
+
+          <!-- LOCKED STATE (default; visible without JS) -->
+          <div id="adults-locked">
+            <div class="adults-eyebrow">
+              <span class="adults-eyebrow-label lang-fade" data-es="Solo Adultos" data-en="Adults Only">Adults Only</span>
+              <span class="adults-18-pill">18+</span>
+            </div>
+            <h2 class="adults-title lang-fade" data-es="Fiestas de Despedida" data-en="Bachelor Parties">Bachelor Parties</h2>
+            <p class="adults-warning lang-fade"
+               data-es="Esta área contiene artículos para fiestas con temática adulta para celebraciones de despedida de soltero/a. Debes tener 18 años o más para verla."
+               data-en="This area contains adult-themed party items for bachelor/bachelorette celebrations. You must be 18 years or older to view it.">
+              This area contains adult-themed party items for bachelor/bachelorette celebrations. You must be 18 years or older to view it.
+            </p>
+            <p class="adults-note lang-fade"
+               data-es="Esta colección llega pronto — visita nuestra sección de cotización para pedir tus ideas."
+               data-en="This collection is coming soon — visit our quote section to order your ideas.">
+              This collection is coming soon — visit our quote section to order your ideas.
+            </p>
+            <div class="adults-cta">
+              <button type="button" class="btn btn-forest btn-lg" onclick="openAdultGate()">
+                <span class="lang-fade" data-es="Entrar" data-en="Enter">Enter</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- UNLOCKED STATE (hidden by default) -->
+          <div id="adults-unlocked" style="display:none;">
+            <div class="adult-banner">
+              <span style="font-size:1.2rem;">🎉</span>
+              <span class="lang-fade"
+                 data-es="Esta colección llega pronto — visita nuestra sección de cotización para pedir tus ideas."
+                 data-en="This collection is coming soon — visit our quote section to order your ideas.">
+                This collection is coming soon — visit our quote section to order your ideas.
+              </span>
+            </div>
+            <div class="adults-grid" id="adults-grid"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- AGE GATE MODAL -->
+      <div id="adult-gate-modal" class="adult-gate-overlay" role="dialog" aria-modal="true" aria-labelledby="adult-gate-title">
+        <div class="adult-gate-card">
+          <div class="adult-gate-emoji">🥂</div>
+          <h3 class="adult-gate-title lang-fade" data-es="Solo Adultos — 18+" data-en="Adults Only — 18+" id="adult-gate-title">Adults Only — 18+</h3>
+          <p class="adult-gate-text lang-fade"
+             data-es="Este contenido incluye artículos para fiestas con temática adulta para celebraciones de despedida de soltero/a. Debes tener 18 años o más para verlo."
+             data-en="This content includes adult-themed party items for bachelor/bachelorette celebrations. You must be 18 years or older to view it.">
+            This content includes adult-themed party items for bachelor/bachelorette celebrations. You must be 18 years or older to view it.
+          </p>
+          <label class="adult-check-row" for="adult-confirm">
+            <input type="checkbox" id="adult-confirm" onchange="updateAdultEnterState()" />
+            <span class="adult-check-label lang-fade"
+               data-es="Confirmo que soy mayor de 18 años"
+               data-en="I confirm I am 18 years of age or older">I confirm I am 18 years of age or older</span>
+          </label>
+          <div class="adult-gate-actions">
+            <button type="button" class="btn btn-forest" id="adult-enter-btn" onclick="confirmAdultGate()" disabled>
+              <span class="lang-fade" data-es="Entrar" data-en="Enter">Enter</span>
+            </button>
+            <button type="button" class="btn btn-ghost" onclick="closeAdultGate()">
+              <span class="lang-fade" data-es="Cancelar" data-en="Cancel">Cancel</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- QUOTE CTA -->
       <section class="order-section">
         <div class="order-inner reveal">
@@ -1195,71 +1472,18 @@
 
     let allProducts = [];
     let activeCategory = 'all';
-    let galleryProductIds = new Set();
+
+    // EDIT ME: Bachelor-party add-ons (placeholder while the collection is in preview).
+    const BACHELOR_ADDONS = [
+      { id:'bachelorette_cookie_set', name:'Adult-Themed Cookie Set', nameEs:'Set de Galletas Temáticas', desc:'Six decorated adult-themed sugar cookies.', descEs:'Seis galletas de azúcar decoradas con temática adulta.', price:25, emoji:'🥲' },
+      { id:'cake_topper_adult', name:'Custom Adult Cake Topper', nameEs:'Topper de Pastel Adulto', desc:'Personalized adult-themed cake topper.', descEs:'Topper de pastel personalizado con temática adulta.', price:15, emoji:'🌿' },
+      { id:'bachelor_cupcakes', name:'Adult-Themed Cupcakes (12)', nameEs:'Cupcakes Temáticos (12)', desc:'A dozen cupcakes with adult-themed decor.', descEs:'Una docena de cupcakes con decoración temática adulta.', price:36, emoji:'🧁' },
+      { id:'novelty_pops', name:'Novelty Chocolate Pops (6)', nameEs:'Paletas de Chocolate (6)', desc:'Six chocolate pops with playful adult designs.', descEs:'Seis paletas de chocolate con diseños adultos juguetones.', price:18, emoji:'🍫' },
+    ];
+    const BACHELOR_LIVE = false; // flip to true when this collection goes live
 
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-    }
-
-    function getDesignParams() {
-      try {
-        const sp = new URLSearchParams(location.search);
-        const product = sp.get('product') || '';
-        const design = sp.get('design') || '';
-        return { product, design };
-      } catch {
-        return { product: '', design: '' };
-      }
-    }
-
-    function clearDesignFromTile(tile) {
-      if (!tile) return;
-      tile.removeAttribute('data-design');
-      const chip = tile.querySelector('.tile-design-chip');
-      if (chip) chip.remove();
-    }
-
-    function applyDesignDeepLink() {
-      const { product, design } = getDesignParams();
-      if (!product || !design) return;
-      const tile = document.getElementById('tile-' + product);
-      if (!tile) return;
-
-      // Store plain text (attribute-safe via setAttribute); never trust for innerHTML sinks
-      const safeDesign = String(design).slice(0, 200).replace(/[<>]/g, '');
-      tile.setAttribute('data-design', safeDesign);
-
-      let chip = tile.querySelector('.tile-design-chip');
-      if (!chip) {
-        chip = document.createElement('div');
-        chip.className = 'tile-design-chip';
-        const titleEl = tile.querySelector('.tile-title');
-        if (titleEl) titleEl.insertAdjacentElement('afterend', chip);
-        else tile.prepend(chip);
-      }
-      chip.innerHTML = `
-        <span class="lang-fade"
-          data-es="Diseño solicitado: ${escapeHtml(safeDesign)}"
-          data-en="Requested design: ${escapeHtml(safeDesign)}">Requested design: ${escapeHtml(safeDesign)}</span>
-        <button type="button" aria-label="Dismiss">&times;</button>`;
-      chip.querySelector('button').onclick = () => {
-        clearDesignFromTile(tile);
-        try {
-          const url = new URL(location.href);
-          url.searchParams.delete('design');
-          url.searchParams.delete('product');
-          history.replaceState({}, '', url.pathname + url.search + url.hash);
-        } catch (_) {}
-      };
-      applyLangToDOM(currentLang);
-
-      tile.classList.add('tile-highlight');
-      try { tile.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'center' }); } catch (_) {}
-      if (!prefersReduced) {
-        setTimeout(() => tile.classList.remove('tile-highlight'), 4000);
-      } else {
-        setTimeout(() => tile.classList.remove('tile-highlight'), 2000);
-      }
     }
 
     // ── Live product menu (Part 8) ──────────────────────────────────
@@ -1319,9 +1543,6 @@
               <span class="pack-unit-price lang-fade" data-es="${escapeHtml(pk.unit_label_es || pk.unit_label || '')}" data-en="${escapeHtml(pk.unit_label || '')}">${escapeHtml(pk.unit_label || '')}</span>
             </div>`).join('') + `</div>`
         : '';
-      const albumLink = galleryProductIds.has(p.id)
-        ? `<a class="tile-album-link lang-fade" href="gallery.html#album-${escapeHtml(p.id)}" data-es="Ver álbum" data-en="View album">View album</a>`
-        : '';
       const quoteType = { Cakepops: 'cakepops', Cupcakes: 'cupcakes', Cakes: 'cake' }[p.category];
       const quoteLink = quoteType
         ? `<a href="quote.html?type=${quoteType}" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>`
@@ -1345,7 +1566,6 @@
           ${hero}
           <h3 class="tile-title lang-fade" data-es="${escapeHtml(p.name_es || p.name)}" data-en="${escapeHtml(p.name)}">${name}</h3>
           <p class="tile-desc lang-fade" data-es="${escapeHtml(p.description_es || p.description || '')}" data-en="${escapeHtml(p.description || '')}">${desc}</p>
-          ${albumLink}
           ${packHTML}
           ${flavorHTML}
           <div class="tile-bottom">
@@ -1445,7 +1665,6 @@
       if (window.initProductReveals) initProductReveals();
       if (typeof refreshTileStates === 'function') refreshTileStates();
       renderCategoryPills(allProducts);
-      if (typeof applyDesignDeepLink === 'function') applyDesignDeepLink();
     }
 
     async function loadProducts() {
@@ -1455,21 +1674,12 @@
         const data = await res.json();
         allProducts = data.products || [];
         activeCategory = 'all';
-        // gallery product ids for album links (non-blocking)
-        try {
-          const gRes = await fetch((ORDER_API || '') + '/api/gallery');
-          if (gRes.ok) {
-            const gData = await gRes.json();
-            galleryProductIds = new Set((gData.photos || []).map(ph => ph.product_id));
-          }
-        } catch (_) { /* ignore */ }
         renderProducts(allProducts);
       } catch (err) {
         console.warn('Could not load live products, showing fallback menu:', err);
         allProducts = [];
         renderCategoryPills(collectFallbackProducts());
         if (window.initProductReveals) initProductReveals();
-        if (typeof applyDesignDeepLink === 'function') applyDesignDeepLink();
       }
     }
 
@@ -1906,12 +2116,6 @@
         parts.push(groupName + ': ' + optLabel);
       });
       if (parts.length) display += ' (' + parts.join(', ') + ')';
-      // Design note
-      const designReq = (tile.getAttribute('data-design') || '').replace(/[<>]/g, '');
-      if (designReq) {
-        const dl = lang === 'es' ? 'Diseño' : 'Design';
-        display += ' — ' + dl + ': ' + designReq;
-      }
       return display;
     }
 
@@ -1943,12 +2147,6 @@
       });
       if (selectedFlavors.length) {
         flavorNote = ' (' + selectedFlavors.join(', ') + ')';
-      }
-      const designReq = (tile.getAttribute('data-design') || '').replace(/[<>]/g, '');
-      if (designReq) {
-        const designLabel = currentLang === 'es' ? 'Diseño' : 'Design';
-        // Plain-text note for order/API; HTML sinks escape displayName separately
-        flavorNote = (flavorNote || '') + ' — ' + designLabel + ': ' + designReq;
       }
       displayName = displayName + packLabel + flavorNote;
       const displayNameEs = buildDisplayNameForLang(tile, name, 'es');
@@ -2110,6 +2308,105 @@
       );
     }
 
+    // ── Adults-only bachelor-party section ──────────────────────────
+    function renderBachelorSection() {
+      const grid = document.getElementById('adults-grid');
+      if (!grid) return;
+      grid.innerHTML = BACHELOR_ADDONS.map(a => {
+        const action = BACHELOR_LIVE
+          ? `<button type="button" class="add-btn lang-fade" onclick="addBachelorAddon('${escapeHtml(a.id)}')" data-es="Agregar" data-en="Add">Add</button>`
+          : `<span class="adult-badge lang-fade" data-es="Próximamente" data-en="Coming soon">Coming soon</span>`;
+        return `
+        <article class="adult-card">
+          <div class="adult-card-emoji">${escapeHtml(a.emoji)}</div>
+          <h4 class="adult-card-name lang-fade" data-es="${escapeHtml(a.nameEs)}" data-en="${escapeHtml(a.name)}">${escapeHtml(currentLang === 'es' ? a.nameEs : a.name)}</h4>
+          <p class="adult-card-desc lang-fade" data-es="${escapeHtml(a.descEs)}" data-en="${escapeHtml(a.desc)}">${escapeHtml(currentLang === 'es' ? a.descEs : a.desc)}</p>
+          <div class="adult-card-foot">
+            <span class="adult-card-price">$${Number(a.price).toFixed(2)}</span>
+            ${action}
+          </div>
+        </article>`;
+      }).join('');
+    }
+
+    function unlockAdults() {
+      const locked = document.getElementById('adults-locked');
+      const unlocked = document.getElementById('adults-unlocked');
+      if (locked) locked.style.display = 'none';
+      if (unlocked) unlocked.style.display = '';
+      renderBachelorSection();
+      applyLangToDOM(currentLang);
+    }
+
+    function openAdultGate() {
+      const modal = document.getElementById('adult-gate-modal');
+      if (!modal) return;
+      const cb = document.getElementById('adult-confirm');
+      if (cb) cb.checked = false;
+      updateAdultEnterState();
+      modal.style.display = 'block';
+      const card = modal.querySelector('.adult-gate-card');
+      if (card && !prefersReduced) {
+        gsap.fromTo(card, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+      }
+    }
+
+    function closeAdultGate() {
+      const modal = document.getElementById('adult-gate-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function updateAdultEnterState() {
+      const cb = document.getElementById('adult-confirm');
+      const btn = document.getElementById('adult-enter-btn');
+      if (btn) btn.disabled = !(cb && cb.checked);
+    }
+
+    function confirmAdultGate() {
+      const cb = document.getElementById('adult-confirm');
+      if (!cb || !cb.checked) return;
+      try { sessionStorage.setItem('muyrico.adult18.v1', '1'); } catch (e) {}
+      closeAdultGate();
+      unlockAdults();
+    }
+
+    function addBachelorAddon(id) {
+      if (!BACHELOR_LIVE) return;
+      const a = BACHELOR_ADDONS.find(x => x.id === id);
+      if (!a) return;
+      const suffix = ' (Bachelor Party)';
+      const item = {
+        name: a.name + suffix,
+        nameEn: a.name + suffix,
+        displayName: (currentLang === 'es' ? a.nameEs : a.name) + suffix,
+        displayNameEs: a.nameEs + suffix,
+        displayNameEn: a.name + suffix,
+        productId: 'bachelor_' + id,
+        price: a.price,
+        qty: 1,
+        icon: a.emoji,
+        image_url: '',
+        toastEmoji: a.emoji,
+        flavorNote: '',
+        packNote: '',
+        packId: '',
+      };
+      const existing = cart.find(c => c.productId === item.productId);
+      if (existing) existing.qty += 1;
+      else cart.push(item);
+      renderCart();
+      updateSteps(2);
+      showToast(item.toastEmoji,
+        currentLang === 'en' ? item.displayName + ' added to order!' : '¡' + item.displayName + ' agregado al pedido!',
+        '1 × $' + item.price.toFixed(2)
+      );
+      const floatingCart = document.getElementById('floating-cart');
+      if (floatingCart && !floatingCart.classList.contains('gsap-shown')) {
+        floatingCart.classList.add('gsap-shown');
+        gsap.fromTo(floatingCart, { autoAlpha: 0, y: 20, scale: 0.9 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.5, ease: 'back.out(1.5)' });
+      }
+    }
+
     function getCartTotal() {
       return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
     }
@@ -2240,6 +2537,15 @@
         }
         history.replaceState({}, '', window.location.pathname);
       }
+    })();
+
+    // ── Adults-only section — skip the gate if already confirmed this session ──
+    (function initAdultSection() {
+      try {
+        if (sessionStorage.getItem('muyrico.adult18.v1') === '1') {
+          unlockAdults();
+        }
+      } catch (e) {}
     })();
 
     // ---- Hamburger toggle ----

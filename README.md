@@ -27,7 +27,7 @@ Live website for **Muy Rico**, a family-owned Mexican bakery in Holland, Michiga
 
 | File | Usage |
 |---|---|
-| `hero-conchas.webp` | Hero default (overridable via dashboard → Homepage) |
+| `hero-bolillos.webp` | Hero default (overridable via dashboard → Homepage) |
 | `story-rebecca-jeff.webp` | Our Story default portrait (overridable via dashboard) |
 | `menu-*.webp` | Local fallback photos for the menu-preview strip & order tiles |
 | `muy_rico_logo_transparent.webp` | Muy Rico logo |

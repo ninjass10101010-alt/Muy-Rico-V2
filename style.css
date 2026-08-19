@@ -1281,42 +1281,6 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 .category-pill .filter-count { background: transparent; font-size: 0.72rem; opacity: 0.75; padding: 0; }
 .filter-count { font-size: 0.72rem; font-weight: 600; }
 
-/* Design-request chip + tile highlight */
-.tile-design-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin: 0 0 0.65rem;
-  padding: 0.5rem 0.7rem;
-  border-radius: var(--r-media);
-  background: var(--cream-deep);
-  border: none;
-  font-size: 0.78rem;
-  color: var(--color-text-cocoa);
-  font-weight: 600;
-}
-.tile-design-chip button {
-  border: 0; background: transparent; cursor: pointer;
-  font-size: 1rem; line-height: 1; color: var(--color-text-muted); padding: 0 0.15rem;
-}
-.product-tile.tile-highlight {
-  outline: 2px solid var(--clay);
-  outline-offset: 3px;
-}
-.tile-album-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  margin: 0.15rem 0 0.55rem;
-  padding: 0.3rem 0;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--clay);
-  text-decoration: none;
-}
-.tile-album-link:hover { text-decoration: underline; }
-
 /* ==========================================================================
    ORDER PAGE — PANEL, CART, FORM
    ========================================================================== */
