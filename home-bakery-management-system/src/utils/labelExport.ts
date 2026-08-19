@@ -315,7 +315,7 @@ export async function renderLabelPdf(
 
 /** Trigger a browser download of PDF bytes */
 export function downloadPdf(bytes: Uint8Array, filename: string) {
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -328,7 +328,7 @@ export function downloadPdf(bytes: Uint8Array, filename: string) {
 
 /** Open PDF in a hidden iframe for printing */
 export function printPdf(bytes: Uint8Array) {
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const iframe = document.createElement("iframe");
   iframe.style.display = "none";
@@ -338,6 +338,51 @@ export function printPdf(bytes: Uint8Array) {
     iframe.contentWindow?.print();
     setTimeout(() => { URL.revokeObjectURL(url); iframe.remove(); }, 10000);
   };
+}
+
+/**
+ * Open PDF bytes in a new tab — the reliable mobile path (iOS shows the native
+ * PDF viewer with Share/Print). Pass `win` when the window was already opened
+ * synchronously in the click handler to dodge popup blockers; otherwise we
+ * open it here and fall back to a download if the popup is blocked.
+ */
+export function openPdfInNewTab(bytes: Uint8Array, win?: Window | null) {
+  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const REVOKE_MS = 60000;
+  if (win) {
+    win.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), REVOKE_MS);
+    return;
+  }
+  const opened = window.open(url, "_blank");
+  if (!opened) {
+    downloadPdf(bytes, "label.pdf");
+    return;
+  }
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_MS);
+}
+
+/**
+ * Share PDF bytes via the Web Share API (iOS/Android share sheet — lists
+ * Munbyn Print App, AirPrint, AirDrop, Messages…). Returns false when the
+ * browser doesn't support file sharing so the caller can fall back.
+ */
+export async function sharePdf(bytes: Uint8Array, filename: string): Promise<boolean> {
+  const nav = navigator as Navigator & {
+    canShare?: (data: ShareData) => boolean;
+    share?: (data: ShareData) => Promise<void>;
+  };
+  const file = new File([new Uint8Array(bytes)], filename, { type: "application/pdf" });
+  if (typeof nav.canShare !== "function" || typeof nav.share !== "function") return false;
+  try {
+    if (!nav.canShare({ files: [file] })) return false;
+    await nav.share({ files: [file], title: filename });
+    return true;
+  } catch {
+    // User cancelled the sheet — treat as handled, not an error.
+    return true;
+  }
 }
 
 // ─── Code-128 barcode (vector, no extra deps) ─────────────────────────────────

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import fs from "fs";
 import path from "path";
@@ -383,5 +383,97 @@ describe("PDF export regression suite", () => {
       expect(pages).toBe(1);
       expect(bytes.length).toBeGreaterThan(200);
     });
+  });
+});
+
+// ── Mobile PDF helpers (openPdfInNewTab / sharePdf) ──────────────────────────
+
+describe("mobile PDF helpers", () => {
+  let openPdfInNewTab: typeof import("./labelExport").openPdfInNewTab;
+  let sharePdf: typeof import("./labelExport").sharePdf;
+
+  const bytes = new Uint8Array([37, 80, 68, 70, 45, 49]); // "%PDF-1"
+
+  let createUrlSpy: ReturnType<typeof vi.fn>;
+  let revokeUrlSpy: ReturnType<typeof vi.fn>;
+
+  beforeAll(async () => {
+    const mod = await import("./labelExport");
+    openPdfInNewTab = mod.openPdfInNewTab;
+    sharePdf = mod.sharePdf;
+  });
+
+  beforeEach(() => {
+    createUrlSpy = vi.fn(() => "blob:mock");
+    revokeUrlSpy = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createUrlSpy });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeUrlSpy });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("openPdfInNewTab navigates the pre-opened window to the blob URL", () => {
+    vi.useFakeTimers();
+    const win = { location: { href: "about:blank" } } as unknown as Window;
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    openPdfInNewTab(bytes, win);
+    expect(win.location.href).toBe("blob:mock");
+    expect(createUrlSpy).toHaveBeenCalled();
+    expect(openSpy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(60000);
+    expect(revokeUrlSpy).toHaveBeenCalledWith("blob:mock");
+  });
+
+  it("openPdfInNewTab opens its own window when none is provided", () => {
+    vi.useFakeTimers();
+    const win = { location: { href: "" } } as unknown as Window;
+    vi.spyOn(window, "open").mockReturnValue(win as Window);
+    openPdfInNewTab(bytes);
+    expect(window.open).toHaveBeenCalledWith("blob:mock", "_blank");
+    vi.advanceTimersByTime(60000);
+    expect(revokeUrlSpy).toHaveBeenCalledWith("blob:mock");
+  });
+
+  it("openPdfInNewTab falls back to a download when the popup is blocked", () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "open").mockReturnValue(null);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    expect(() => openPdfInNewTab(bytes)).not.toThrow();
+    expect(clickSpy).toHaveBeenCalled();
+    vi.advanceTimersByTime(1000);
+    expect(revokeUrlSpy).toHaveBeenCalledWith("blob:mock");
+  });
+
+  it("sharePdf returns false when the Web Share API is unavailable", async () => {
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: undefined });
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    expect(await sharePdf(bytes, "label.pdf")).toBe(false);
+  });
+
+  it("sharePdf shares the file via the system share sheet", async () => {
+    const shareSpy = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    Object.defineProperty(navigator, "share", { configurable: true, value: shareSpy });
+    const ok = await sharePdf(bytes, "label.pdf");
+    expect(ok).toBe(true);
+    expect(shareSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "label.pdf", files: [expect.any(File)] }),
+    );
+  });
+
+  it("sharePdf treats a cancelled share sheet as handled", async () => {
+    const shareSpy = vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError"));
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+    Object.defineProperty(navigator, "share", { configurable: true, value: shareSpy });
+    expect(await sharePdf(bytes, "label.pdf")).toBe(true);
+  });
+
+  it("sharePdf returns false when the platform cannot share files", async () => {
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => false });
+    Object.defineProperty(navigator, "share", { configurable: true, value: vi.fn() });
+    expect(await sharePdf(bytes, "label.pdf")).toBe(false);
   });
 });

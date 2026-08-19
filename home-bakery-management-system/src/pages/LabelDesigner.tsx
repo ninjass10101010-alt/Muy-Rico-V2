@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { toPng, toJpeg } from "html-to-image";
-import { renderLabelPdf, downloadPdf, printPdf } from "../utils/labelExport";
+import { renderLabelPdf, downloadPdf, printPdf, openPdfInNewTab, sharePdf } from "../utils/labelExport";
 import {
   Download,
   Printer,
@@ -13,6 +13,7 @@ import {
   RectangleVertical,
   RectangleHorizontal,
   Image as ImageIcon,
+  Share2,
 } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import { newId } from "../utils/format";
@@ -126,7 +127,13 @@ function makeFallback(profileWebsite: string): LabelTemplate {
   return { ...base, elements: defaultElementsFor(base) };
 }
 
-export default function LabelDesigner({ filterByOrder }: { filterByOrder?: string | null }) {
+export default function LabelDesigner({
+  filterByOrder,
+  filterByProduct,
+}: {
+  filterByOrder?: string | null;
+  filterByProduct?: string | null;
+}) {
   const {
     labelTemplates,
     handleCreateLabel,
@@ -141,6 +148,17 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
         t.name.startsWith(`MR-${filterByOrder}`) || t.name.startsWith(`Order #${filterByOrder}`)
       )
     : null;
+
+  // Product being labeled, when the panel was opened from a product row.
+  const product = filterByProduct ? products.find((p) => p.id === filterByProduct) || null : null;
+
+  // Templates grouped by kind — product templates are reused automatically by
+  // order labels; order labels are snapshots generated from orders.
+  const productTemplates = labelTemplates.filter((t) => t.templateKind === "product");
+  const customTemplates = labelTemplates.filter((t) => (t.templateKind || "custom") === "custom");
+  const orderLabels = labelTemplates.filter(
+    (t) => t.templateKind === "order" || /^MR-\d+|^Order #\d+/.test(t.name)
+  );
 
   const [label, setLabelState] = useState<LabelTemplate>(() => {
     const src =
@@ -159,6 +177,33 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
   const [customW, setCustomW] = useState(String(label.labelWidth));
   const [customH, setCustomH] = useState(String(label.labelHeight));
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [productTemplateMissing, setProductTemplateMissing] = useState(false);
+  const [printTipDismissed, setPrintTipDismissed] = useState(
+    () => localStorage.getItem("muyrico.printtip.v1") === "1"
+  );
+  const [showOrderLabels, setShowOrderLabels] = useState(() => Boolean(filterByOrder));
+  const loadedProductRef = useRef<string | null>(null);
+
+  // Auto-load that product's template when the panel opens from a product row.
+  useEffect(() => {
+    if (!product) {
+      loadedProductRef.current = null;
+      setProductTemplateMissing(false);
+      return;
+    }
+    if (loadedProductRef.current === product.id) return;
+    loadedProductRef.current = product.id;
+    const existing = labelTemplates.find(
+      (t) => t.templateKind === "product" && t.productId === product.id
+    );
+    if (existing) {
+      setProductTemplateMissing(false);
+      commit(normalizeLabel(existing, profile.website));
+    } else {
+      setProductTemplateMissing(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product, labelTemplates, profile.website]);
 
   // Onboarding on first launch
   useEffect(() => {
@@ -256,18 +301,53 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     update("textColor", preset.text);
   }
 
+  function productToLabelFields(p: {
+    name: string;
+    description?: string;
+    ingredients?: string;
+    allergens?: string;
+    price: number;
+    emoji?: string;
+  }): Partial<LabelTemplate> {
+    return {
+      productName: p.name,
+      details: p.description || "",
+      ingredients: p.ingredients || "",
+      allergens: p.allergens || "",
+      price: `$${p.price.toFixed(2)}`,
+      logoEmoji: p.emoji || "🧁",
+    };
+  }
+
   function loadFromProduct(productId: string) {
     const p = products.find((pr) => pr.id === productId);
     if (!p) return;
-    setLabel((l) => ({
-      ...l,
-      productName: p.name,
-      details: p.description,
-      ingredients: p.ingredients,
-      allergens: p.allergens,
-      price: `$${p.price.toFixed(2)}`,
-      logoEmoji: p.emoji,
-    }));
+    // Prefer switching to that product's saved template (creating one on first
+    // open), so edits stay per-product instead of clobbering a shared label.
+    const existing = labelTemplates.find(
+      (t) => t.templateKind === "product" && t.productId === p.id
+    );
+    if (existing) {
+      commit(normalizeLabel(existing, profile.website));
+      return;
+    }
+    setLabel((l) => ({ ...l, ...productToLabelFields(p) }));
+  }
+
+  async function createProductTemplate() {
+    if (!product) return;
+    const fresh = makeFallback(profile.website);
+    const saved: LabelTemplate = {
+      ...fresh,
+      ...productToLabelFields(product),
+      id: newId("label"),
+      name: `${product.emoji || ""} ${product.name}`.trim(),
+      templateKind: "product",
+      productId: product.id,
+    };
+    await handleCreateLabel(saved);
+    setProductTemplateMissing(false);
+    commit(normalizeLabel(saved, profile.website));
   }
 
   async function saveTemplate() {
@@ -287,6 +367,9 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
       ...normalizeLabel(label, profile.website),
       id: newId("label"),
       name: "Untitled Label",
+      // A duplicate never keeps the product/order association.
+      templateKind: "custom",
+      productId: null,
     };
     await handleCreateLabel(fresh);
     commit(fresh);
@@ -297,6 +380,13 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
     if (label.id === id && labelTemplates.length > 1) {
       commit(normalizeLabel(labelTemplates.find((t) => t.id !== id)!, profile.website));
     }
+  }
+
+  function openTemplate(t: LabelTemplate) {
+    commit(normalizeLabel(t, profile.website));
+    setSelectedId(null);
+    setCustomW(String(t.labelWidth || 3));
+    setCustomH(String(t.labelHeight || 4));
   }
 
   function handleToggleDisclaimer() {
@@ -434,6 +524,46 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
       setDownloadError("PDF export failed. Check console for details.");
     }
   }, [label, profile]);
+
+  // Mobile: open the rendered PDF in a new tab (Safari's viewer has native
+  // Print/Share). The blank window is opened synchronously in the click
+  // handler to dodge iOS popup blockers.
+  const openPrintMobile = useCallback(async () => {
+    setDownloadError(null);
+    const win = window.open("", "_blank");
+    try {
+      const elements = ensureElements(label);
+      const bytes = await renderLabelPdf({ ...label, elements }, profile, {
+        sheet: label.averyPreset || "single",
+      });
+      openPdfInNewTab(bytes, win);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      win?.close();
+      setDownloadError("PDF export failed. Try Save PDF instead.");
+    }
+  }, [label, profile]);
+
+  // Mobile: share the PDF via the system sheet (Munbyn Print App, AirPrint…).
+  const shareMobile = useCallback(async () => {
+    setDownloadError(null);
+    try {
+      const elements = ensureElements(label);
+      const bytes = await renderLabelPdf({ ...label, elements }, profile, {
+        sheet: label.averyPreset || "single",
+      });
+      const shared = await sharePdf(bytes, `${label.productName || "label"}.pdf`);
+      if (!shared) openPdfInNewTab(bytes);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      setDownloadError("PDF export failed. Try Save PDF instead.");
+    }
+  }, [label, profile]);
+
+  function dismissPrintTip() {
+    setPrintTipDismissed(true);
+    localStorage.setItem("muyrico.printtip.v1", "1");
+  }
 
   const printLabel = useCallback(async (preset: string = "single") => {
     setDownloadError(null);
@@ -918,8 +1048,8 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             onZoomChange={setZoom}
           />
 
-          {/* Export buttons */}
-          <div className="grid w-full grid-cols-5 gap-2">
+          {/* Export buttons — desktop */}
+          <div className="hidden w-full grid-cols-5 gap-2 lg:grid">
             <button
               type="button"
               onClick={saveTemplate}
@@ -956,6 +1086,57 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
               <Printer size={15} /> Print
             </button>
           </div>
+
+          {/* Export buttons — mobile (no iOS downloads; open/share the PDF) */}
+          <div className="grid w-full grid-cols-2 gap-2 lg:hidden">
+            <button
+              type="button"
+              onClick={saveTemplate}
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-palm py-2.5 text-sm font-medium text-white transition hover:shadow-md"
+            >
+              <Save size={15} /> Save
+            </button>
+            <button
+              type="button"
+              onClick={downloadPdfCb}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-sand-300 py-2.5 text-sm font-medium text-cocoa hover:bg-sand-50"
+            >
+              <Download size={15} /> Save PDF
+            </button>
+            <button
+              type="button"
+              onClick={openPrintMobile}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-sand-300 py-2.5 text-sm font-medium text-cocoa hover:bg-sand-50"
+            >
+              <Printer size={15} /> Open & Print
+            </button>
+            <button
+              type="button"
+              onClick={shareMobile}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-sand-300 py-2.5 text-sm font-medium text-cocoa hover:bg-sand-50"
+            >
+              <Share2 size={15} /> Share
+            </button>
+          </div>
+
+          {!printTipDismissed && (
+            <div className="flex w-full items-start gap-2 rounded-xl border border-palm/30 bg-palm/5 px-4 py-2.5 text-xs text-cocoa-muted lg:hidden">
+              <Printer size={14} className="mt-0.5 shrink-0 text-palm" />
+              <p className="flex-1 leading-relaxed">
+                Your label opens as a PDF. Tap <span className="font-medium text-cocoa">Share</span> then
+                choose <span className="font-medium text-cocoa">Munbyn Print App</span> or{" "}
+                <span className="font-medium text-cocoa">Print</span>.
+              </p>
+              <button
+                type="button"
+                onClick={dismissPrintTip}
+                className="shrink-0 text-cocoa-muted hover:text-cocoa"
+                aria-label="Dismiss tip"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          )}
 
           {downloadError && (
             <p className="w-full rounded-xl border border-hibiscus/30 bg-hibiscus-light/10 px-4 py-2.5 text-xs text-hibiscus">
@@ -1202,42 +1383,96 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
             >
               + Duplicate as new
             </button>
-            <div className="max-h-64 space-y-1.5 overflow-y-auto">
-              {labelTemplates.map((t) => {
-                const isOrderMatch = filterByOrder && (
-                  t.name.startsWith(`MR-${filterByOrder}`) || t.name.startsWith(`Order #${filterByOrder}`)
-                );
-                return (
-                  <div
-                    key={t.id}
-                    className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-xs ${
-                      t.id === label.id
-                        ? "border-coral bg-coral-light/20"
-                        : isOrderMatch
-                          ? "border-palm/50 bg-palm/5"
-                          : "border-sand-200"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        commit(normalizeLabel(t, profile.website));
-                        setSelectedId(null);
-                        setCustomW(String(t.labelWidth || 3));
-                        setCustomH(String(t.labelHeight || 4));
-                      }}
-                      className="flex-1 truncate text-left font-medium text-cocoa-muted"
-                    >
-                      {isOrderMatch && <span className="mr-1">🏷️</span>}
-                      {t.name}
-                    </button>
-                    <button type="button" onClick={() => removeTemplate(t.id)} className="text-hibiscus hover:text-hibiscus-light">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                );
-              })}
+
+            {/* Product templates — one per product, used by order labels */}
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-cocoa-muted">
+              Product templates
+            </p>
+            {product && productTemplateMissing && (
+              <div className="mb-2 rounded-lg border border-coral/30 bg-coral-light/20 p-2.5 text-xs text-cocoa">
+                <p className="font-medium text-coral">No template for {product.name} yet</p>
+                <p className="mt-1 text-cocoa-muted">
+                  Create one — every order label for this product will start from it.
+                </p>
+                <button
+                  type="button"
+                  onClick={createProductTemplate}
+                  className="mt-2 w-full rounded-lg bg-palm py-1.5 text-xs font-medium text-white hover:shadow"
+                >
+                  + Create {product.name} template
+                </button>
+              </div>
+            )}
+            <div className="mb-3 max-h-48 space-y-1.5 overflow-y-auto">
+              {productTemplates.length === 0 && !product && (
+                <p className="py-2 text-center text-[11px] text-cocoa-muted">
+                  No product templates yet. Open a product → Label to create one.
+                </p>
+              )}
+              {productTemplates.map((t) => (
+                <TemplateRow
+                  key={t.id}
+                  t={t}
+                  currentId={label.id}
+                  onOpen={openTemplate}
+                  onDelete={removeTemplate}
+                />
+              ))}
             </div>
+
+            {/* Custom templates — standalone labels */}
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-cocoa-muted">
+              Custom
+            </p>
+            <div className="mb-3 max-h-48 space-y-1.5 overflow-y-auto">
+              {customTemplates.length === 0 && (
+                <p className="py-2 text-center text-[11px] text-cocoa-muted">
+                  Save this label or use “Duplicate as new” to start one here.
+                </p>
+              )}
+              {customTemplates.map((t) => (
+                <TemplateRow
+                  key={t.id}
+                  t={t}
+                  currentId={label.id}
+                  onOpen={openTemplate}
+                  onDelete={removeTemplate}
+                />
+              ))}
+            </div>
+
+            {/* Order labels — snapshots generated from orders */}
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-cocoa-muted">
+                Order labels
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowOrderLabels((v) => !v)}
+                className="text-[10px] text-cocoa-muted hover:text-cocoa"
+              >
+                {showOrderLabels ? "Hide" : `Show (${orderLabels.length})`}
+              </button>
+            </div>
+            {showOrderLabels && (
+              <div className="max-h-48 space-y-1.5 overflow-y-auto">
+                {orderLabels.length === 0 && (
+                  <p className="py-2 text-center text-[11px] text-cocoa-muted">
+                    Generate labels from an order to see them here.
+                  </p>
+                )}
+                {orderLabels.map((t) => (
+                  <TemplateRow
+                    key={t.id}
+                    t={t}
+                    currentId={label.id}
+                    badge="🏷️"
+                    onOpen={openTemplate}
+                    onDelete={removeTemplate}
+                  />
+                ))}
+              </div>
+            )}
           </Section>
 
           <MILawReference />
@@ -1280,6 +1515,9 @@ export default function LabelDesigner({ filterByOrder }: { filterByOrder?: strin
 }
 
 function normalizeLabel(t: LabelTemplate, profileWebsite: string): LabelTemplate {
+  // Legacy order labels (generated before template kinds existed) are
+  // recognized by their auto-generated name so they stay in the order bucket.
+  const legacyOrder = /^MR-\d+|^Order #\d+/.test(t.name);
   return {
     ...t,
     orientation: t.orientation || "portrait",
@@ -1294,10 +1532,53 @@ function normalizeLabel(t: LabelTemplate, profileWebsite: string): LabelTemplate
     averyPreset: t.averyPreset || "single",
     netWeightUS: t.netWeightUS || "",
     netWeightMetric: t.netWeightMetric || "",
+    templateKind: t.templateKind || (legacyOrder ? "order" : "custom"),
+    productId: t.productId ?? null,
   };
 }
 
 /** Scale/clamp elements so they fit after a shape/aspect-ratio change. Only scales if overflow. */
+/** Scale/clamp elements so they fit after a shape/aspect-ratio change. Only scales if overflow. */
+function TemplateRow({
+  t,
+  currentId,
+  highlight,
+  badge,
+  onOpen,
+  onDelete,
+}: {
+  t: LabelTemplate;
+  currentId: string;
+  highlight?: boolean;
+  badge?: string;
+  onOpen: (t: LabelTemplate) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-xs ${
+        t.id === currentId
+          ? "border-coral bg-coral-light/20"
+          : highlight
+            ? "border-palm/50 bg-palm/5"
+            : "border-sand-200"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onOpen(t)}
+        className="flex-1 truncate text-left font-medium text-cocoa-muted"
+      >
+        {badge && <span className="mr-1">{badge}</span>}
+        {t.name}
+      </button>
+      <button type="button" onClick={() => onDelete(t.id)} className="text-hibiscus hover:text-hibiscus-light">
+        <Trash2 size={13} />
+      </button>
+    </div>
+  );
+}
+
 function fitElementsToAspect(
   elements: LabelElement[],
   _oldAspect: number,

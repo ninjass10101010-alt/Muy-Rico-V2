@@ -39,6 +39,7 @@ function AdminApp() {
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
+  const [labelProductFilter, setLabelProductFilter] = useState<string | null>(null);
   const [inventoryHighlightId, setInventoryHighlightId] = useState<string | null>(null);
 
   // Deep links: #calendar/YYYY-MM-DD → open Calendar; CalendarView consumes the
@@ -47,6 +48,14 @@ function AdminApp() {
     const m = window.location.hash.match(/^#calendar\/(\d{4}-\d{2}-\d{2})$/);
     if (m) setPage("calendar");
   }, []);
+
+  // Product/order label filters only apply while the Labels page is open.
+  useEffect(() => {
+    if (page !== "labels") {
+      setLabelFilter(null);
+      setLabelProductFilter(null);
+    }
+  }, [page]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-sand-50 text-cocoa">
@@ -86,7 +95,16 @@ function AdminApp() {
             />
           )}
           {page === "quotes" && <Quotes search={search} setPage={setPage} />}
-          {page === "products" && <Products search={search} goTo={setPage} />}
+          {page === "products" && (
+            <Products
+              search={search}
+              onOpenLabels={(productId) => {
+                setLabelFilter(null);
+                setLabelProductFilter(productId);
+                setPage("labels");
+              }}
+            />
+          )}
           {page === "gallery" && <Gallery />}
           {page === "homepage" && <Homepage />}
           {page === "inventory" && (
@@ -95,7 +113,7 @@ function AdminApp() {
           {page === "customers" && <Customers search={search} />}
           {page === "payments" && <Payments search={search} />}
           {page === "receipts" && <Receipts search={search} />}
-          {page === "labels" && <LabelDesigner filterByOrder={labelFilter} />}
+          {page === "labels" && <LabelDesigner filterByOrder={labelFilter} filterByProduct={labelProductFilter} />}
           {page === "settings" && <Settings />}
         </main>
       </div>
