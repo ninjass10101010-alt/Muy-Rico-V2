@@ -11,6 +11,59 @@ import { formatCurrency, formatDate } from "../utils/format";
 import type { Quote } from "../types";
 import type { Page } from "../App";
 
+const ITEM_DETAIL_LABELS: Record<string, Record<string, string>> = {
+  cake: {
+    cake_flavor: "Cake flavor",
+    filling: "Filling",
+    frosting: "Frosting",
+    serving_size: "Serving size",
+    toppings: "Toppings",
+  },
+  cakepops: {
+    cake_flavor: "Cake flavor",
+    chocolate_dip: "Chocolate dip",
+    topping_style: "Topping style",
+    quantity: "Quantity",
+    design_theme: "Design theme",
+  },
+  cupcakes: {
+    cake_flavor: "Cake flavor",
+    frosting: "Frosting",
+    quantity: "Quantity",
+  },
+  custom: {
+    name: "Name",
+    description: "Description",
+    quantity: "Quantity",
+  },
+};
+
+const ITEM_EMOJI: Record<string, string> = {
+  cake: "🎂",
+  cakepops: "🍭",
+  cupcakes: "🧁",
+  custom: "✨",
+};
+
+function itemCardTitle(item: Quote["items"][number]): string {
+  const d = item.details || {};
+  switch (item.product_type) {
+    case "cake":
+      return d.cake_flavor ? `Custom Cake — ${d.cake_flavor}` : "Custom Cake";
+    case "cakepops":
+      return `Cakepops ×${Number(d.quantity) || 6}`;
+    case "cupcakes":
+      return `Cupcakes ×${Number(d.quantity) || 6}`;
+    case "custom": {
+      const qty = Number(d.quantity) || 1;
+      const base = String(d.name || "Custom item");
+      return qty > 1 ? `${base} ×${qty}` : base;
+    }
+    default:
+      return item.product_type;
+  }
+}
+
 export default function Quotes({ search, setPage }: { search: string; setPage: (p: Page) => void }) {
   const { quotes, handleUpdateQuote, handleDeleteQuote, loading } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -207,56 +260,111 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
 
             {/* Items Section */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-cocoa-muted">
-                {selected.items.length} {selected.items.length === 1 ? 'Item' : 'Items'}
-              </h3>
-              {selected.items.map((item, idx) => (
-                <div key={item.id} className="rounded-xl bg-cream-deep/50 p-4 space-y-2">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ProductIcon
-                      emoji={item.product_type === 'cake' ? '🎂' : item.product_type === 'cakepops' ? '🍭' : item.product_type === 'cupcakes' ? '🧁' : '✨'}
-                      size={28}
-                      imageUrl={item.reference_image_url}
-                    />
+              {selected.items.length > 0 && (
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-cocoa-muted">
+                  {selected.items.length} {selected.items.length === 1 ? "Item" : "Items"}
+                </h3>
+              )}
+              {selected.items.length === 0 && (
+                <div className="rounded-xl bg-cream-deep/50 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ProductIcon emoji="🎂" size={28} imageUrl={null} />
+                    <span className="font-semibold text-cocoa">
+                      {selected.cakeFlavor ? `Custom Cake — ${selected.cakeFlavor}` : "Custom Cake"}
+                    </span>
+                  </div>
+                  {selected.filling && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-cocoa-muted text-xs">Filling</span>
+                      <span className="font-medium text-cocoa text-sm text-right">{selected.filling}</span>
+                    </div>
+                  )}
+                  {selected.frosting && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-cocoa-muted text-xs">Frosting</span>
+                      <span className="font-medium text-cocoa text-sm text-right">{selected.frosting}</span>
+                    </div>
+                  )}
+                  {selected.servingSize && (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-cocoa-muted text-xs">Serving size</span>
+                      <span className="font-medium text-cocoa text-sm text-right">{selected.servingSize}</span>
+                    </div>
+                  )}
+                  {selected.toppings.length > 0 && (
                     <div>
-                      <span className="font-semibold text-cocoa capitalize">
-                        {item.product_type === 'custom'
-                          ? String(item.details.name || 'Custom item')
-                          : item.product_type === 'cake' ? 'Custom Cake' : item.product_type === 'cakepops' ? 'Cakepops' : 'Cupcakes'}
-                      </span>
+                      <p className="text-cocoa-muted text-xs">Toppings</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selected.toppings.map((t) => (
+                          <span key={t} className="rounded-full bg-coral-light/20 px-2 py-0.5 text-xs font-medium text-coral ring-1 ring-coral-light">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {selected.items.map((item, idx) => {
+                const labels = ITEM_DETAIL_LABELS[item.product_type] || {};
+                const skipDetail = (key: string) =>
+                  (item.product_type === "custom" && key === "name") ||
+                  ((item.product_type === "cakepops" || item.product_type === "cupcakes" || item.product_type === "custom") && key === "quantity");
+                return (
+                  <div key={item.id} className="rounded-xl bg-cream-deep/50 p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <ProductIcon
+                        emoji={ITEM_EMOJI[item.product_type] || "🍞"}
+                        size={28}
+                        imageUrl={item.reference_image_url}
+                      />
+                      <span className="font-semibold text-cocoa">{itemCardTitle(item)}</span>
                       {selected.items.length > 1 && (
-                        <span className="ml-2 text-xs text-cocoa-muted">#{idx + 1}</span>
+                        <span className="text-xs text-cocoa-muted">#{idx + 1}</span>
                       )}
                     </div>
-                  </div>
-                  {/* Render type-specific details */}
-                  {Object.entries(item.details).map(([key, value]) => {
-                    if (key === 'toppings' && Array.isArray(value)) {
-                      return (
-                        <div key={key}>
-                          <p className="text-cocoa-muted">{key.replace(/_/g, ' ')}</p>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {value.map((t: string) => (
-                              <span key={t} className="rounded-full bg-coral-light/20 px-2 py-0.5 text-xs font-medium text-coral ring-1 ring-coral-light">
-                                {t}
-                              </span>
-                            ))}
+                    {Object.entries(item.details).map(([key, value]) => {
+                      if (skipDetail(key)) return null;
+                      const label = labels[key] || key.replace(/_/g, " ");
+                      if (key === "toppings" && Array.isArray(value) && value.length > 0) {
+                        return (
+                          <div key={key}>
+                            <p className="text-cocoa-muted text-xs">{label}</p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {value.map((t: string) => (
+                                <span key={t} className="rounded-full bg-coral-light/20 px-2 py-0.5 text-xs font-medium text-coral ring-1 ring-coral-light">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    }
-                    if (value && String(value).trim()) {
-                      return (
-                        <div key={key} className="flex justify-between">
-                          <span className="text-cocoa-muted">{key.replace(/_/g, ' ')}</span>
-                          <span className="font-medium text-cocoa">{String(value)}</span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-              ))}
+                        );
+                      }
+                      if (value && String(value).trim()) {
+                        return (
+                          <div key={key} className="flex justify-between gap-4">
+                            <span className="text-cocoa-muted text-xs">{label}</span>
+                            <span className="font-medium text-cocoa text-sm text-right">
+                              {Array.isArray(value) ? value.join(", ") : String(value)}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                    {item.reference_image_url && (
+                      <a
+                        href={item.reference_image_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-palm hover:underline"
+                      >
+                        📷 View photo
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Inspiration */}
