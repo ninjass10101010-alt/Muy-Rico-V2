@@ -1006,6 +1006,7 @@
           budget: document.getElementById('budget').value.trim() || null,
           items,
           inspiration: selectedInspiration,
+          reference_image_url: uploadedImageUrl || null,
         }),
       });
       const data = await res.json();
