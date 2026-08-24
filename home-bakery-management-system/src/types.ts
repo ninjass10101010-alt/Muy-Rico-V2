@@ -298,7 +298,7 @@ export interface LabelTemplate {
 
 export interface QuoteItem {
   id: number;
-  product_type: 'cake' | 'cakepops' | 'cupcakes';
+  product_type: 'cake' | 'cakepops' | 'cupcakes' | 'custom';
   details: Record<string, any>;
   reference_image_url?: string | null;
 }

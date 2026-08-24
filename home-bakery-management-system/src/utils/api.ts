@@ -929,7 +929,7 @@ export const fetchGalleryPhotos = fetchGalleryAdmin;
 
 export interface ApiQuoteItem {
   id: number;
-  product_type: 'cake' | 'cakepops' | 'cupcakes';
+  product_type: 'cake' | 'cakepops' | 'cupcakes' | 'custom';
   details: Record<string, any>;
   reference_image_url?: string | null;
 }
@@ -1000,4 +1000,27 @@ export async function uploadQuoteImage(file: File): Promise<{ url: string }> {
     throw new Error(err.error || 'Upload failed');
   }
   return res.json();
+}
+
+export interface CreateQuotePayload {
+  customer_name: string;
+  email: string;
+  phone?: string | null;
+  language: 'es' | 'en';
+  occasion?: string | null;
+  dietary?: string[];
+  comments?: string | null;
+  desired_date?: string | null;
+  budget?: string | null;
+  reference_image_url?: string | null;
+  quoted_price?: number | null;
+  items: { product_type: 'cake' | 'cakepops' | 'cupcakes' | 'custom'; details: Record<string, unknown>; reference_image_url?: string | null }[];
+}
+
+export async function createQuote(payload: CreateQuotePayload): Promise<{ ok: boolean; id: number }> {
+  return apiFetch('/api/quotes', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function quoteHtmlUrl(id: number | string, lang?: 'en' | 'es'): string {
+  return `${API_BASE}/api/quotes/${id}/html${lang ? `?lang=${lang}` : ''}`;
 }
