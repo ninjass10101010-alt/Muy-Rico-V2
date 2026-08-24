@@ -265,6 +265,9 @@ export default {
       if (path === '/api/quotes' && method === 'GET')  return await listQuotes(env);
       if (path === '/api/quotes/upload-image' && method === 'POST') return await uploadQuoteImage(request, env);
 
+      const qhm = path.match(/^\/api\/quotes\/(\d+)\/html$/);
+      if (qhm && method === 'GET') return await getQuoteDocumentHtml(Number(qhm[1]), env, url);
+
       const qm = path.match(/^\/api\/quotes\/(\d+)$/);
       if (qm) {
         const id = Number(qm[1]);
@@ -3016,11 +3019,22 @@ async function createQuote(request, env, ctx, actor) {
       ).run();
     }
 
+    const itemsForEmail = body.items.map(i => ({ product_type: i.product_type, details: i.details }));
+
     if (isAdmin) {
       // Admin-created quote: no owner notification, no ack. If priced, send the
-      // priced auto-reply and the "quote replied" Telegram ping immediately.
+      // priced quote document and the "quote replied" Telegram ping immediately.
       if (quotedPrice != null) {
-        ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', quoteId, true, quotedPrice));
+        const quoteRow = {
+          id: quoteId,
+          email: body.email.trim().toLowerCase(),
+          language: body.language || 'es',
+          quoted_price: quotedPrice,
+          customer_name: body.customer_name,
+          occasion: body.occasion || null,
+          desired_date: body.desired_date || null,
+        };
+        ctx.waitUntil(sendQuoteAutoReply(env, quoteRow, itemsForEmail, true));
         ctx.waitUntil(notifyQuoteReplied(env, quoteId, body.customer_name, quotedPrice));
       }
     } else {
@@ -3028,7 +3042,16 @@ async function createQuote(request, env, ctx, actor) {
       ctx.waitUntil(notifyQuoteCreated(env, body, quoteId));
 
       // Send auto-reply to customer (ack, no price yet)
-      ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', quoteId, false));
+      const quoteRow = {
+        id: quoteId,
+        email: body.email.trim().toLowerCase(),
+        language: body.language || 'es',
+        quoted_price: null,
+        customer_name: body.customer_name,
+        occasion: body.occasion || null,
+        desired_date: body.desired_date || null,
+      };
+      ctx.waitUntil(sendQuoteAutoReply(env, quoteRow, itemsForEmail, false));
     }
 
     return json({ ok: true, id: quoteId }, 201);
@@ -3145,7 +3168,8 @@ async function updateQuote(id, request, env, ctx, actor) {
         "UPDATE cake_quotes SET status = 'replied', updated_at = datetime('now') WHERE id = ?"
       ).bind(id).run();
 
-      ctx.waitUntil(sendQuoteAutoReply(env, existing.email, existing.language || 'es', id, true, newPrice));
+      const itemsByQuote = await getQuoteItems(env, [id]);
+      ctx.waitUntil(sendQuoteAutoReply(env, { ...existing, quoted_price: newPrice }, itemsByQuote[id] || [], true));
       ctx.waitUntil(notifyQuoteReplied(env, id, existing.customer_name, newPrice));
     }
 
@@ -3196,6 +3220,101 @@ function quoteItemDetailsSummary(details, excludeKeys = []) {
     .filter(([k, v]) => !excludeKeys.includes(k) && v != null && v !== '' && !(Array.isArray(v) && !v.length))
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('/') : v}`)
     .join(', ');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ─── Quote document (shared by itemized email + printable HTML) ─────────────
+
+function buildQuoteDocumentHtml(quote, items, lang) {
+  const isEn = lang === 'en';
+  const title = isEn ? 'Quote' : 'Cotización';
+  const qid = escapeHtml(quote.id);
+  const customerName = escapeHtml(quote.customer_name || '');
+
+  const greeting = isEn ? `Hi ${customerName},` : `Hola ${customerName}:`;
+
+  const metaLines = [];
+  if (quote.occasion) metaLines.push(`${isEn ? 'Occasion' : 'Ocasión'}: ${escapeHtml(quote.occasion)}`);
+  if (quote.desired_date) metaLines.push(`${isEn ? 'Requested date' : 'Fecha solicitada'}: ${escapeHtml(quote.desired_date)}`);
+
+  const rows = (items || []).map(item => {
+    const nm = escapeHtml(quoteItemDisplayName(item));
+    const qty = quoteItemQty(item);
+    const detail = escapeHtml(quoteItemDetailsSummary(item.details, ['name']));
+    return `<tr>
+        <td style="padding:10px 8px; border-bottom:1px solid #f0e9dc;">
+          <strong>${nm}</strong>${detail ? `<br><span style="color:#706561;font-size:13px;">${detail}</span>` : ''}
+        </td>
+        <td style="padding:10px 8px; border-bottom:1px solid #f0e9dc; text-align:center; white-space:nowrap;">×${qty}</td>
+      </tr>`;
+  }).join('\n');
+
+  let priceBlock;
+  if (quote.quoted_price == null) {
+    priceBlock = `<p style="color:#8a6d3b;font-size:14px;margin:16px 0 0;">${isEn
+      ? 'Price pending — we will confirm your quote shortly.'
+      : 'Precio por confirmar — te enviaremos tu cotización en breve.'}</p>`;
+  } else {
+    const totalCents = Number(quote.quoted_price);
+    const depositCents = Math.ceil(totalCents * 0.5);
+    const balanceCents = totalCents - depositCents;
+    priceBlock = `
+      <table style="width:100%;border-collapse:collapse;margin-top:16px;background:#faf7f2;border-radius:8px;">
+        <tr>
+          <td style="padding:12px 14px;color:#2c2523;font-size:15px;"><strong>${isEn ? 'Total' : 'Total'}</strong></td>
+          <td style="padding:12px 14px;text-align:right;color:#2c2523;font-size:15px;"><strong>$${(totalCents / 100).toFixed(2)}</strong></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 14px;color:#4a423d;font-size:13px;">${isEn ? 'Deposit (50%) to secure your date' : 'Depósito (50%) para apartar tu fecha'}</td>
+          <td style="padding:8px 14px;text-align:right;color:#4a423d;font-size:13px;">$${(depositCents / 100).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 14px 12px;color:#4a423d;font-size:13px;">${isEn ? 'Balance at pickup' : 'Restante al recoger'}</td>
+          <td style="padding:8px 14px 12px;text-align:right;color:#4a423d;font-size:13px;">$${(balanceCents / 100).toFixed(2)}</td>
+        </tr>
+      </table>`;
+  }
+
+  const proceedLine = isEn
+    ? 'To move forward, reply to this email or call us and we will set up your deposit.'
+    : 'Para proceder, responde a este correo o llámanos y con gusto apartamos tu fecha.';
+  const disclaimer = isEn
+    ? 'Baked in a home kitchen not inspected by the health department (Michigan Cottage Law). May contain or come into contact with common allergens.'
+    : 'Horneado en una cocina doméstica no inspeccionada por el departamento de salud (Ley Cottage de Michigan). Puede contener alérgenos o haber tenido contacto con ellos.';
+
+  return `<div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; color: #2c2523; line-height: 1.6;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" style="max-width: 160px;">
+  </div>
+  <h2 style="margin:0 0 8px;font-size:20px;">${title} #${qid}</h2>
+  <p style="margin:0 0 4px;">${greeting}</p>
+  ${metaLines.length ? `<p style="margin:0 0 12px;color:#4a423d;font-size:13px;">${metaLines.map(escapeHtml).join(' · ')}</p>` : ''}
+  <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px;border-bottom:2px solid #e3dcd2;font-size:12px;color:#8a8078;text-transform:uppercase;letter-spacing:0.04em;">${isEn ? 'Item' : 'Artículo'}</th>
+        <th style="text-align:center;padding:8px;border-bottom:2px solid #e3dcd2;font-size:12px;color:#8a8078;text-transform:uppercase;letter-spacing:0.04em;">${isEn ? 'Qty' : 'Cant.'}</th>
+      </tr>
+    </thead>
+    <tbody>${rows || ''}</tbody>
+  </table>
+  ${priceBlock}
+  <p style="font-size:14px;margin:20px 0 0;">${proceedLine}</p>
+  <p style="color:#706561;font-size:11px;margin:16px 0 0;">${disclaimer}</p>
+  <hr style="border: none; border-top: 1px solid #e8dbc4; margin: 24px 0;">
+  <p style="color: #706561; font-size: 12px; text-align: center; margin: 0;">
+    Muy Rico Bakery · Holland, MI<br>
+    ${isEn ? 'Family · Tradition · Flavor' : 'Familia · Tradición · Sabor'}
+  </p>
+</div>`;
 }
 
 async function convertQuote(id, request, env, ctx, actor) {
@@ -3436,33 +3555,33 @@ async function notifyQuoteConverted(env, id, customerName, orderId, depositCents
   }
 }
 
-async function sendQuoteAutoReply(env, email, lang, quoteId, includePrice, priceCents) {
+async function sendQuoteAutoReply(env, quote, items, includePrice) {
+  const email = quote.email;
+  const lang = quote.language || 'es';
   if (!email || !env.RESEND_API_KEY) return;
 
-  const esAck = `¡Gracias por tu solicitud! Hemos recibido tu cotización personalizada de pastel #${quoteId}. Revisaremos los detalles y te enviaremos una cotización en 1-2 días hábiles. Si tienes preguntas, responde a este correo.`;
-  const esPrice = `¡Tu cotización está lista! Hemos revisado tu solicitud de pastel personalizado #${quoteId} y nos encantaría hacerlo realidad.
-
-Precio cotizado: $${(priceCents / 100).toFixed(2)}
-
-Si deseas proceder, responde a este correo o haz tu pedido a través de nuestro sitio web. El precio puede variar según los detalles finales de personalización.
-
-Gracias por elegir Muy Rico Bakery — ¡Familia · Tradición · Sabor!`;
-
-  const enAck = `Thank you for your request! We've received your custom cake quote request #${quoteId}. We'll review the details and send you a quote within 1-2 business days. If you have questions, reply to this email.`;
-  const enPrice = `Your quote is ready! We've reviewed your custom cake request #${quoteId} and would love to make it happen.
-
-Quoted price: $${(priceCents / 100).toFixed(2)}
-
-If you'd like to proceed, reply to this email or place your order through our website. The price may vary based on final customization details.
-
-Thank you for choosing Muy Rico Bakery — Familia · Tradición · Sabor!`;
-
-  const subject = includePrice
-    ? (lang === 'es' ? `Cotización #${quoteId} — Muy Rico Bakery` : `Quote #${quoteId} — Muy Rico Bakery`)
-    : (lang === 'es' ? `Solicitud #${quoteId} recibida — Muy Rico Bakery` : `Request #${quoteId} received — Muy Rico Bakery`);
-
-  const body = includePrice ? (lang === 'es' ? esPrice : enPrice) : (lang === 'es' ? esAck : enAck);
-  const html = body.replace(/\n/g, '<br>');
+  let subject;
+  let bodyHtml;
+  if (includePrice) {
+    subject = lang === 'es' ? `Cotización #${quote.id} — Muy Rico Bakery` : `Quote #${quote.id} — Muy Rico Bakery`;
+    bodyHtml = buildQuoteDocumentHtml(quote, items || [], lang);
+  } else {
+    const ackText = lang === 'es'
+      ? `¡Gracias por tu solicitud! Hemos recibido tu cotización personalizada de pastel #${quote.id}. Revisaremos los detalles y te enviaremos una cotización en 1-2 días hábiles. Si tienes preguntas, responde a este correo.`
+      : `Thank you for your request! We've received your custom cake quote request #${quote.id}. We'll review the details and send you a quote within 1-2 business days. If you have questions, reply to this email.`;
+    subject = lang === 'es' ? `Solicitud #${quote.id} recibida — Muy Rico Bakery` : `Request #${quote.id} received — Muy Rico Bakery`;
+    bodyHtml = `<div style="font-family: sans-serif; max-width: 520px; padding: 24px; color: #2c2523; line-height: 1.6;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" style="max-width: 160px;">
+  </div>
+  <div>${ackText}</div>
+  <hr style="border: none; border-top: 1px solid #e8dbc4; margin: 24px 0;">
+  <p style="color: #706561; font-size: 12px; text-align: center; margin: 0;">
+    Muy Rico Bakery · Holland, MI<br>
+    ${lang === 'es' ? 'Familia · Tradición · Sabor' : 'Family · Tradition · Flavor'}
+  </p>
+</div>`;
+  }
 
   try {
     await fetch("https://api.resend.com/emails", {
@@ -3475,22 +3594,44 @@ Thank you for choosing Muy Rico Bakery — Familia · Tradición · Sabor!`;
         from: env.EMAIL_FROM || "orders@muy-rico.com",
         to: email,
         subject,
-        html: `<div style="font-family: sans-serif; max-width: 520px; padding: 24px; color: #2c2523; line-height: 1.6;">
-  <div style="text-align: center; margin-bottom: 24px;">
-    <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" style="max-width: 160px;">
-  </div>
-  <div>${html}</div>
-  <hr style="border: none; border-top: 1px solid #e8dbc4; margin: 24px 0;">
-  <p style="color: #706561; font-size: 12px; text-align: center;">
-    Muy Rico Bakery · Holland, MI<br>
-    ${lang === 'es' ? 'Famila · Tradición · Sabor' : 'Family · Tradition · Flavor'}
-  </p>
-</div>`,
+        html: bodyHtml,
       }),
     });
   } catch (e) {
     console.error('sendQuoteAutoReply failed:', e);
   }
+}
+
+// ─── Printable quote document ────────────────────────────────────────────────
+
+async function getQuoteDocumentHtml(id, env, url) {
+  const row = await env.DB.prepare('SELECT * FROM cake_quotes WHERE id = ?').bind(id).first();
+  if (!row) return json({ error: 'Not found' }, 404);
+  const itemsByQuote = await getQuoteItems(env, [row.id]);
+  const items = itemsByQuote[row.id] || [];
+
+  // Stored language first, then ?lang= override
+  let lang = row.language === 'en' ? 'en' : 'es';
+  const langParam = url?.searchParams?.get('lang');
+  if (langParam === 'en') lang = 'en';
+  else if (langParam === 'es') lang = 'es';
+
+  const html = buildQuoteDocumentHtml(row, items, lang);
+  const togglePath = url?.pathname || `/api/quotes/${id}/html`;
+  const autoPrint = !url?.searchParams?.has('lang');
+
+  const toggleBar = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; padding: 8px 12px; text-align: center; border-bottom: 1px solid #e3dcd2;">
+  <span style="color: #8a8078; font-size: 12px; margin-right: 8px;">Language / Idioma:</span>
+  <a href="${togglePath}?lang=en" style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 4px; ${lang === 'en' ? 'background:#1e4636;color:#fff;' : 'background:#e3dcd2;color:#4a423d;'} margin: 0 2px;">EN</a>
+  <a href="${togglePath}?lang=es" style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 4px; ${lang !== 'en' ? 'background:#1e4636;color:#fff;' : 'background:#e3dcd2;color:#4a423d;'} margin: 0 2px;">ES</a>
+</div>`;
+
+  const printable = toggleBar + html + (autoPrint ? '\n<script>window.print();</script>' : '');
+  return new Response(printable, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', ...CORS },
+  });
 }
 
 // ─── Seed reset (re-runs INSERT OR IGNORE for the profile only) ──────────────
