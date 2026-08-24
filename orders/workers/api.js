@@ -3165,6 +3165,39 @@ async function deleteQuote(id, env) {
   return json({ ok: true }, 200);
 }
 
+function quoteItemDisplayName(item) {
+  const d = (item.details && typeof item.details === 'object') ? item.details : {};
+  switch (item.product_type) {
+    case 'cake':
+      return d.cake_flavor ? `Custom Cake — ${d.cake_flavor}` : 'Custom Cake';
+    case 'cakepops': {
+      const parts = [d.chocolate_dip, d.topping_style].filter(Boolean);
+      return parts.length ? `Cakepops (${parts.join(', ')})` : 'Cakepops';
+    }
+    case 'cupcakes':
+      return d.frosting ? `Cupcakes (${d.frosting})` : 'Cupcakes';
+    case 'custom':
+      return d.name || 'Custom Item';
+    default:
+      return item.product_type || 'Custom Item';
+  }
+}
+
+function quoteItemQty(item) {
+  const d = (item.details && typeof item.details === 'object') ? item.details : {};
+  if (item.product_type === 'cake') return 1;
+  if (item.product_type === 'custom') return Number(d.quantity) || 1;
+  return Number(d.quantity) || 6;
+}
+
+function quoteItemDetailsSummary(details, excludeKeys = []) {
+  if (!details || typeof details !== 'object') return '';
+  return Object.entries(details)
+    .filter(([k, v]) => !excludeKeys.includes(k) && v != null && v !== '' && !(Array.isArray(v) && !v.length))
+    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('/') : v}`)
+    .join(', ');
+}
+
 async function convertQuote(id, request, env, ctx, actor) {
   try {
     const body = await request.json();
@@ -3197,35 +3230,81 @@ async function convertQuote(id, request, env, ctx, actor) {
     const isFullPayment = depositCents >= quote.quoted_price;
     const paymentStatus = isFullPayment ? 'paid' : 'partial';
 
-    // Build flavor note from quote details
-    const flavorParts = [quote.cake_flavor];
-    if (quote.filling) flavorParts.push(`Filling: ${quote.filling}`);
-    if (quote.frosting) flavorParts.push(`Frosting: ${quote.frosting}`);
-    if (quote.toppings) {
-      try {
-        const tp = typeof quote.toppings === 'string' ? JSON.parse(quote.toppings) : quote.toppings;
-        if (Array.isArray(tp) && tp.length) flavorParts.push(`Toppings: ${tp.join(', ')}`);
-      } catch {}
+    const quoteItems = (await getQuoteItems(env, [id]))[id] || [];
+    const hasItems = quoteItems.length > 0;
+    const hasCake = quoteItems.some(i => i.product_type === 'cake');
+
+    // Build flavor note: quote-level fields when a cake is involved (or legacy
+    // item-less quotes), otherwise per-item detail summaries.
+    let flavorNote;
+    if (!hasItems || hasCake) {
+      const flavorParts = [quote.cake_flavor];
+      if (quote.filling) flavorParts.push(`Filling: ${quote.filling}`);
+      if (quote.frosting) flavorParts.push(`Frosting: ${quote.frosting}`);
+      if (quote.toppings) {
+        try {
+          const tp = typeof quote.toppings === 'string' ? JSON.parse(quote.toppings) : quote.toppings;
+          if (Array.isArray(tp) && tp.length) flavorParts.push(`Toppings: ${tp.join(', ')}`);
+        } catch {}
+      }
+      flavorNote = flavorParts.join(' | ');
+    } else {
+      flavorNote = quoteItems
+        .map(i => quoteItemDetailsSummary(i.details))
+        .filter(Boolean)
+        .join(' | ');
     }
-    const flavorNote = flavorParts.join(' | ');
 
     // Build order notes — include quote reference + dietary + comments + image
-    const orderNotes = [
+    const orderNotesParts = [
       `From Quote #${id}`,
       quote.dietary ? `Dietary: ${JSON.parse(typeof quote.dietary === 'string' ? quote.dietary : '[]').join(', ')}` : '',
       quote.comments || '',
       quote.reference_image_url ? `Ref image: ${quote.reference_image_url}` : '',
-    ].filter(Boolean).join('\n');
+    ].filter(Boolean);
+    if (hasItems) {
+      orderNotesParts.push('Items:');
+      for (const item of quoteItems) {
+        const detail = quoteItemDetailsSummary(item.details, ['name']);
+        orderNotesParts.push(`- ${quoteItemDisplayName(item)} ×${quoteItemQty(item)}${detail ? ` — ${detail}` : ''}`);
+      }
+    }
+    const orderNotes = orderNotesParts.join('\n');
 
-    // Create the order
-    const itemsJson = JSON.stringify([{
-      productId: 'prod_custom_cake',
-      name: 'Custom Cake',
-      emoji: '🎂',
-      qty: 1,
-      price: quote.quoted_price / 100,
-      flavorNote,
-    }]);
+    // Create the order — single line so totals stay exact
+    let orderLine;
+    if (hasItems) {
+      const lineName = quoteItems
+        .map(i => {
+          const name = quoteItemDisplayName(i);
+          const qty = quoteItemQty(i);
+          return qty > 1 ? `${name} ×${qty}` : name;
+        })
+        .join(' + ');
+      const emoji = hasCake ? '🎂'
+        : quoteItems.some(i => i.product_type === 'cakepops') ? '🍭'
+        : quoteItems.some(i => i.product_type === 'cupcakes') ? '🧁'
+        : '✨';
+      orderLine = {
+        productId: hasCake ? 'prod_custom_cake' : null,
+        name: lineName,
+        emoji,
+        qty: 1,
+        price: quote.quoted_price / 100,
+        flavorNote,
+      };
+    } else {
+      // Legacy quotes (pre-items-table): keep the original Custom Cake line
+      orderLine = {
+        productId: 'prod_custom_cake',
+        name: 'Custom Cake',
+        emoji: '🎂',
+        qty: 1,
+        price: quote.quoted_price / 100,
+        flavorNote,
+      };
+    }
+    const itemsJson = JSON.stringify([orderLine]);
 
     const orderResult = await env.DB.prepare(`
       INSERT INTO orders
