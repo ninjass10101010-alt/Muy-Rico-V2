@@ -261,7 +261,7 @@ export default {
       if (path === '/api/payments' && method === 'GET') return await listPayments(env);
       if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
 
-      if (path === '/api/quotes' && method === 'POST') return await createQuote(request, env, ctx);
+      if (path === '/api/quotes' && method === 'POST') return await createQuote(request, env, ctx, actorName);
       if (path === '/api/quotes' && method === 'GET')  return await listQuotes(env);
       if (path === '/api/quotes/upload-image' && method === 'POST') return await uploadQuoteImage(request, env);
 
@@ -2894,7 +2894,7 @@ function rowToQuote(r) {
   };
 }
 
-async function createQuote(request, env, ctx) {
+async function createQuote(request, env, ctx, actor) {
   try {
     const body = await request.json();
     if (!body.customer_name || !body.email) {
@@ -2905,19 +2905,34 @@ async function createQuote(request, env, ctx) {
     }
 
     // Validate product types
-    const validTypes = ['cake', 'cakepops', 'cupcakes'];
+    const validTypes = ['cake', 'cakepops', 'cupcakes', 'custom'];
     for (const item of body.items) {
       if (!item.product_type || !validTypes.includes(item.product_type)) {
-        return json({ error: `Invalid product_type: ${item.product_type}. Must be cake, cakepops, or cupcakes` }, 400);
+        return json({ error: `Invalid product_type: ${item.product_type}. Must be cake, cakepops, cupcakes, or custom` }, 400);
       }
       if (!item.details || typeof item.details !== 'object') {
         return json({ error: 'Item details must be an object' }, 400);
       }
+      if (item.product_type === 'custom' && (typeof item.details.name !== 'string' || !item.details.name.trim())) {
+        return json({ error: 'Custom items require a name in details' }, 400);
+      }
     }
 
-    // Extract cake_flavor from first item for back-compat
-    const firstItemDetails = body.items[0].details;
-    const cakeFlavor = firstItemDetails.cake_flavor || firstItemDetails.flavor || '';
+    // Admin-created quotes may carry an instant price; website submissions never do.
+    const isAdmin = !!actor && actor !== 'website' && actor !== 'unknown';
+    let quotedPrice = null;
+    if (body.quoted_price !== undefined && body.quoted_price !== null) {
+      const qp = Number(body.quoted_price);
+      if (!Number.isFinite(qp) || qp <= 0) {
+        return json({ error: 'Invalid quoted_price' }, 400);
+      }
+      quotedPrice = Math.round(qp);
+    }
+
+    // Extract cake_flavor from first item for back-compat (custom items fall back to their name)
+    const firstItem = body.items[0];
+    const firstItemDetails = firstItem.details;
+    const cakeFlavor = firstItemDetails.cake_flavor || firstItemDetails.flavor || (firstItem.product_type === 'custom' ? (firstItemDetails.name || '') : '') || '';
 
     const toppings = Array.isArray(body.toppings) ? JSON.stringify(body.toppings) : '[]';
     const dietary = Array.isArray(body.dietary) ? JSON.stringify(body.dietary) : '[]';
@@ -2954,12 +2969,15 @@ async function createQuote(request, env, ctx) {
     }
     const inspirationJson = inspiration.length ? JSON.stringify(inspiration) : null;
 
+    const status = isAdmin && quotedPrice != null ? 'replied' : 'new';
+
     const result = await env.DB.prepare(`
       INSERT INTO cake_quotes
         (customer_name, email, phone, language, occasion, serving_size,
          cake_flavor, filling, frosting, toppings, dietary,
-         reference_image_url, comments, desired_date, budget, inspiration)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         reference_image_url, comments, desired_date, budget, inspiration,
+         quoted_price, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.customer_name.trim(),
       body.email.trim().toLowerCase(),
@@ -2977,6 +2995,8 @@ async function createQuote(request, env, ctx) {
       body.desired_date || null,
       body.budget || null,
       inspirationJson,
+      quotedPrice,
+      status,
     ).run();
 
     const quoteId = result.meta.last_row_id;
@@ -2996,11 +3016,20 @@ async function createQuote(request, env, ctx) {
       ).run();
     }
 
-    // Notify admin
-    ctx.waitUntil(notifyQuoteCreated(env, body, quoteId));
+    if (isAdmin) {
+      // Admin-created quote: no owner notification, no ack. If priced, send the
+      // priced auto-reply and the "quote replied" Telegram ping immediately.
+      if (quotedPrice != null) {
+        ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', quoteId, true, quotedPrice));
+        ctx.waitUntil(notifyQuoteReplied(env, quoteId, body.customer_name, quotedPrice));
+      }
+    } else {
+      // Notify admin
+      ctx.waitUntil(notifyQuoteCreated(env, body, quoteId));
 
-    // Send auto-reply to customer (ack, no price yet)
-    ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', quoteId, false));
+      // Send auto-reply to customer (ack, no price yet)
+      ctx.waitUntil(sendQuoteAutoReply(env, body.email, body.language || 'es', quoteId, false));
+    }
 
     return json({ ok: true, id: quoteId }, 201);
   } catch (e) {
