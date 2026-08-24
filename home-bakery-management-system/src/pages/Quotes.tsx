@@ -225,38 +225,61 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               <Badge tone={selected.status}>{selected.status}</Badge>
             </div>
 
-            {/* Order-level details */}
-            <div className="rounded-xl border border-sand-100 bg-sand-50 p-4 space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-cocoa-muted">Occasion</span>
-                <span className="font-medium text-cocoa">{selected.occasion || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-cocoa-muted">Desired date</span>
-                <span className="font-medium text-cocoa">{selected.desiredDate || "—"}</span>
-              </div>
-              {selected.budget && (
-                <div className="flex justify-between">
-                  <span className="text-cocoa-muted">Budget</span>
-                  <span className="font-medium text-cocoa">{selected.budget}</span>
-                </div>
-              )}
-              {selected.dietary.length > 0 && (
-                <div>
-                  <p className="text-cocoa-muted">Dietary</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {selected.dietary.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded-full bg-mid-green-light/20 px-2 py-0.5 text-xs font-medium text-palm ring-1 ring-mid-green-light"
-                      >
-                        {t}
-                      </span>
-                    ))}
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Column A — what the customer asked for */}
+              <div className="space-y-5">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-cocoa-muted/60">
+                  Customer request
+                </h3>
+
+                {/* Visuals zone */}
+                {(selected.referenceImageUrl || (selected.inspiration && selected.inspiration.length > 0)) && (
+                  <div className="space-y-3">
+                    {selected.referenceImageUrl && (
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-cocoa-muted">Reference photo</p>
+                        <a href={selected.referenceImageUrl} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={selected.referenceImageUrl}
+                            alt="Customer reference"
+                            className="max-h-64 w-full rounded-xl border border-sand-200 object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        </a>
+                      </div>
+                    )}
+                    {selected.inspiration && selected.inspiration.length > 0 && (
+                      <div>
+                        <p className="mb-1 text-xs font-medium text-cocoa-muted">Inspiration they picked</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selected.inspiration.map((insp, idx) => (
+                            <a
+                              key={idx}
+                              href={insp.image_url || undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 rounded-xl bg-cream-deep/50 p-2"
+                            >
+                              {insp.image_url && (
+                                <img
+                                  src={insp.image_url}
+                                  alt={insp.title || "Inspiration"}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                  className="h-16 w-16 rounded-lg border border-sand-200 object-cover"
+                                />
+                              )}
+                              <span className="text-sm font-medium text-cocoa">{insp.title}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
 
             {/* Items Section */}
             <div className="space-y-3">
@@ -367,50 +390,46 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               })}
             </div>
 
-            {/* Inspiration */}
-            {selected.inspiration && selected.inspiration.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-cocoa-muted">Inspiration</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selected.inspiration.map((insp, idx) => (
-                    <div key={idx} className="flex items-center gap-2 rounded-xl bg-cream-deep/50 p-2">
-                      {insp.image_url && (
-                        <img
-                          src={insp.image_url}
-                          alt={insp.title || "Inspiration"}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                          className="h-10 w-10 rounded-lg border border-sand-200 object-cover"
-                        />
-                      )}
-                      <span className="text-sm font-medium text-cocoa">{insp.title}</span>
+                {/* Comments */}
+                {selected.comments && (
+                  <div className="rounded-xl bg-coral-light/20 p-3 text-sm italic text-cocoa">
+                    "{selected.comments}"
+                  </div>
+                )}
+
+                {/* Meta facts (budget lives next to the price input now) */}
+                <div className="rounded-xl border border-sand-100 bg-sand-50 p-4 space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-cocoa-muted">Occasion</span>
+                    <span className="font-medium text-cocoa">{selected.occasion || "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-cocoa-muted">Desired date</span>
+                    <span className="font-medium text-cocoa">{selected.desiredDate || "—"}</span>
+                  </div>
+                  {selected.dietary.length > 0 && (
+                    <div>
+                      <p className="text-cocoa-muted">Dietary</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selected.dietary.map((t) => (
+                          <span
+                            key={t}
+                            className="rounded-full bg-mid-green-light/20 px-2 py-0.5 text-xs font-medium text-palm ring-1 ring-mid-green-light"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Comments */}
-            {selected.comments && (
-              <div className="rounded-xl bg-coral-light/20 p-3 text-sm italic text-cocoa">
-                "{selected.comments}"
-              </div>
-            )}
-
-            {/* Reference image */}
-            {selected.referenceImageUrl && (
-              <div>
-                <p className="mb-1 text-xs font-medium text-cocoa-muted">Reference image</p>
-                <a href={selected.referenceImageUrl} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={selected.referenceImageUrl}
-                    alt="Reference"
-                    className="max-h-48 rounded-xl border border-sand-200 object-contain"
-                  />
-                </a>
-              </div>
-            )}
+              {/* Column B — pricing & admin */}
+              <div className="space-y-5">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-cocoa-muted/60">
+                  Pricing &amp; admin
+                </h3>
 
             {/* Admin actions */}
             <div className="rounded-xl border border-sand-200 p-4 space-y-3">
@@ -533,6 +552,8 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                   Unarchive
                 </button>
               )}
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-between text-xs text-cocoa-muted">
