@@ -65,7 +65,7 @@ function itemCardTitle(item: Quote["items"][number]): string {
 }
 
 export default function Quotes({ search, setPage }: { search: string; setPage: (p: Page) => void }) {
-  const { quotes, handleUpdateQuote, handleDeleteQuote, loading } = useStore();
+  const { quotes, orders, customers, handleUpdateQuote, handleDeleteQuote, loading } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Quote | null>(null);
   const [quotedPrice, setQuotedPrice] = useState("");
@@ -141,6 +141,19 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
       setDeleting(false);
     }
   }
+
+  const history = useMemo(() => {
+    if (!selected || !selected.email) return null;
+    const email = selected.email.toLowerCase();
+    const customer = customers.find((c) => (c.email || "").toLowerCase() === email);
+    const pastOrders = customer
+      ? orders.filter((o) => o.customerId === customer.id).length
+      : 0;
+    const otherQuotes = quotes.filter(
+      (q) => q.id !== selected.id && q.email.toLowerCase() === email,
+    ).length;
+    return { pastOrders, otherQuotes };
+  }, [selected, customers, orders, quotes]);
 
   return (
     <div className="space-y-4">
@@ -457,8 +470,12 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               </div>
 
               <div>
+                <p className="text-xs font-medium text-cocoa-muted">Budget customer shared</p>
+                <p className={`mb-2 mt-0.5 text-sm font-semibold ${selected.budget ? "text-cocoa" : "text-cocoa-muted/60"}`}>
+                  {selected.budget || "Not shared"}
+                </p>
                 <label className="mb-1 block text-xs font-medium text-cocoa-muted">
-                  Quoted price ($)
+                  Your quoted price ($)
                 </label>
                 <input
                   type="number"
@@ -554,6 +571,21 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               )}
                 </div>
               </div>
+            </div>
+
+            {/* Customer history */}
+            <div className="rounded-xl border border-sand-100 bg-sand-50 px-4 py-3 text-xs text-cocoa-muted">
+              <span className="font-semibold text-cocoa">{selected.customerName}</span>
+              {" · "}{selected.email}
+              {selected.phone && <>{" · "}{selected.phone}</>}
+              {history && (
+                <span className="text-cocoa-muted/80">
+                  {" — "}
+                  {history.pastOrders} past {history.pastOrders === 1 ? "order" : "orders"}
+                  {" · "}
+                  {history.otherQuotes} other {history.otherQuotes === 1 ? "quote" : "quotes"}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center justify-between text-xs text-cocoa-muted">
