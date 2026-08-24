@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, MessageSquareQuote } from "lucide-react";
+import { ChevronDown, Plus, Printer } from "lucide-react";
 import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import QuoteConvertModal from "../components/QuoteConvertModal";
+import QuoteModal from "../components/QuoteModal";
 import ProductIcon from "../components/ProductIcon";
+import { quoteHtmlUrl } from "../utils/api";
 import { formatCurrency, formatDate } from "../utils/format";
 import type { Quote } from "../types";
 import type { Page } from "../App";
@@ -17,6 +19,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
   const [adminNotes, setAdminNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [archivedFrom, setArchivedFrom] = useState<Record<number, Quote["status"]>>({});
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -96,6 +99,10 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
           label="Status"
         />
         <span className="ml-auto text-sm text-cocoa-muted">{filtered.length} quotes</span>
+        <button onClick={() => setCreateOpen(true)} className="btn-primary">
+          <Plus size={14} className="mr-1 inline" />
+          New Quote
+        </button>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
@@ -207,13 +214,15 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                 <div key={item.id} className="rounded-xl bg-cream-deep/50 p-4 space-y-2">
                   <div className="flex items-center gap-2 mb-3">
                     <ProductIcon
-                      type={item.product_type === 'cake' ? 'custom_cake' : item.product_type}
+                      emoji={item.product_type === 'cake' ? '🎂' : item.product_type === 'cakepops' ? '🍭' : item.product_type === 'cupcakes' ? '🧁' : '✨'}
                       size={28}
                       imageUrl={item.reference_image_url}
                     />
                     <div>
                       <span className="font-semibold text-cocoa capitalize">
-                        {item.product_type === 'cake' ? 'Custom Cake' : item.product_type === 'cakepops' ? 'Cakepops' : 'Cupcakes'}
+                        {item.product_type === 'custom'
+                          ? String(item.details.name || 'Custom item')
+                          : item.product_type === 'cake' ? 'Custom Cake' : item.product_type === 'cakepops' ? 'Cakepops' : 'Cupcakes'}
                       </span>
                       {selected.items.length > 1 && (
                         <span className="ml-2 text-xs text-cocoa-muted">#{idx + 1}</span>
@@ -298,6 +307,27 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
             {/* Admin actions */}
             <div className="rounded-xl border border-sand-200 p-4 space-y-3">
               <p className="text-xs font-semibold uppercase text-cocoa-muted/60">Admin</p>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-cocoa-muted">Quote document</span>
+                <div className="ml-auto flex items-center gap-0.5 rounded-lg border border-sand-200 overflow-hidden">
+                  <button
+                    onClick={() => window.open(quoteHtmlUrl(selected.id, 'en'))}
+                    className="px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50 border-r border-sand-200"
+                  >EN</button>
+                  <button
+                    onClick={() => window.open(quoteHtmlUrl(selected.id, 'es'))}
+                    className="px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50 border-r border-sand-200"
+                  >ES</button>
+                  <button
+                    onClick={() => window.open(quoteHtmlUrl(selected.id))}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-cocoa-muted transition hover:bg-sand-50"
+                  >
+                    <Printer size={12} />
+                    Print
+                  </button>
+                </div>
+              </div>
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-cocoa-muted">
@@ -438,12 +468,14 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
         )}
       </Modal>
 
+      <QuoteModal open={createOpen} onClose={() => setCreateOpen(false)} />
+
       {selected && (
         <QuoteConvertModal
           quote={selected}
           open={convertOpen}
           onClose={() => setConvertOpen(false)}
-          onDone={(orderId) => {
+          onDone={() => {
             setConvertOpen(false);
             setSelected(null);
             setPage("orders");

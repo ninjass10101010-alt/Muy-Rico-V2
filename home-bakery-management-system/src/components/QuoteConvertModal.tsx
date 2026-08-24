@@ -14,6 +14,8 @@ const itemToLineItem = (item: Quote["items"][0]) => {
       return { name: `Cakepops (${d.chocolate_dip || ""}, ${d.topping_style || ""})`, quantity: Number(d.quantity) || 6 };
     case "cupcakes":
       return { name: `Cupcakes (${d.frosting || ""})`, quantity: Number(d.quantity) || 6 };
+    case "custom":
+      return { name: String(d.name || "Custom item"), quantity: Number(d.quantity) || 1 };
     default:
       return { name: item.product_type, quantity: 1 };
   }
