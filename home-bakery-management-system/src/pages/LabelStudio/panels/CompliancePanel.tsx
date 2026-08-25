@@ -89,7 +89,7 @@ export default function CompliancePanel({ profile, onOpenInspector }: Props) {
     window.setTimeout(() => focusFixTarget(target), 0);
   }
 
-  // ── Fix-it wiring (ports legacy LabelDesigner onComplianceFix) ───────────
+  // ── Fix-it wiring (ports legacy designer onComplianceFix) ───────────
   function onComplianceFix(issueId: string, fieldName: string, elementId?: string) {
     if (issueId === "disclaimer-hidden" || fieldName === "showDisclaimer") {
       updateField("showDisclaimer", true);
@@ -245,7 +245,7 @@ export default function CompliancePanel({ profile, onOpenInspector }: Props) {
         </div>
       </aside>
 
-      {/* Disclaimer warning modal — ported from legacy LabelDesigner */}
+      {/* Disclaimer warning modal — ported from legacy designer */}
       <Modal
         open={showDisclaimerModal}
         onClose={() => setShowDisclaimerModal(false)}
