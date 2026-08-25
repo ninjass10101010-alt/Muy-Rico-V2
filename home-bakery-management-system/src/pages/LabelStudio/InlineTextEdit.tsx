@@ -134,11 +134,9 @@ interface Props {
  *
  * Undo/coalescing: the session's FIRST store change is recorded (its pre-edit
  * doc becomes the undo target); every following keystroke mutates with
- * record=false (no history); Done/blur pushes ONE checkpoint via
- * setDoc(doc, true) — a trailing marker that clears `future` and stops undo
- * from skipping over the session. Same pattern as arrow-key coalescing in
- * index.tsx: undo #1 lands on the session's end state (appears no-op), undo
- * #2 reverts to pre-edit.
+ * record=false (no history). Done/blur adds NO extra checkpoint, so each
+ * editing session is exactly ONE history entry and a single undo press
+ * reverts to pre-edit. Same pattern as arrow-key coalescing in index.tsx.
  *
  * Esc/cancel: record=false writes already mutated the live doc, so Esc restores
  * the session's store-space snapshot (field value or el.text) with record=false —
@@ -179,9 +177,7 @@ export default function InlineTextEdit({
     const st = useEditorStore.getState();
     const session = sessionRef.current;
     if (session && session.read() !== session.snapshot) {
-      if (commit) {
-        st.setDoc(st.doc, true); // checkpoint: one undo entry per editing session
-      } else {
+      if (!commit) {
         session.write(session.snapshot, false); // Esc: restore, no history impact
         if (!wasDirtyRef.current) st.markClean();
       }
