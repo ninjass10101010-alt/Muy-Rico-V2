@@ -268,6 +268,9 @@ export default {
       const qhm = path.match(/^\/api\/quotes\/(\d+)\/html$/);
       if (qhm && method === 'GET') return await getQuoteDocumentHtml(Number(qhm[1]), env, url);
 
+      const qem = path.match(/^\/api\/quotes\/(\d+)\/email$/);
+      if (qem && method === 'POST') return await emailQuote(Number(qem[1]), env, ctx);
+
       const qm = path.match(/^\/api\/quotes\/(\d+)$/);
       if (qm) {
         const id = Number(qm[1]);
@@ -3160,19 +3163,6 @@ async function updateQuote(id, request, env, ctx, actor) {
       `UPDATE cake_quotes SET ${sets.join(', ')} WHERE id = ?`
     ).bind(...binds).run();
 
-    // If quoted_price changed from null → set, auto-send quote reply with price
-    const oldPrice = existing.quoted_price;
-    const newPrice = body.quoted_price !== undefined ? body.quoted_price : oldPrice;
-    if (oldPrice == null && newPrice != null && existing.status === 'new') {
-      await env.DB.prepare(
-        "UPDATE cake_quotes SET status = 'replied', updated_at = datetime('now') WHERE id = ?"
-      ).bind(id).run();
-
-      const itemsByQuote = await getQuoteItems(env, [id]);
-      ctx.waitUntil(sendQuoteAutoReply(env, { ...existing, quoted_price: newPrice }, itemsByQuote[id] || [], true));
-      ctx.waitUntil(notifyQuoteReplied(env, id, existing.customer_name, newPrice));
-    }
-
     if (body.status === 'archived' || body.status === 'converted') {
       // No auto-email when archiving
     }
@@ -3181,6 +3171,32 @@ async function updateQuote(id, request, env, ctx, actor) {
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
+}
+
+// ─── Quote email (deliberate send / re-send) ─────────────────────────────────
+
+async function emailQuote(id, env, ctx) {
+  const quote = await env.DB.prepare(
+    `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
+  ).bind(id).first();
+  if (!quote) return json({ error: 'Not found' }, 404);
+  if (quote.status === 'converted' || quote.status === 'archived') {
+    return json({ error: `Quote is ${quote.status}; cannot email` }, 400);
+  }
+  if (quote.quoted_price == null) {
+    return json({ error: 'Save a quoted price before emailing' }, 400);
+  }
+  const itemsByQuote = await getQuoteItems(env, [id]);
+  ctx.waitUntil(sendQuoteAutoReply(env, quote, itemsByQuote[id] || [], true));
+  let status = quote.status;
+  if (quote.status === 'new') {
+    await env.DB.prepare(
+      "UPDATE cake_quotes SET status = 'replied', updated_at = datetime('now') WHERE id = ?"
+    ).bind(id).run();
+    status = 'replied';
+    ctx.waitUntil(notifyQuoteReplied(env, id, quote.customer_name, quote.quoted_price));
+  }
+  return json({ ok: true, status }, 200);
 }
 
 async function deleteQuote(id, env) {
