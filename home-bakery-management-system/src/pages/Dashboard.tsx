@@ -138,10 +138,24 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
       .slice(0, 6);
   }, [orders]);
 
+  const nowHour = new Date().getHours();
+  const greeting = nowHour < 12 ? "Buenos días" : nowHour < 19 ? "Buenas tardes" : "Buenas noches";
+  const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-palm border-t-transparent" />
+      <div className="space-y-6">
+        <div className="h-32 animate-pulse rounded-xl bg-sand-200/50" />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl border border-sand-200 bg-white" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="h-72 animate-pulse rounded-xl border border-sand-200 bg-white lg:col-span-2" />
+          <div className="h-72 animate-pulse rounded-xl border border-sand-200 bg-white" />
+        </div>
+        <div className="h-36 animate-pulse rounded-xl border border-sand-200 bg-white" />
       </div>
     );
   }
@@ -169,7 +183,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
               <img src={muyRicoLogo} alt="Muy Rico" className="h-11 w-auto max-w-[140px] object-contain" />
             </div>
             <div>
-              <p className="text-sm font-medium text-sand-50/80">Bienvenidos de vuelta</p>
+              <p className="text-sm font-medium text-sand-50/80">{greeting} · {todayLabel}</p>
               <h2 className="mt-0.5 font-serif text-2xl font-semibold text-sand-50">Here's how your bakery is doing</h2>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-sand-50/80">
                 <span className="flex items-center gap-1.5">
@@ -192,7 +206,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
           label="Revenue this month"
           value={formatCurrency(stats.revenueMonth)}
@@ -224,28 +238,14 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
           tone="palm"
           onClick={() => setPage("orders")}
         />
-        <StatCard
-          label="Avg order value"
-          value={formatCurrency(stats.avgOrder)}
-          icon={TrendingUp}
-          tone="coral"
-          onClick={() => setPage("orders")}
-        />
-        <StatCard
-          label="Low stock items"
-          value={String(stats.lowStock.length)}
-          sub={`${stats.lowStockCritical} critical`}
-          icon={PackageX}
-          tone="hibiscus"
-          onClick={() => setPage("inventory")}
-        />
-        <StatCard
-          label="Cake Quotes pending"
-          value={String(stats.pendingQuotes)}
-          icon={MessageSquareQuote}
-          tone="coral"
-          onClick={() => setPage("quotes")}
-        />
+      </div>
+
+      {/* Also tracking */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-sand-200 bg-white px-5 py-3 shadow-sm">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-cocoa-muted/70">Also tracking</span>
+        <MiniStat icon={TrendingUp} tone="text-coral" label="Avg order" value={formatCurrency(stats.avgOrder)} onClick={() => setPage("orders")} />
+        <MiniStat icon={PackageX} tone="text-hibiscus" label={`Low stock${stats.lowStockCritical ? ` · ${stats.lowStockCritical} critical` : ""}`} value={String(stats.lowStock.length)} onClick={() => setPage("inventory")} />
+        <MiniStat icon={MessageSquareQuote} tone="text-coral" label="Quotes pending" value={String(stats.pendingQuotes)} onClick={() => setPage("quotes")} />
       </div>
 
       {/* Charts row */}
@@ -401,5 +401,17 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
 
       <InventoryLowStockWidget onManageInventory={() => setPage("inventory")} />
     </div>
+  );
+}
+
+function MiniStat({ icon: Icon, tone, label, value, onClick }: {
+  icon: typeof TrendingUp; tone: string; label: string; value: string; onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="group flex items-center gap-2 text-left transition hover:opacity-80 active:scale-[0.98]">
+      <Icon size={14} className={tone} />
+      <span className="text-xs text-cocoa-muted">{label}</span>
+      <span className="font-serif text-lg font-semibold tabular-nums text-cocoa">{value}</span>
+    </button>
   );
 }
