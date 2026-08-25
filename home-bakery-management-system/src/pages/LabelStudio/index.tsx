@@ -34,6 +34,9 @@ import { selectCanRedo, selectCanUndo, useEditorStore } from "./state";
 import type { LeftTab } from "./state";
 import CompliancePanel from "./panels/CompliancePanel";
 import AddTab from "./panels/AddTab";
+import LayersTab from "./panels/LayersTab";
+import TemplatesTab from "./panels/TemplatesTab";
+import OnboardingModal from "./OnboardingModal";
 
 const DRAFT_KEY = "muyrico.labelstudio.draft";
 const COALESCE_MS = 600;
@@ -50,9 +53,15 @@ const TOOL_BTN =
   "flex items-center justify-center rounded-lg border border-sand-200 p-2 text-cocoa-muted transition hover:bg-sand-50 hover:text-cocoa disabled:cursor-not-allowed disabled:opacity-40";
 
 export default function LabelStudio({ filterByOrder, filterByProduct, returnToLabel, onBack }: Props) {
-  const { profile, labelTemplates, products, handleCreateLabel, handleUpdateLabel, loading } =
-    useStore();
-  const doc = useEditorStore((s) => s.doc);
+  const {
+    profile,
+    labelTemplates,
+    products,
+    handleCreateLabel,
+    handleUpdateLabel,
+    handleUpdateProfile,
+    loading,
+  } = useStore();  const doc = useEditorStore((s) => s.doc);
   const zoom = useEditorStore((s) => s.zoom);
   const dirty = useEditorStore((s) => s.dirty);
   const leftTab = useEditorStore((s) => s.leftTab);
@@ -68,6 +77,16 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [missingProduct, setMissingProduct] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // ── Onboarding on first launch ──
+  useEffect(() => {
+    const onboarded = localStorage.getItem("muyrico.labelstudio.onboarded");
+    if (!onboarded && (!profile.name || profile.name === "Muy Rico")) {
+      setShowOnboarding(true);
+    }
+  }, [profile.name]);
 
   // ── Launch params: load the right template for order/product/custom entry ──
   const launchKey = `${filterByOrder ?? ""}|${filterByProduct ?? ""}`;
@@ -570,14 +589,9 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
           </div>
           <div className="flex min-h-0 flex-1 flex-col">
             {leftTab === "add" && <AddTab />}
-            {leftTab !== "add" && (
-              <div className="flex flex-1 items-start justify-center p-4 pt-8">
-                <p className="text-center text-xs leading-relaxed text-cocoa-muted">
-                  {leftTab === "layers"
-                    ? "Layers panel lands in Task 8"
-                    : "Template browser lands in Task 8"}
-                </p>
-              </div>
+            {leftTab === "layers" && <LayersTab />}
+            {leftTab === "templates" && (
+              <TemplatesTab filterByOrder={filterByOrder} filterByProduct={filterByProduct} />
             )}
           </div>
         </aside>
@@ -614,6 +628,85 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
           </div>
         </aside>
       </div>
+
+      {/* ── <lg: bottom bar opening the active rail as a bottom-sheet drawer ── */}
+      <nav className="flex shrink-0 border-t border-sand-200 bg-white lg:hidden">
+        {railTabs.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => {
+              setLeftTab(id);
+              setDrawerOpen((v) => (leftTab === id ? !v : true));
+            }}
+            className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 text-[10px] font-medium transition ${
+              leftTab === id && drawerOpen
+                ? "border-palm bg-palm-50 text-palm"
+                : "border-transparent text-cocoa-muted hover:bg-sand-50"
+            }`}
+          >
+            <Icon size={18} />
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {drawerOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div
+            className="absolute inset-0 bg-cocoa/40"
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-x-0 bottom-0 flex max-h-[70vh] flex-col rounded-t-2xl border-t border-sand-200 bg-white shadow-2xl">
+            <div className="flex justify-center pt-2">
+              <div className="h-1 w-10 rounded-full bg-sand-200" />
+            </div>
+            <div className="flex shrink-0 border-b border-sand-200">
+              {railTabs.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setLeftTab(id)}
+                  className={`flex min-h-12 flex-1 items-center justify-center gap-1.5 border-b-2 text-xs font-medium transition ${
+                    leftTab === id
+                      ? "border-palm bg-palm-50 text-palm"
+                      : "border-transparent text-cocoa-muted hover:bg-sand-50"
+                  }`}
+                >
+                  <Icon size={13} /> {label}
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {leftTab === "add" && <AddTab />}
+              {leftTab === "layers" && <LayersTab />}
+              {leftTab === "templates" && (
+                <TemplatesTab
+                  filterByOrder={filterByOrder}
+                  filterByProduct={filterByProduct}
+                  onTemplateOpen={() => setDrawerOpen(false)}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOnboarding && (
+        <OnboardingModal
+          profile={profile}
+          onSave={async (draft) => {
+            await handleUpdateProfile(draft);
+            localStorage.setItem("muyrico.labelstudio.onboarded", "1");
+            setShowOnboarding(false);
+          }}
+          onSkip={() => {
+            localStorage.setItem("muyrico.labelstudio.onboarded", "1");
+            setShowOnboarding(false);
+          }}
+        />
+      )}
 
       <CompliancePanel />
 
