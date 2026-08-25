@@ -86,7 +86,7 @@ export default function QuoteConvertModal({
             ))}
             <div className="flex justify-between border-t border-sand-200 pt-2">
               <span className="font-semibold text-cocoa">Quoted price</span>
-              <span className="font-semibold text-coral">{(quotedCents / 100).toFixed(2)}</span>
+              <span className="font-semibold text-coral">${(quotedCents / 100).toFixed(2)}</span>
             </div>
           </div>
 

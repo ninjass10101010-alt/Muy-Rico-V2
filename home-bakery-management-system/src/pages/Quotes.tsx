@@ -6,6 +6,7 @@ import Modal from "../components/ui/Modal";
 import QuoteConvertModal from "../components/QuoteConvertModal";
 import QuoteModal from "../components/QuoteModal";
 import ProductIcon from "../components/ProductIcon";
+import QuoteItemComposer, { type DraftQuoteItem } from "../components/QuoteItemComposer";
 import { quoteHtmlUrl } from "../utils/api";
 import { formatCurrency, formatDate } from "../utils/format";
 import type { Quote } from "../types";
@@ -65,7 +66,18 @@ function itemCardTitle(item: Quote["items"][number]): string {
 }
 
 export default function Quotes({ search, setPage }: { search: string; setPage: (p: Page) => void }) {
-  const { quotes, orders, customers, handleUpdateQuote, handleDeleteQuote, loading } = useStore();
+  const {
+    quotes,
+    orders,
+    customers,
+    handleUpdateQuote,
+    handleDeleteQuote,
+    handleEmailQuote,
+    handleAddQuoteItem,
+    handleUpdateQuoteItem,
+    handleDeleteQuoteItem,
+    loading,
+  } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Quote | null>(null);
   const [quotedPrice, setQuotedPrice] = useState("");
@@ -78,6 +90,9 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [emailing, setEmailing] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return quotes
@@ -96,6 +111,9 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
     setQuotedPrice(q.quotedPrice ? (q.quotedPrice / 100).toFixed(2) : "");
     setAdminNotes(q.adminNotes || "");
     setSaveMsg(null);
+    setEditingItemId(null);
+    setAddOpen(false);
+    setEmailing(false);
   }
 
   async function saveQuote() {
@@ -108,11 +126,25 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
         quoted_price: priceCents,
         admin_notes: adminNotes || null,
       });
-      setSaveMsg("Quote saved. Customer will receive email with price.");
+      setSaveMsg("Saved.");
     } catch (err) {
       setSaveMsg("Failed to save. Try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function emailQuote() {
+    if (!selected || emailing) return;
+    setEmailing(true);
+    setSaveMsg(null);
+    try {
+      await handleEmailQuote(selected.id);
+      setSaveMsg("Quote emailed.");
+    } catch (err: any) {
+      setSaveMsg(err.message || "Failed to email quote.");
+    } finally {
+      setEmailing(false);
     }
   }
 
@@ -154,6 +186,8 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
     ).length;
     return { pastOrders, otherQuotes };
   }, [selected, customers, orders, quotes]);
+
+  const itemsEditable = !!selected && selected.status !== "converted" && selected.status !== "archived";
 
   return (
     <div className="space-y-4">
@@ -358,7 +392,39 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                       {selected.items.length > 1 && (
                         <span className="text-xs text-cocoa-muted">#{idx + 1}</span>
                       )}
+                      {itemsEditable && editingItemId !== item.id && (
+                        <>
+                          <button
+                            onClick={() => { setEditingItemId(item.id); setAddOpen(false); }}
+                            className="ml-auto text-xs font-medium text-palm hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (!window.confirm("Remove this item from the quote?")) return;
+                              handleDeleteQuoteItem(selected.id, item.id).catch(() => setSaveMsg("Failed to remove item."));
+                            }}
+                            className="text-hibiscus hover:underline text-xs font-medium"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      )}
                     </div>
+                    {editingItemId === item.id ? (
+                      <QuoteItemComposer
+                        initial={{ product_type: item.product_type, details: item.details }}
+                        submitLabel="Save item"
+                        onSubmit={(draft: DraftQuoteItem) =>
+                          handleUpdateQuoteItem(selected.id, item.id, { details: draft.details })
+                            .then(() => setEditingItemId(null))
+                            .catch(() => setSaveMsg("Failed to update item."))
+                        }
+                        onCancel={() => setEditingItemId(null)}
+                      />
+                    ) : (
+                      <>
                     {Object.entries(item.details).map(([key, value]) => {
                       if (skipDetail(key)) return null;
                       const label = labels[key] || key.replace(/_/g, " ");
@@ -398,9 +464,37 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                         📷 View photo
                       </a>
                     )}
+                      </>
+                    )}
                   </div>
                 );
               })}
+              {itemsEditable && !addOpen && editingItemId === null && (
+                <button
+                  onClick={() => { setAddOpen(true); }}
+                  className="w-full rounded-xl border border-dashed border-sand-200 py-2 text-sm font-medium text-cocoa-muted hover:border-palm hover:text-palm"
+                >
+                  + Add item
+                </button>
+              )}
+              {itemsEditable && addOpen && selected && (
+                <div className="rounded-xl border border-sand-200 p-4">
+                  <QuoteItemComposer
+                    submitLabel="Add item"
+                    onSubmit={(draft: DraftQuoteItem) =>
+                      handleAddQuoteItem(selected.id, draft)
+                        .then(() => setAddOpen(false))
+                        .catch(() => setSaveMsg("Failed to add item."))
+                    }
+                    onCancel={() => setAddOpen(false)}
+                  />
+                </div>
+              )}
+              {itemsEditable && (
+                <p className="text-[10px] text-cocoa-muted/70">
+                  Price isn't updated automatically — adjust it and press Email Quote when ready.
+                </p>
+              )}
             </div>
 
                 {/* Comments */}
@@ -506,7 +600,15 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
               {selected.status !== "archived" && selected.status !== "converted" && (
                 <div className="flex gap-2">
                   <button onClick={saveQuote} disabled={saving} className="btn-primary flex-1">
-                    {saving ? "Saving..." : "Save & Email Quote"}
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={emailQuote}
+                    disabled={emailing || selected.quotedPrice == null}
+                    className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={selected.quotedPrice == null ? "Save a quoted price first" : undefined}
+                  >
+                    {emailing ? "Emailing..." : "Email Quote"}
                   </button>
                   <button
                     onClick={() => setConvertOpen(true)}
@@ -514,7 +616,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                     className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                     title={selected.quotedPrice == null ? "Save a quoted price first" : undefined}
                   >
-                    Convert to Order
+                    Convert
                   </button>
                 </div>
               )}
