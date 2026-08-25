@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  resolveBestBy, formatBestBy, wrapLines, computeSnap, NFP_ROWS,
+  resolveBestBy, formatBestBy, wrapLines, computeSnap, NFP_ROWS, effectiveText,
 } from "./labelMath";
-import type { LabelTemplate } from "../../types";
+import type { BusinessProfile, LabelElement, LabelTemplate } from "../../types";
 
 describe("resolveBestBy", () => {
   it("prefers stored snapshot", () => {
@@ -67,5 +67,51 @@ describe("NFP_ROWS", () => {
   it("orders vitamins after protein", () => {
     const idx = (k: string) => NFP_ROWS.findIndex((r) => r.key === k);
     expect(idx("vitD")).toBeGreaterThan(idx("protein"));
+  });
+});
+
+describe("effectiveText", () => {
+  const el = (field: string) =>
+    ({ id: "e1", type: "text", field, x: 0, y: 0, w: 0.2, h: 0.05, z: 0 }) as unknown as LabelElement;
+  const baseLabel = {
+    showPrice: false,
+    showBestBy: false,
+    showDisclaimer: false,
+    bestByDays: 7,
+    netWeightUS: "",
+    netWeight: "",
+  } as unknown as LabelTemplate;
+  const profile = {
+    name: "", phone: "", address: "12 Elm St", registrationNumber: "",
+  } as unknown as BusinessProfile;
+
+  it("registration mode joins phone and registration number", () => {
+    const l = {
+      ...baseLabel, businessIdMode: "registration",
+      phoneNumber: "555-1234", registrationNumber: "REG-9",
+    } as unknown as LabelTemplate;
+    expect(effectiveText(el("businessId"), l, profile)).toBe("555-1234 · REG-9");
+  });
+  it("address mode returns the address", () => {
+    const l = { ...baseLabel, businessIdMode: "address" } as unknown as LabelTemplate;
+    expect(effectiveText(el("businessId"), l, profile)).toBe("12 Elm St");
+  });
+  it("hides price when showPrice is false, shows when true", () => {
+    const hidden = { ...baseLabel } as unknown as LabelTemplate;
+    expect(effectiveText(el("price"), hidden, profile)).toBe("");
+    const shown = { ...baseLabel, showPrice: true, price: "$3.00" } as unknown as LabelTemplate;
+    expect(effectiveText(el("price"), shown, profile)).toBe("$3.00");
+  });
+  it("bestBy uses provided bestByStr", () => {
+    const l = { ...baseLabel, showBestBy: true } as unknown as LabelTemplate;
+    expect(effectiveText(el("bestBy"), l, profile, "Aug 31")).toBe("Best by Aug 31");
+  });
+  it("prefixes ingredients", () => {
+    const l = { ...baseLabel, ingredients: "Flour, Sugar" } as unknown as LabelTemplate;
+    expect(effectiveText(el("ingredients"), l, profile)).toBe("Ingredients: Flour, Sugar");
+  });
+  it("netWeight falls back to netWeight when US value empty", () => {
+    const l = { ...baseLabel, netWeightUS: "", netWeight: "8 oz" } as unknown as LabelTemplate;
+    expect(effectiveText(el("netWeight"), l, profile)).toBe("8 oz");
   });
 });

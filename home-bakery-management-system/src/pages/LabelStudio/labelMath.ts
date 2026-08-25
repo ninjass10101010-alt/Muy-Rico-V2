@@ -115,8 +115,8 @@ export interface NfpRow {
 }
 
 export const NFP_ROWS: NfpRow[] = [
-  { key: "servingSize", label: "Serving size", indent: 0, bold: true, group: "header" },
-  { key: "servings", label: "Servings", indent: 0, group: "header" },
+  { key: "servingSize", label: "Serving Size", indent: 0, bold: true, group: "header" },
+  { key: "servings", label: "Servings Per Container", indent: 0, bold: true, group: "header" },
   { key: "calories", label: "Calories", indent: 0, bold: true, group: "core" },
   { key: "totalFat", label: "Total Fat", indent: 0, bold: true, dvThreshold: 78, group: "core" },
   { key: "satFat", label: "Saturated Fat", indent: 1, dvThreshold: 20, group: "core" },
