@@ -54,7 +54,7 @@ export default function InventoryLowStockWidget({ onManageInventory }: { onManag
   return (
     <div className="rounded-xl border border-sand-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-sand-100 px-5 py-4">
-        <h3 className="font-serif text-sm font-semibold text-cocoa">
+        <h3 className="font-serif text-base font-semibold text-cocoa">
           Low stock
           {totalLow > 0 && <span className="ml-1.5 text-hibiscus">({totalLow})</span>}
         </h3>
@@ -84,21 +84,21 @@ export default function InventoryLowStockWidget({ onManageInventory }: { onManag
                   onClick={() => step(i, -1)}
                   disabled={i.quantity <= 0}
                   aria-label={`Decrease ${i.name}`}
-                  className="rounded-md border border-sand-200 p-1 text-cocoa-muted hover:bg-sand-100 disabled:opacity-40"
+                  className="rounded-md border border-sand-200 p-1 text-cocoa-muted transition hover:bg-sand-100 active:scale-[0.99] disabled:opacity-40"
                 >
                   <Minus size={12} />
                 </button>
                 <button
                   onClick={() => step(i, 1)}
                   aria-label={`Increase ${i.name}`}
-                  className="rounded-md border border-sand-200 p-1 text-cocoa-muted hover:bg-sand-100"
+                  className="rounded-md border border-sand-200 p-1 text-cocoa-muted transition hover:bg-sand-100 active:scale-[0.99]"
                 >
                   <Plus size={12} />
                 </button>
                 <button
                   onClick={() => openRestock(i)}
                   aria-label={`Restock ${i.name}`}
-                  className="rounded-lg border border-palm/30 px-2.5 py-1.5 text-xs font-medium text-palm transition hover:bg-palm/5"
+                  className="rounded-lg border border-palm/30 px-2.5 py-1.5 text-xs font-medium text-palm transition hover:bg-palm/5 active:scale-[0.99]"
                 >
                   Restock
                 </button>

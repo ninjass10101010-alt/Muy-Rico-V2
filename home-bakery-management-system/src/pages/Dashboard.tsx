@@ -133,6 +133,8 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
       .slice(0, 4);
   }, [orders, products]);
 
+  const maxQty = Math.max(...bestSellers.map((b) => b.qty), 1);
+
   const attentionOrders = useMemo(() => {
     return [...orders]
       .filter((o) => o.status !== "completed" && o.status !== "cancelled")
@@ -336,7 +338,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-sand-200 bg-white shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between border-b border-sand-100 px-5 py-4">
-            <h3 className="font-serif text-sm font-semibold text-cocoa">Orders needing attention</h3>
+            <h3 className="font-serif text-base font-semibold text-cocoa">Orders needing attention</h3>
             <button onClick={() => setPage("orders")} className="text-xs font-medium text-coral hover:underline">
               View all
             </button>
@@ -353,10 +355,11 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
               {attentionOrders.map((o) => {
                 const tier = dueTier(o.dueDate, o.status);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={o.id}
                     onClick={() => setPage("orders")}
-                    className="flex cursor-pointer items-center justify-between gap-3 px-5 py-3 transition hover:bg-sand-50"
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 px-5 py-3 text-left transition hover:bg-sand-50 active:scale-[0.99]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-cocoa">
@@ -371,15 +374,15 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
                         </Badge>
                       ) : null}
                       {o.paymentStatus === "paid" ? (
-                        <CheckCircle2 size={14} className="text-mid-green" />
+                        <span title="Paid in full" className="flex text-mid-green"><CheckCircle2 size={14} /></span>
                       ) : o.paymentStatus === "partial" ? (
-                        <Wallet size={14} className="text-coral" />
+                        <span title="Partial payment" className="flex text-coral"><Wallet size={14} /></span>
                       ) : (
-                        <AlertCircle size={14} className="text-hibiscus" />
+                        <span title="Payment outstanding" className="flex text-hibiscus"><AlertCircle size={14} /></span>
                       )}
-                      <span className="text-sm font-semibold text-cocoa">{formatCurrency(o.total)}</span>
+                      <span className="text-sm font-semibold tabular-nums text-cocoa">{formatCurrency(o.total)}</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -388,15 +391,20 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
 
         <div className="rounded-xl border border-sand-200 bg-white shadow-sm">
           <div className="border-b border-sand-100 px-5 py-4">
-            <h3 className="font-serif text-sm font-semibold text-cocoa">Best sellers</h3>
+            <h3 className="font-serif text-base font-semibold text-cocoa">Best sellers</h3>
           </div>
           <div className="divide-y divide-sand-100">
             {bestSellers.map(({ product, qty }) => (
-              <div key={product!.id} className="flex items-center justify-between px-5 py-3">
-                <span className="flex items-center gap-2 text-sm text-cocoa">
-                  <ProductIcon emoji={product!.emoji} imageUrl={product!.image_url} size={28} /> {product!.name}
-                </span>
-                <span className="text-xs font-semibold text-cocoa-muted">{qty} sold</span>
+              <div key={product!.id} className="px-5 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm text-cocoa">
+                    <ProductIcon emoji={product!.emoji} imageUrl={product!.image_url} size={28} /> {product!.name}
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-cocoa-muted">{qty} sold</span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sand-100">
+                  <div className="h-full rounded-full bg-coral/70" style={{ width: `${Math.max(6, Math.round((qty / maxQty) * 100))}%` }} />
+                </div>
               </div>
             ))}
             {bestSellers.length === 0 && (
