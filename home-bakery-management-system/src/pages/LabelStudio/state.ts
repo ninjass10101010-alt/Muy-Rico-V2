@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { LabelElement, LabelTemplate } from "../../types";
 import { pushHistory, undoHistory, redoHistory } from "./history";
-import { normalizeLabel } from "./templateUtils";
+import { makeFallback, normalizeLabel } from "./templateUtils";
 import { ensureElements } from "../../components/label/defaultElements";
 
 export type LeftTab = "add" | "layers" | "templates";
@@ -36,7 +36,7 @@ interface EditorState {
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
-  doc: normalizeLabel({ id: "boot", name: "…" } as unknown as LabelTemplate, ""),
+  doc: makeFallback(""),
   past: [],
   future: [],
   selection: null,
