@@ -20,6 +20,7 @@ interface Props {
   bestByStr: string;
   registerRef: (id: string, node: unknown | null) => void;
   onSelectEl?: (id: string) => void;
+  onEditStartEl?: (id: string) => void;
   onDragStartEl?: (id: string, node: Konva.Node) => void;
   onDragMoveEl?: (id: string, node: Konva.Node) => void;
   onDragEndEl?: (id: string, node: Konva.Node) => void;
@@ -385,6 +386,7 @@ export function ElementNode({
   bestByStr,
   registerRef,
   onSelectEl,
+  onEditStartEl,
   onDragStartEl,
   onDragMoveEl,
   onDragEndEl,
@@ -409,6 +411,12 @@ export function ElementNode({
       draggable={!el.lock}
       onClick={() => onSelectEl?.(el.id)}
       onTap={() => onSelectEl?.(el.id)}
+      onDblClick={() => {
+        if (el.type === "text") onEditStartEl?.(el.id);
+      }}
+      onDblTap={() => {
+        if (el.type === "text") onEditStartEl?.(el.id);
+      }}
       onDragStart={(e) => onDragStartEl?.(el.id, e.target)}
       onDragMove={(e) => onDragMoveEl?.(el.id, e.target)}
       onDragEnd={(e) => onDragEndEl?.(el.id, e.target)}

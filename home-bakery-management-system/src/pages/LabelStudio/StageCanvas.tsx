@@ -10,6 +10,7 @@ import type { Rect as SnapRect } from "./labelMath";
 import { selectSortedElements, useEditorStore } from "./state";
 import { contentBoxPx, useHtmlImage } from "./capture";
 import ElementNode from "./elements/ElementNode";
+import InlineTextEdit, { isInlineEditable } from "./InlineTextEdit";
 import { useGestures } from "./hooks/useGestures";
 
 export { contentBoxPx };
@@ -187,6 +188,9 @@ export default function StageCanvas({
   const panY = useEditorStore((s) => s.panY);
   const selection = useEditorStore((s) => s.selection);
   const editingId = useEditorStore((s) => s.editingId);
+  const editingEl = useEditorStore((s) =>
+    s.editingId ? s.doc.elements.find((e) => e.id === s.editingId) || null : null
+  );
   const select = useEditorStore((s) => s.select);
   const sorted = useEditorStore(useShallow(selectSortedElements));
   const selectedEl = useEditorStore((s) =>
@@ -201,6 +205,7 @@ export default function StageCanvas({
 
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const trRef = useRef<Konva.Transformer>(null);
   // Latest baseScale for getState()-based gesture handlers (stable closures).
   const baseScaleRef = useRef(baseScale);
@@ -229,6 +234,12 @@ export default function StageCanvas({
 
   const onSelectEl = useCallback((id: string) => {
     useEditorStore.getState().select(id);
+  }, []);
+
+  const onEditStartEl = useCallback((id: string) => {
+    const st = useEditorStore.getState();
+    const el = st.doc.elements.find((e) => e.id === id);
+    if (el && isInlineEditable(el)) st.setEditingId(id);
   }, []);
 
   const onDragStartEl = useCallback((_id: string) => {
@@ -317,85 +328,103 @@ export default function StageCanvas({
   const keepRatio = selectedEl?.type === "logo" || selectedEl?.type === "qr";
 
   return (
-    <div ref={containerRef} style={{ touchAction: "none" }}>
-      <Stage
-        ref={stageRef}
-        width={W}
-        height={H}
-        scaleX={1}
-        scaleY={1}
-        x={panX}
-        y={panY}
-        onMouseDown={(e) => {
-          if (e.target === e.target.getStage()) select(null);
-        }}
-        onTouchStart={(e) => {
-          if (e.target === e.target.getStage()) select(null);
-        }}
-      >
-        <Layer listening={false}>
-          <BackgroundFrame doc={doc} W={W} H={H} pxPerIn={pxPerIn} />
-        </Layer>
-        <Layer>
-          {sorted.map((el) =>
-            el.hidden ? null : (
-              <ElementNode
-                key={el.id}
-                el={el}
-                label={doc}
-                profile={profile}
-                W={W}
-                H={H}
-                selected={selection === el.id}
-                editing={editingId === el.id}
-                bestByStr={bestByStr}
-                registerRef={registerRef}
-                onSelectEl={onSelectEl}
-                onDragStartEl={onDragStartEl}
-                onDragMoveEl={onDragMoveEl}
-                onDragEndEl={onDragEndEl}
-                onTransformEndEl={onTransformEndEl}
+    <div ref={wrapperRef} style={{ position: "relative" }}>
+      <div ref={containerRef} style={{ touchAction: "none" }}>
+        <Stage
+          ref={stageRef}
+          width={W}
+          height={H}
+          scaleX={1}
+          scaleY={1}
+          x={panX}
+          y={panY}
+          onMouseDown={(e) => {
+            if (e.target === e.target.getStage()) select(null);
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.target.getStage()) select(null);
+          }}
+        >
+          <Layer listening={false}>
+            <BackgroundFrame doc={doc} W={W} H={H} pxPerIn={pxPerIn} />
+          </Layer>
+          <Layer>
+            {sorted.map((el) =>
+              el.hidden ? null : (
+                <ElementNode
+                  key={el.id}
+                  el={el}
+                  label={doc}
+                  profile={profile}
+                  W={W}
+                  H={H}
+                  selected={selection === el.id}
+                  editing={editingId === el.id}
+                  bestByStr={bestByStr}
+                  registerRef={registerRef}
+                  onSelectEl={onSelectEl}
+                  onEditStartEl={onEditStartEl}
+                  onDragStartEl={onDragStartEl}
+                  onDragMoveEl={onDragMoveEl}
+                  onDragEndEl={onDragEndEl}
+                  onTransformEndEl={onTransformEndEl}
+                />
+              )
+            )}
+          </Layer>
+          <Layer>
+            {guides.guidesX.map((gx, i) => (
+              <Line
+                key={`gx-${i}`}
+                points={[gx * W, 0, gx * W, H]}
+                stroke={GUIDE_COLOR}
+                strokeWidth={1}
+                dash={[4, 4]}
+                listening={false}
               />
-            )
-          )}
-        </Layer>
-        <Layer>
-          {guides.guidesX.map((gx, i) => (
-            <Line
-              key={`gx-${i}`}
-              points={[gx * W, 0, gx * W, H]}
-              stroke={GUIDE_COLOR}
-              strokeWidth={1}
-              dash={[4, 4]}
-              listening={false}
+            ))}
+            {guides.guidesY.map((gy, i) => (
+              <Line
+                key={`gy-${i}`}
+                points={[0, gy * H, W, gy * H]}
+                stroke={GUIDE_COLOR}
+                strokeWidth={1}
+                dash={[4, 4]}
+                listening={false}
+              />
+            ))}
+            <Transformer
+              ref={trRef}
+              rotateEnabled
+              rotationSnaps={ROTATION_SNAPS}
+              rotationSnapTolerance={4}
+              keepRatio={keepRatio}
+              anchorSize={12}
+              anchorCornerRadius={3}
+              borderStroke={GUIDE_COLOR}
+              rotateAnchorOffset={24}
+              boundBoxFunc={(oldBox, newBox) =>
+                newBox.width < MIN_BOX_PX || newBox.height < MIN_BOX_PX ? oldBox : newBox
+              }
             />
-          ))}
-          {guides.guidesY.map((gy, i) => (
-            <Line
-              key={`gy-${i}`}
-              points={[0, gy * H, W, gy * H]}
-              stroke={GUIDE_COLOR}
-              strokeWidth={1}
-              dash={[4, 4]}
-              listening={false}
-            />
-          ))}
-          <Transformer
-            ref={trRef}
-            rotateEnabled
-            rotationSnaps={ROTATION_SNAPS}
-            rotationSnapTolerance={4}
-            keepRatio={keepRatio}
-            anchorSize={12}
-            anchorCornerRadius={3}
-            borderStroke={GUIDE_COLOR}
-            rotateAnchorOffset={24}
-            boundBoxFunc={(oldBox, newBox) =>
-              newBox.width < MIN_BOX_PX || newBox.height < MIN_BOX_PX ? oldBox : newBox
-            }
-          />
-        </Layer>
-      </Stage>
+          </Layer>
+        </Stage>
+      </div>
+      {editingEl && !editingEl.hidden && (
+        <InlineTextEdit
+          key={editingEl.id}
+          el={editingEl}
+          label={doc}
+          profile={profile}
+          W={W}
+          H={H}
+          panX={panX}
+          panY={panY}
+          bestByStr={bestByStr}
+          containerRef={containerRef}
+          wrapperRef={wrapperRef}
+        />
+      )}
     </div>
   );
 }
