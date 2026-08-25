@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import zlib from "zlib";
-import { renderRasterPdf } from "./labelRasterPdf";
+import { renderRasterPdf, rasterCellGeom } from "./labelRasterPdf";
+import { AVERY_LAYOUTS } from "./labelExport";
 
 // ── Tiny valid 2×2 PNG fixture (node zlib — no canvas needed) ────────────────
 
@@ -71,6 +72,27 @@ function countImageStreams(doc: PDFDocument): number {
     return obj.dict.get(PDFName.of("Subtype")) === PDFName.of("Image");
   }).length;
 }
+
+describe("rasterCellGeom", () => {
+  it("square label on 5164 → square cell sized to min(labelW, labelH)", () => {
+    const g = rasterCellGeom(AVERY_LAYOUTS["5164"], { effWIn: 3.33, effHIn: 3.33 });
+    expect(g.cellW).toBeCloseTo(3.33, 5);
+    expect(g.cellH).toBeCloseTo(3.33, 5);
+    expect(g.cellW).toBe(g.cellH);
+  });
+
+  it("portrait 3×4 label on 5164 → cellW=3.33, cellH=4", () => {
+    const g = rasterCellGeom(AVERY_LAYOUTS["5164"], { effWIn: 3, effHIn: 4 });
+    expect(g.cellW).toBeCloseTo(3.33, 5);
+    expect(g.cellH).toBeCloseTo(4, 5);
+  });
+
+  it("square label on 8163 → cell collapses to min(4, 2)=2", () => {
+    const g = rasterCellGeom(AVERY_LAYOUTS["8163"], { effWIn: 2, effHIn: 2 });
+    expect(g.cellW).toBeCloseTo(2, 5);
+    expect(g.cellH).toBeCloseTo(2, 5);
+  });
+});
 
 describe("renderRasterPdf", () => {
   it("single label → 1 page sized exactly to the label (in points)", async () => {
