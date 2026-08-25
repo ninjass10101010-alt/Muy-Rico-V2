@@ -442,7 +442,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                       />
                     ) : (
                       <>
-                    {Object.entries(item.details).map(([key, value]) => {
+                    {Object.entries(item.details ?? {}).map(([key, value]) => {
                       if (skipDetail(key)) return null;
                       const label = labels[key] || key.replace(/_/g, " ");
                       if (key === "toppings" && Array.isArray(value) && value.length > 0) {
