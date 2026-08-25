@@ -1024,3 +1024,29 @@ export async function createQuote(payload: CreateQuotePayload): Promise<{ ok: bo
 export function quoteHtmlUrl(id: number | string, lang?: 'en' | 'es'): string {
   return `${API_BASE}/api/quotes/${id}/html${lang ? `?lang=${lang}` : ''}`;
 }
+
+export interface QuoteItemInput {
+  product_type: "cake" | "cakepops" | "cupcakes" | "custom";
+  details: Record<string, unknown>;
+  reference_image_url?: string | null;
+}
+
+export async function emailQuote(id: number): Promise<{ ok: boolean; status: string }> {
+  return apiFetch(`/api/quotes/${id}/email`, { method: "POST" });
+}
+
+export async function addQuoteItem(id: number, item: QuoteItemInput): Promise<{ ok: boolean; item: ApiQuoteItem }> {
+  return apiFetch(`/api/quotes/${id}/items`, { method: "POST", body: JSON.stringify(item) });
+}
+
+export async function updateQuoteItem(
+  id: number,
+  itemId: number,
+  patch: { details?: Record<string, unknown>; reference_image_url?: string | null },
+): Promise<{ ok: boolean; item: ApiQuoteItem }> {
+  return apiFetch(`/api/quotes/${id}/items/${itemId}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export async function deleteQuoteItem(id: number, itemId: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/quotes/${id}/items/${itemId}`, { method: "DELETE" });
+}
