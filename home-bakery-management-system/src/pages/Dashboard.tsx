@@ -97,13 +97,15 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
     }));
   }, [payments]);
 
+  const collectedTotal = paymentBreakdown.reduce((s, p) => s + p.value, 0);
+
   const last7days = useMemo(() => {
-    const days: { label: string; date: Date; revenue: number }[] = [];
+    const days: { label: string; date: Date; revenue: number; isToday: boolean }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       d.setHours(0, 0, 0, 0);
-      days.push({ label: d.toLocaleDateString("en-US", { weekday: "short" }), date: d, revenue: 0 });
+      days.push({ label: d.toLocaleDateString("en-US", { weekday: "short" }), date: d, revenue: 0, isToday: i === 0 });
     }
     payments.forEach((p) => {
       const d = new Date(p.date);
@@ -251,18 +253,17 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm lg:col-span-2">
-          <h3 className="mb-4 font-serif text-sm font-semibold text-cocoa">Revenue collected — last 7 days</h3>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h3 className="font-serif text-base font-semibold text-cocoa">Revenue collected — last 7 days</h3>
+            <span className="text-xs text-cocoa-muted">
+              <span className="font-semibold tabular-nums text-cocoa">{formatCurrency(last7days.reduce((s, d) => s + d.revenue, 0))}</span> this week
+            </span>
+          </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={last7days}>
-              <defs>
-                <linearGradient id="revenueBarGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f7a8a4" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="#fad9d4" stopOpacity={0.6} />
-                </linearGradient>
-              </defs>
               <CartesianGrid vertical={false} stroke="#f5edd8" />
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#706561" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: "#706561" }} axisLine={false} tickLine={false} width={40} />
+              <YAxis tick={{ fontSize: 12, fill: "#706561" }} axisLine={false} tickLine={false} width={40} tickFormatter={(v: number) => (v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`)} />
               <Tooltip
                 formatter={(v) => formatCurrency(Number(v))}
                 contentStyle={{ borderRadius: 12, border: "1px solid #e8dbc4", fontSize: 13 }}
@@ -274,30 +275,40 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
                 strokeLinecap="round"
                 label={{ value: "avg", position: "right", fill: "#a8967a", fontSize: 10 }}
               />
-              <Bar dataKey="revenue" fill="url(#revenueBarGradient)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+                {last7days.map((d) => (
+                  <Cell key={d.label} fill={d.isToday ? "#e88a86" : "#f2cfc6"} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 font-serif text-sm font-semibold text-cocoa">Payment methods</h3>
+          <h3 className="mb-4 font-serif text-base font-semibold text-cocoa">Payment methods</h3>
           {paymentBreakdown.length === 0 ? (
             <p className="py-10 text-center text-sm text-cocoa-muted">No payments recorded yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={paymentBreakdown} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
-                  {paymentBreakdown.map((entry) => (
-                    <Cell key={entry.method} fill={PAYMENT_METHOD_COLORS[entry.method]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={paymentBreakdown} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
+                    {paymentBreakdown.map((entry) => (
+                      <Cell key={entry.method} fill={PAYMENT_METHOD_COLORS[entry.method]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => formatCurrency(Number(v))} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-cocoa-muted/70">Collected</span>
+                <span className="font-serif text-xl font-semibold tabular-nums text-cocoa">{formatCurrency(collectedTotal)}</span>
+              </div>
+            </div>
           )}
           <div className="mt-2 space-y-1.5">
             {paymentBreakdown.map((p) => (
-              <div key={p.method} className="flex items-center justify-between text-xs">
+              <div key={p.method} className="flex items-center justify-between gap-2 text-xs">
                 <span className="flex items-center gap-1.5 text-cocoa-muted">
                   <span
                     className="h-2 w-2 rounded-full"
@@ -305,7 +316,8 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
                   />
                   {p.name}
                 </span>
-                <span className="font-medium text-cocoa">{formatCurrency(p.value)}</span>
+                <span className="font-medium tabular-nums text-cocoa">{formatCurrency(p.value)}</span>
+                {collectedTotal > 0 && <span className="w-8 text-right text-cocoa-muted/70">{Math.round((p.value / collectedTotal) * 100)}%</span>}
               </div>
             ))}
           </div>
