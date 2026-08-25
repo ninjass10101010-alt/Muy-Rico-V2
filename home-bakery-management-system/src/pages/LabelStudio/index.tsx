@@ -18,6 +18,7 @@ import {
   Redo2,
   Save,
   Share2,
+  SlidersHorizontal,
   Undo2,
   ZoomIn,
   ZoomOut,
@@ -36,6 +37,7 @@ import CompliancePanel from "./panels/CompliancePanel";
 import AddTab from "./panels/AddTab";
 import LayersTab from "./panels/LayersTab";
 import TemplatesTab from "./panels/TemplatesTab";
+import Inspector from "./panels/Inspector";
 import OnboardingModal from "./OnboardingModal";
 
 const DRAFT_KEY = "muyrico.labelstudio.draft";
@@ -79,6 +81,18 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
   const [missingProduct, setMissingProduct] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  type DrawerTab = LeftTab | "inspector";
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>("add");
+  const openInspectorDrawer = useCallback(() => {
+    setDrawerTab("inspector");
+    setDrawerOpen(true);
+  }, []);
+  const drawerItems: { id: DrawerTab; label: string; icon: typeof Plus }[] = [
+    { id: "add", label: "Add", icon: Plus },
+    { id: "layers", label: "Layers", icon: Layers },
+    { id: "templates", label: "Templates", icon: LayoutTemplate },
+    { id: "inspector", label: "Inspector", icon: SlidersHorizontal },
+  ];
 
   // ── Onboarding on first launch ──
   useEffect(() => {
@@ -618,29 +632,30 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
           <StageCanvas baseScale={baseScale} profile={profile} />
         </main>
 
-        {/* Inspector column — placeholder this task */}
+        {/* Inspector column */}
         <aside className="hidden w-[300px] shrink-0 flex-col border-l border-sand-200 bg-white lg:flex">
           <div className="flex h-14 shrink-0 items-center border-b border-sand-200 px-4">
             <h3 className="font-serif text-base font-semibold text-cocoa">Inspector</h3>
           </div>
-          <div className="flex flex-1 items-center justify-center p-4">
-            <p className="text-center text-xs text-cocoa-muted">Inspector lands in Task 9</p>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <Inspector profile={profile} />
           </div>
         </aside>
       </div>
 
       {/* ── <lg: bottom bar opening the active rail as a bottom-sheet drawer ── */}
       <nav className="flex shrink-0 border-t border-sand-200 bg-white lg:hidden">
-        {railTabs.map(({ id, label, icon: Icon }) => (
+        {drawerItems.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             onClick={() => {
-              setLeftTab(id);
-              setDrawerOpen((v) => (leftTab === id ? !v : true));
+              if (id !== "inspector") setLeftTab(id);
+              setDrawerTab(id);
+              setDrawerOpen((v) => (drawerTab === id ? !v : true));
             }}
             className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 text-[10px] font-medium transition ${
-              leftTab === id && drawerOpen
+              drawerTab === id && drawerOpen
                 ? "border-palm bg-palm-50 text-palm"
                 : "border-transparent text-cocoa-muted hover:bg-sand-50"
             }`}
@@ -663,13 +678,16 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
               <div className="h-1 w-10 rounded-full bg-sand-200" />
             </div>
             <div className="flex shrink-0 border-b border-sand-200">
-              {railTabs.map(({ id, label, icon: Icon }) => (
+              {drawerItems.map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setLeftTab(id)}
+                  onClick={() => {
+                    if (id !== "inspector") setLeftTab(id);
+                    setDrawerTab(id);
+                  }}
                   className={`flex min-h-12 flex-1 items-center justify-center gap-1.5 border-b-2 text-xs font-medium transition ${
-                    leftTab === id
+                    drawerTab === id
                       ? "border-palm bg-palm-50 text-palm"
                       : "border-transparent text-cocoa-muted hover:bg-sand-50"
                   }`}
@@ -679,9 +697,13 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
               ))}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {leftTab === "add" && <AddTab />}
-              {leftTab === "layers" && <LayersTab />}
-              {leftTab === "templates" && (
+              {drawerTab === "inspector" ? (
+                <Inspector profile={profile} />
+              ) : leftTab === "add" ? (
+                <AddTab />
+              ) : leftTab === "layers" ? (
+                <LayersTab />
+              ) : (
                 <TemplatesTab
                   filterByOrder={filterByOrder}
                   filterByProduct={filterByProduct}
@@ -708,7 +730,7 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
         />
       )}
 
-      <CompliancePanel />
+      <CompliancePanel profile={profile} onOpenInspector={openInspectorDrawer} />
 
       <Modal open={confirmBack} onClose={() => setConfirmBack(false)} title="Discard unsaved changes?">
         <p className="text-sm text-cocoa-muted">
