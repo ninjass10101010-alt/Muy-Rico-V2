@@ -132,7 +132,7 @@ The Konva stage is the canonical preview. Exports derive from it so screen == pa
 ### Vector-path bug fixes (required regardless)
 
 1. **Logo embed:** detect PNG/JPG from data-URL mime header, not filename substring; remove silent empty catches — log and surface errors.
-2. **NFP mapping:** read actual `NfpData` fields (`fat`, `satFat`, `carbs`, `fiber`, `sugar`, …); delete phantom fields (`servings`, `totalFat`, `addedSugars`). Editor panel and PDF must render identical rows from one shared row-spec constant.
+2. **NFP alignment:** the runtime truth is the string-field shape already used by `defaultElements.ts` / `NutritionFactsPanel.tsx` / inspector (`servingSize`, `servings`, `totalFat`, …, `vitC`). Fix the stale `NfpData` interface in `types.ts` to match it (build skips `tsc`, which is why this drifted), and extend the vector PDF to also render the vitamin/mineral rows and %DV column the editor shows — both renderers consume one shared `NFP_ROWS` spec constant.
 3. **Best-by parity:** one shared `resolveBestBy(label): Date` used by editor AND exporter (stored snapshot wins; else now + bestByDays).
 4. **QR value:** honor `el.qrValue` falling back to website URL (both renderers).
 5. **Vector font honesty:** vector mode documents/embeds Cormorant + Quicksand; other families map to closest embedded face rather than silently Helvetica. (Raster default makes this a non-issue day-to-day.)
