@@ -103,3 +103,12 @@ h1, h2, h3, h4, h5, h6 {
     border-width: 2px !important;
   }
 }
+
+/* iOS Safari gives <input type=date> a large intrinsic width that overflows
+   narrow containers; force it to respect layout sizing. */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  width: 100%;
+}

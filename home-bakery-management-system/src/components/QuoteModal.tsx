@@ -1,34 +1,16 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import Modal from "./ui/Modal";
 import { useStore } from "../context/StoreContext";
 import { uploadQuoteImage } from "../utils/api";
-
-type QuoteItemType = "cake" | "cakepops" | "cupcakes" | "custom";
-
-interface DraftItem {
-  product_type: QuoteItemType;
-  details: Record<string, any>;
-}
-
-const TYPE_LABELS: Record<QuoteItemType, string> = {
-  cake: "Cake",
-  cakepops: "Cakepops",
-  cupcakes: "Cupcakes",
-  custom: "Custom item",
-};
+import QuoteItemComposer, { TYPE_LABELS, type DraftQuoteItem } from "./QuoteItemComposer";
 
 const OCCASIONS = ["", "Birthday", "Wedding", "Anniversary", "Baby Shower", "Quinceañera", "Other"];
 const DIETARY_OPTIONS = ["Gluten-Free", "Vegan", "Nut-Free", "Dairy-Free", "Egg-Free", "Sugar-Free"];
-const CAKE_TOPPINGS = ["Sprinkles", "Fresh Fruit", "Chocolate Ganache", "Caramel Drip", "Edible Flowers", "Fondant Decorations"];
-const POP_FLAVORS = ["Chocolate", "Vanilla", "Strawberry"];
-const DIPS = ["Milk Chocolate", "White Chocolate"];
-const TOPPING_STYLES = ["Marble", "Sprinkles", "Chocolate Drizzle", "Chocolate Accessories", "Fondant Accessories"];
-const FROSTINGS = ["Vanilla Frosting", "Chocolate Frosting"];
 
 const inputCls = "w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm";
 
-function summarize(item: DraftItem): string {
+function summarize(item: DraftQuoteItem): string {
   const d = item.details;
   switch (item.product_type) {
     case "cake": {
@@ -63,28 +45,7 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
   const [refImageUrl, setRefImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  const [items, setItems] = useState<DraftItem[]>([]);
-  const [itemType, setItemType] = useState<QuoteItemType>("cake");
-
-  // Per-type composition fields
-  const [cakeFlavorText, setCakeFlavorText] = useState("");
-  const [filling, setFilling] = useState("");
-  const [frostingText, setFrostingText] = useState("");
-  const [servingSize, setServingSize] = useState("");
-  const [cakeToppings, setCakeToppings] = useState<string[]>([]);
-  const [popFlavor, setPopFlavor] = useState("");
-  const [chocolateDip, setChocolateDip] = useState("");
-  const [toppingStyle, setToppingStyle] = useState("");
-  const [popQtyPick, setPopQtyPick] = useState("");
-  const [popQtyCustom, setPopQtyCustom] = useState("");
-  const [popTheme, setPopTheme] = useState("");
-  const [cupFlavor, setCupFlavor] = useState("");
-  const [cupFrosting, setCupFrosting] = useState("");
-  const [cupQtyPick, setCupQtyPick] = useState("");
-  const [cupQtyCustom, setCupQtyCustom] = useState("");
-  const [customName, setCustomName] = useState("");
-  const [customDesc, setCustomDesc] = useState("");
-  const [customQty, setCustomQty] = useState("1");
+  const [items, setItems] = useState<DraftQuoteItem[]>([]);
 
   const [quotedPrice, setQuotedPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -105,25 +66,6 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
     setDietary([]);
     setRefImageUrl("");
     setItems([]);
-    setItemType("cake");
-    setCakeFlavorText("");
-    setFilling("");
-    setFrostingText("");
-    setServingSize("");
-    setCakeToppings([]);
-    setPopFlavor("");
-    setChocolateDip("");
-    setToppingStyle("");
-    setPopQtyPick("");
-    setPopQtyCustom("");
-    setPopTheme("");
-    setCupFlavor("");
-    setCupFrosting("");
-    setCupQtyPick("");
-    setCupQtyCustom("");
-    setCustomName("");
-    setCustomDesc("");
-    setCustomQty("1");
     setQuotedPrice("");
     setErrorMsg("");
   }, [open]);
@@ -136,71 +78,6 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
       setPhone(c.phone || "");
       setEmail(c.email || "");
     }
-  }
-
-  const popQty = popQtyPick === "custom" ? Number(popQtyCustom) : Number(popQtyPick);
-  const cupQty = cupQtyPick === "custom" ? Number(cupQtyCustom) : Number(cupQtyPick);
-
-  const composeValid =
-    itemType === "cake"
-      ? cakeFlavorText.trim().length > 0
-      : itemType === "cakepops"
-        ? popFlavor !== "" && chocolateDip !== "" && toppingStyle !== "" && popQty > 0
-        : itemType === "cupcakes"
-          ? cupFlavor !== "" && cupFrosting !== "" && cupQty > 0
-          : customName.trim().length > 0;
-
-  function addItem() {
-    if (!composeValid) return;
-    let details: Record<string, any>;
-    if (itemType === "cake") {
-      details = {
-        cake_flavor: cakeFlavorText.trim(),
-        ...(filling.trim() ? { filling: filling.trim() } : {}),
-        ...(frostingText.trim() ? { frosting: frostingText.trim() } : {}),
-        ...(servingSize ? { serving_size: servingSize } : {}),
-        ...(cakeToppings.length ? { toppings: cakeToppings } : {}),
-      };
-      setCakeFlavorText("");
-      setFilling("");
-      setFrostingText("");
-      setServingSize("");
-      setCakeToppings([]);
-    } else if (itemType === "cakepops") {
-      details = {
-        cake_flavor: popFlavor,
-        chocolate_dip: chocolateDip,
-        topping_style: toppingStyle,
-        quantity: popQty,
-        ...(popTheme.trim() ? { design_theme: popTheme.trim() } : {}),
-      };
-      setPopFlavor("");
-      setChocolateDip("");
-      setToppingStyle("");
-      setPopQtyPick("");
-      setPopQtyCustom("");
-      setPopTheme("");
-    } else if (itemType === "cupcakes") {
-      details = {
-        cake_flavor: cupFlavor,
-        frosting: cupFrosting,
-        quantity: cupQty,
-      };
-      setCupFlavor("");
-      setCupFrosting("");
-      setCupQtyPick("");
-      setCupQtyCustom("");
-    } else {
-      details = {
-        name: customName.trim(),
-        ...(customDesc.trim() ? { description: customDesc.trim() } : {}),
-        quantity: Number(customQty) > 0 ? Number(customQty) : 1,
-      };
-      setCustomName("");
-      setCustomDesc("");
-      setCustomQty("1");
-    }
-    setItems((prev) => [...prev, { product_type: itemType, details }]);
   }
 
   async function handleFile(file: File) {
@@ -280,8 +157,6 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
       setSubmitting(false);
     }
   }
-
-  const showQtyCustom = itemType === "cakepops" ? popQtyPick === "custom" : cupQtyPick === "custom";
 
   return (
     <Modal open={open} onClose={onClose} title="New Quote" wide>
@@ -365,12 +240,12 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-2">
+            <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-medium text-cocoa-muted">Desired date</label>
               <input type="date" value={desiredDate} onChange={(e) => setDesiredDate(e.target.value)} className={inputCls} />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-medium text-cocoa-muted">Budget</label>
               <input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="e.g. $60–80" className={inputCls} />
             </div>
@@ -446,149 +321,10 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
 
         <div className="space-y-3">
           <label className="block text-xs font-medium text-cocoa-muted">Items</label>
-          <div className="flex gap-2">
-            <select
-              value={itemType}
-              onChange={(e) => setItemType(e.target.value as QuoteItemType)}
-              className="flex-1 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
-            >
-              {(Object.keys(TYPE_LABELS) as QuoteItemType[]).map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={addItem}
-              disabled={!composeValid}
-              title={composeValid ? "Add item" : "Complete the required fields first"}
-              className="rounded-xl bg-coral px-3 py-2 text-sm font-medium text-white hover:bg-coral/80 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-
-          <div className="space-y-2 rounded-xl border border-dashed border-sand-200 p-3">
-            {itemType === "cake" && (
-              <>
-                <input value={cakeFlavorText} onChange={(e) => setCakeFlavorText(e.target.value)} placeholder="Cake flavor *" className={inputCls} />
-                <input value={filling} onChange={(e) => setFilling(e.target.value)} placeholder="Filling" className={inputCls} />
-                <input value={frostingText} onChange={(e) => setFrostingText(e.target.value)} placeholder="Frosting" className={inputCls} />
-                <select value={servingSize} onChange={(e) => setServingSize(e.target.value)} className={inputCls}>
-                  <option value="">Serving size…</option>
-                  {["6-8", "10-12", "15-20", "20-30", "30+"].map((s) => (
-                    <option key={s} value={s}>{s} servings</option>
-                  ))}
-                </select>
-                <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1">
-                  {CAKE_TOPPINGS.map((t) => (
-                    <label key={t} className="flex items-center gap-1.5 text-xs text-cocoa-muted">
-                      <input
-                        type="checkbox"
-                        checked={cakeToppings.includes(t)}
-                        onChange={(e) =>
-                          setCakeToppings((prev) => (e.target.checked ? [...prev, t] : prev.filter((x) => x !== t)))
-                        }
-                      />
-                      {t}
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {itemType === "cakepops" && (
-              <>
-                <select value={popFlavor} onChange={(e) => setPopFlavor(e.target.value)} className={inputCls}>
-                  <option value="">Cake flavor…</option>
-                  {POP_FLAVORS.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-                <select value={chocolateDip} onChange={(e) => setChocolateDip(e.target.value)} className={inputCls}>
-                  <option value="">Chocolate dip…</option>
-                  {DIPS.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-                <select value={toppingStyle} onChange={(e) => setToppingStyle(e.target.value)} className={inputCls}>
-                  <option value="">Topping style…</option>
-                  {TOPPING_STYLES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                <div className="flex gap-2">
-                  <select value={popQtyPick} onChange={(e) => setPopQtyPick(e.target.value)} className={inputCls}>
-                    <option value="">Quantity…</option>
-                    {["6", "12", "24", "custom"].map((q) => (
-                      <option key={q} value={q}>{q === "custom" ? "Custom" : q}</option>
-                    ))}
-                  </select>
-                  {showQtyCustom && (
-                    <input
-                      type="number"
-                      min="1"
-                      value={popQtyCustom}
-                      onChange={(e) => setPopQtyCustom(e.target.value)}
-                      placeholder="Qty"
-                      className="w-24 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
-                    />
-                  )}
-                </div>
-                <input value={popTheme} onChange={(e) => setPopTheme(e.target.value)} placeholder="Design theme" className={inputCls} />
-              </>
-            )}
-
-            {itemType === "cupcakes" && (
-              <>
-                <select value={cupFlavor} onChange={(e) => setCupFlavor(e.target.value)} className={inputCls}>
-                  <option value="">Cake flavor…</option>
-                  {POP_FLAVORS.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-                <select value={cupFrosting} onChange={(e) => setCupFrosting(e.target.value)} className={inputCls}>
-                  <option value="">Frosting…</option>
-                  {FROSTINGS.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-                <div className="flex gap-2">
-                  <select value={cupQtyPick} onChange={(e) => setCupQtyPick(e.target.value)} className={inputCls}>
-                    <option value="">Quantity…</option>
-                    {["6", "12", "24", "custom"].map((q) => (
-                      <option key={q} value={q}>{q === "custom" ? "Custom" : q}</option>
-                    ))}
-                  </select>
-                  {showQtyCustom && (
-                    <input
-                      type="number"
-                      min="1"
-                      value={cupQtyCustom}
-                      onChange={(e) => setCupQtyCustom(e.target.value)}
-                      placeholder="Qty"
-                      className="w-24 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
-                    />
-                  )}
-                </div>
-              </>
-            )}
-
-            {itemType === "custom" && (
-              <>
-                <input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Item name *" className={inputCls} />
-                <textarea value={customDesc} onChange={(e) => setCustomDesc(e.target.value)} rows={2} placeholder="Description" className={inputCls} />
-                <input
-                  type="number"
-                  min="1"
-                  value={customQty}
-                  onChange={(e) => setCustomQty(e.target.value)}
-                  placeholder="Quantity"
-                  className={inputCls}
-                />
-              </>
-            )}
-          </div>
+          <QuoteItemComposer
+            submitLabel="+ Add item"
+            onSubmit={(item: DraftQuoteItem) => setItems((prev) => [...prev, item])}
+          />
 
           <div className="min-h-[120px] space-y-2 rounded-xl border border-dashed border-sand-200 p-3">
             {items.length === 0 && (
