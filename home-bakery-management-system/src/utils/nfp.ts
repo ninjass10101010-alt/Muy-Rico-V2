@@ -1,3 +1,5 @@
+import type { NfpData } from "../types";
+
 export const NUTRIENT_CLAIM_KEYWORDS = [
   "low fat",
   "fat free",
@@ -26,26 +28,26 @@ export function requiresNFP(
   return NUTRIENT_CLAIM_KEYWORDS.some((k) => search.includes(k));
 }
 
-export function defaultNfpData() {
+export function defaultNfpData(): NfpData {
   return {
-    servingSize: "1 piece",
-    servings: "1",
-    calories: "0",
-    totalFat: "0",
-    satFat: "0",
-    transFat: "0",
-    cholesterol: "0",
-    sodium: "0",
-    totalCarb: "0",
-    fiber: "0",
-    sugars: "0",
-    addedSugars: "0",
-    protein: "0",
-    vitD: "0",
-    calcium: "0",
-    iron: "0",
-    potassium: "0",
-    vitA: "0",
-    vitC: "0",
+    servingSize: "",
+    servings: "",
+    calories: "",
+    totalFat: "",
+    satFat: "",
+    transFat: "",
+    cholesterol: "",
+    sodium: "",
+    totalCarb: "",
+    fiber: "",
+    sugars: "",
+    addedSugars: "",
+    protein: "",
+    vitD: "",
+    calcium: "",
+    iron: "",
+    potassium: "",
+    vitA: "",
+    vitC: "",
   };
 }

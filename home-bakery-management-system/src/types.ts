@@ -182,31 +182,24 @@ export type AveryPreset = "single" | "5164" | "5163" | "8163";
 
 export interface NfpData {
   servingSize: string;
-
-  calories: number;
-  fat: number;
-  fatDaily: number;
-  satFat: number;
-  satFatDaily: number;
-  transFat: number;
-  cholesterol: number;
-  cholesterolDaily: number;
-  sodium: number;
-  sodiumDaily: number;
-  carbs: number;
-  carbsDaily: number;
-  fiber: number;
-  fiberDaily: number;
-  sugar: number;
-  protein: number;
-  vitaminD: number;
-  vitaminDDaily: number;
-  calcium: number;
-  calciumDaily: number;
-  iron: number;
-  ironDaily: number;
-  potassium: number;
-  potassiumDaily: number;
+  servings: string;
+  calories: string;
+  totalFat: string;
+  satFat: string;
+  transFat: string;
+  cholesterol: string;
+  sodium: string;
+  totalCarb: string;
+  fiber: string;
+  sugars: string;
+  addedSugars: string;
+  protein: string;
+  vitD: string;
+  calcium: string;
+  iron: string;
+  potassium: string;
+  vitA: string;
+  vitC: string;
 }
 
 export interface LabelElement {
