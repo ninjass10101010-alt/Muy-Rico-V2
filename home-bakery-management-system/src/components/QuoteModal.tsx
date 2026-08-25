@@ -24,7 +24,7 @@ const CAKE_TOPPINGS = ["Sprinkles", "Fresh Fruit", "Chocolate Ganache", "Caramel
 const POP_FLAVORS = ["Chocolate", "Vanilla", "Strawberry"];
 const DIPS = ["Milk Chocolate", "White Chocolate"];
 const TOPPING_STYLES = ["Marble", "Sprinkles", "Chocolate Drizzle", "Chocolate Accessories", "Fondant Accessories"];
-const FROSTINGS = ["Vanilla Buttercream", "Chocolate Buttercream"];
+const FROSTINGS = ["Vanilla Frosting", "Chocolate Frosting"];
 
 const inputCls = "w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm";
 

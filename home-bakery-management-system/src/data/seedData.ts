@@ -237,7 +237,7 @@ export const seedProducts: Product[] = [
     auto_generate_label: true,
     flavor_groups: [
       { name: 'Cake Flavor', options: ['Vanilla', 'Chocolate', 'Red Velvet'] },
-      { name: 'Frosting', options: ['Buttercream', 'Cream Cheese', 'Chocolate'] },
+      { name: 'Frosting', options: ['Vanilla Frosting', 'Cream Cheese', 'Chocolate'] },
     ],
   },
   {
@@ -263,7 +263,7 @@ export const seedProducts: Product[] = [
     auto_generate_label: true,
     flavor_groups: [
       { name: 'Cake Flavor', options: ['Vanilla', 'Chocolate', 'Red Velvet'] },
-      { name: 'Frosting', options: ['Buttercream', 'Cream Cheese', 'Chocolate'] },
+      { name: 'Frosting', options: ['Vanilla Frosting', 'Cream Cheese', 'Chocolate'] },
     ],
   },
   {
