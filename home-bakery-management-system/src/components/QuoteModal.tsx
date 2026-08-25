@@ -322,6 +322,7 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
         <div className="space-y-3">
           <label className="block text-xs font-medium text-cocoa-muted">Items</label>
           <QuoteItemComposer
+            key={items.length}
             submitLabel="+ Add item"
             onSubmit={(item: DraftQuoteItem) => setItems((prev) => [...prev, item])}
           />
