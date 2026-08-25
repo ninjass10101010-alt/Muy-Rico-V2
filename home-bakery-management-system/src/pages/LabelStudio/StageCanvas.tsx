@@ -1,24 +1,63 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import type { SceneContext } from "konva/lib/Context";
-import { Ellipse, Group, Image as KImage, Layer, Rect, Stage } from "react-konva";
+import { Ellipse, Group, Image as KImage, Layer, Line, Rect, Stage, Transformer } from "react-konva";
 import { useShallow } from "zustand/react/shallow";
 import type { BusinessProfile, LabelShape, LabelTemplate } from "../../types";
-import { effectiveDimensions } from "../../components/label/defaultElements";
-import { formatBestBy, resolveBestBy } from "./labelMath";
+import { clamp01, effectiveDimensions } from "../../components/label/defaultElements";
+import { computeSnap, formatBestBy, resolveBestBy } from "./labelMath";
+import type { Rect as SnapRect } from "./labelMath";
 import { selectSortedElements, useEditorStore } from "./state";
 import { contentBoxPx, useHtmlImage } from "./capture";
 import ElementNode from "./elements/ElementNode";
+import { useGestures } from "./hooks/useGestures";
 
 export { contentBoxPx };
 
 const PX_PER_IN_BASE = 96;
+const SNAP_PX = 8;
+const GUIDE_COLOR = "#f43f5e";
+const MIN_BOX_PX = 24;
+const ROTATION_SNAPS = Array.from({ length: 24 }, (_, i) => i * 15);
 
 interface FrameGeom {
   pad: number;
   outer: { x: number; y: number; w: number; h: number };
   radius: number;
   isCurved: boolean;
+}
+
+interface Guides {
+  guidesX: number[];
+  guidesY: number[];
+}
+
+const EMPTY_GUIDES: Guides = { guidesX: [], guidesY: [] };
+
+function sameGuides(a: Guides, bx: number[], by: number[]): boolean {
+  return (
+    a.guidesX.length === bx.length &&
+    a.guidesY.length === by.length &&
+    a.guidesX.every((v, i) => v === bx[i]) &&
+    a.guidesY.every((v, i) => v === by[i])
+  );
+}
+
+/** Content box in stage px — recomputable inside getState()-based handlers. */
+function contentDims(doc: LabelTemplate, baseScale: number): { W: number; H: number } {
+  const zoom = useEditorStore.getState().zoom;
+  const { effW, effH } = effectiveDimensions(
+    doc.labelWidth,
+    doc.labelHeight,
+    doc.shape,
+    doc.orientation || "portrait"
+  );
+  const pxPerIn = PX_PER_IN_BASE * baseScale * (zoom / 100);
+  const dims = contentBoxPx(effW, effH, pxPerIn);
+  return {
+    W: Number.isFinite(dims.W) && dims.W > 0 ? dims.W : 288,
+    H: Number.isFinite(dims.H) && dims.H > 0 ? dims.H : 384,
+  };
 }
 
 export function frameGeometry(
@@ -150,6 +189,9 @@ export default function StageCanvas({
   const editingId = useEditorStore((s) => s.editingId);
   const select = useEditorStore((s) => s.select);
   const sorted = useEditorStore(useShallow(selectSortedElements));
+  const selectedEl = useEditorStore((s) =>
+    s.selection ? s.doc.elements.find((e) => e.id === s.selection) || null : null
+  );
   const refs = useRef<Map<string, Konva.Node>>(new Map());
   const registerRef = useCallback((id: string, node: unknown | null) => {
     if (node) refs.current.set(id, node as Konva.Node);
@@ -157,54 +199,203 @@ export default function StageCanvas({
   }, []);
   const bestByStr = useMemo(() => formatBestBy(resolveBestBy(doc)), [doc]);
 
+  const stageRef = useRef<Konva.Stage>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+  // Latest baseScale for getState()-based gesture handlers (stable closures).
+  const baseScaleRef = useRef(baseScale);
+
+  useEffect(() => {
+    baseScaleRef.current = baseScale;
+  }, [baseScale]);
+
+  useGestures(stageRef, containerRef);
+
+  const [guides, setGuides] = useState<Guides>(EMPTY_GUIDES);
+
+  const pxPerIn = PX_PER_IN_BASE * baseScale * (zoom / 100);
   const { effW, effH } = effectiveDimensions(
     doc.labelWidth,
     doc.labelHeight,
     doc.shape,
     doc.orientation || "portrait"
   );
-  const pxPerIn = PX_PER_IN_BASE * baseScale * (zoom / 100);
   const dims = contentBoxPx(effW, effH, pxPerIn);
   const W = Number.isFinite(dims.W) && dims.W > 0 ? dims.W : 288;
   const H = Number.isFinite(dims.H) && dims.H > 0 ? dims.H : 384;
 
+  // --- Stable gesture handlers: read fresh state via getState(), mutate Konva
+  // nodes directly during gestures, commit ONE patchElement per gesture end.
+
+  const onSelectEl = useCallback((id: string) => {
+    useEditorStore.getState().select(id);
+  }, []);
+
+  const onDragStartEl = useCallback((_id: string) => {
+    setGuides(EMPTY_GUIDES);
+  }, []);
+
+  const onDragMoveEl = useCallback((id: string, node: Konva.Node) => {
+    const st = useEditorStore.getState();
+    const me = st.doc.elements.find((e) => e.id === id);
+    if (!me) return;
+    const { W: cw, H: ch } = contentDims(st.doc, baseScaleRef.current);
+    const others: SnapRect[] = st.doc.elements
+      .filter((e) => e.id !== id && !e.hidden)
+      .sort((a, b) => a.z - b.z)
+      .map((e) => ({ x: e.x, y: e.y, w: e.w, h: e.h }));
+    // node position is the box CENTER (center-pivot offsets); derive top-left rect.
+    const moving: SnapRect = {
+      x: (node.x() - (me.w * cw) / 2) / cw,
+      y: (node.y() - (me.h * ch) / 2) / ch,
+      w: me.w,
+      h: me.h,
+    };
+    const snapX = computeSnap(moving, others, SNAP_PX / cw);
+    const snapY = computeSnap(moving, others, SNAP_PX / ch);
+    if (snapX.dx !== 0) node.x(node.x() + snapX.dx * cw);
+    if (snapY.dy !== 0) node.y(node.y() + snapY.dy * ch);
+    setGuides((prev) =>
+      sameGuides(prev, snapX.guidesX, snapY.guidesY)
+        ? prev
+        : { guidesX: snapX.guidesX, guidesY: snapY.guidesY }
+    );
+  }, []);
+
+  const onDragEndEl = useCallback((id: string, node: Konva.Node) => {
+    const st = useEditorStore.getState();
+    const me = st.doc.elements.find((e) => e.id === id);
+    if (!me) return;
+    const { W: cw, H: ch } = contentDims(st.doc, baseScaleRef.current);
+    const nx = clamp01((node.x() - (me.w * cw) / 2) / cw);
+    const ny = clamp01((node.y() - (me.h * ch) / 2) / ch);
+    setGuides(EMPTY_GUIDES);
+    st.patchElement(id, { x: nx, y: ny });
+  }, []);
+
+  const onTransformEndEl = useCallback((id: string, node: Konva.Node) => {
+    const st = useEditorStore.getState();
+    const me = st.doc.elements.find((e) => e.id === id);
+    if (!me) return;
+    const sx = node.scaleX();
+    const sy = node.scaleY();
+    node.scale({ x: 1, y: 1 });
+    if (!Number.isFinite(sx) || !Number.isFinite(sy) || Math.abs(sx) < 0.02 || Math.abs(sy) < 0.02) {
+      return;
+    }
+    const { W: cw, H: ch } = contentDims(st.doc, baseScaleRef.current);
+    const lw = me.w * cw * sx;
+    const lh = me.h * ch * sy;
+    const nw = Math.min(1, lw / cw);
+    const nh = Math.min(1, lh / ch);
+    const center = node.position(); // box center in layer coords (rotation-invariant)
+    const rotation = ((Math.round(node.rotation()) % 360) + 360) % 360;
+    st.patchElement(id, {
+      x: clamp01((center.x - lw / 2) / cw),
+      y: clamp01((center.y - lh / 2) / ch),
+      w: nw,
+      h: nh,
+      rotation,
+    });
+  }, []);
+
+  // Attach/detach the single Transformer on selection changes.
+  useEffect(() => {
+    const tr = trRef.current;
+    if (!tr) return;
+    const node =
+      selection && selectedEl && !selectedEl.lock && !selectedEl.hidden
+        ? refs.current.get(selection)
+        : undefined;
+    tr.nodes(node ? [node] : []);
+    tr.getLayer()?.batchDraw();
+    return () => {
+      tr.nodes([]);
+    };
+  }, [selection, selectedEl, refs]);
+
+  const keepRatio = selectedEl?.type === "logo" || selectedEl?.type === "qr";
+
   return (
-    <Stage
-      width={W}
-      height={H}
-      scaleX={1}
-      scaleY={1}
-      x={panX}
-      y={panY}
-      onMouseDown={(e) => {
-        if (e.target === e.target.getStage()) select(null);
-      }}
-      onTouchStart={(e) => {
-        if (e.target === e.target.getStage()) select(null);
-      }}
-    >
-      <Layer listening={false}>
-        <BackgroundFrame doc={doc} W={W} H={H} pxPerIn={pxPerIn} />
-      </Layer>
-      <Layer>
-        {sorted.map((el) =>
-          el.hidden ? null : (
-            <ElementNode
-              key={el.id}
-              el={el}
-              label={doc}
-              profile={profile}
-              W={W}
-              H={H}
-              selected={selection === el.id}
-              editing={editingId === el.id}
-              bestByStr={bestByStr}
-              registerRef={registerRef}
+    <div ref={containerRef} style={{ touchAction: "none" }}>
+      <Stage
+        ref={stageRef}
+        width={W}
+        height={H}
+        scaleX={1}
+        scaleY={1}
+        x={panX}
+        y={panY}
+        onMouseDown={(e) => {
+          if (e.target === e.target.getStage()) select(null);
+        }}
+        onTouchStart={(e) => {
+          if (e.target === e.target.getStage()) select(null);
+        }}
+      >
+        <Layer listening={false}>
+          <BackgroundFrame doc={doc} W={W} H={H} pxPerIn={pxPerIn} />
+        </Layer>
+        <Layer>
+          {sorted.map((el) =>
+            el.hidden ? null : (
+              <ElementNode
+                key={el.id}
+                el={el}
+                label={doc}
+                profile={profile}
+                W={W}
+                H={H}
+                selected={selection === el.id}
+                editing={editingId === el.id}
+                bestByStr={bestByStr}
+                registerRef={registerRef}
+                onSelectEl={onSelectEl}
+                onDragStartEl={onDragStartEl}
+                onDragMoveEl={onDragMoveEl}
+                onDragEndEl={onDragEndEl}
+                onTransformEndEl={onTransformEndEl}
+              />
+            )
+          )}
+        </Layer>
+        <Layer>
+          {guides.guidesX.map((gx, i) => (
+            <Line
+              key={`gx-${i}`}
+              points={[gx * W, 0, gx * W, H]}
+              stroke={GUIDE_COLOR}
+              strokeWidth={1}
+              dash={[4, 4]}
+              listening={false}
             />
-          )
-        )}
-      </Layer>
-      <Layer />
-    </Stage>
+          ))}
+          {guides.guidesY.map((gy, i) => (
+            <Line
+              key={`gy-${i}`}
+              points={[0, gy * H, W, gy * H]}
+              stroke={GUIDE_COLOR}
+              strokeWidth={1}
+              dash={[4, 4]}
+              listening={false}
+            />
+          ))}
+          <Transformer
+            ref={trRef}
+            rotateEnabled
+            rotationSnaps={ROTATION_SNAPS}
+            rotationSnapTolerance={4}
+            keepRatio={keepRatio}
+            anchorSize={12}
+            anchorCornerRadius={3}
+            borderStroke={GUIDE_COLOR}
+            rotateAnchorOffset={24}
+            boundBoxFunc={(oldBox, newBox) =>
+              newBox.width < MIN_BOX_PX || newBox.height < MIN_BOX_PX ? oldBox : newBox
+            }
+          />
+        </Layer>
+      </Stage>
+    </div>
   );
 }

@@ -19,6 +19,11 @@ interface Props {
   editing: boolean;
   bestByStr: string;
   registerRef: (id: string, node: unknown | null) => void;
+  onSelectEl?: (id: string) => void;
+  onDragStartEl?: (id: string, node: Konva.Node) => void;
+  onDragMoveEl?: (id: string, node: Konva.Node) => void;
+  onDragEndEl?: (id: string, node: Konva.Node) => void;
+  onTransformEndEl?: (id: string, node: Konva.Node) => void;
 }
 
 let measureCtx: CanvasRenderingContext2D | null | undefined;
@@ -379,6 +384,11 @@ export function ElementNode({
   editing,
   bestByStr,
   registerRef,
+  onSelectEl,
+  onDragStartEl,
+  onDragMoveEl,
+  onDragEndEl,
+  onTransformEndEl,
 }: Props) {
   if (el.hidden) return null;
 
@@ -396,7 +406,13 @@ export function ElementNode({
       offsetY={boxH / 2}
       rotation={el.rotation || 0}
       opacity={el.opacity ?? 1}
-      draggable={false}
+      draggable={!el.lock}
+      onClick={() => onSelectEl?.(el.id)}
+      onTap={() => onSelectEl?.(el.id)}
+      onDragStart={(e) => onDragStartEl?.(el.id, e.target)}
+      onDragMove={(e) => onDragMoveEl?.(el.id, e.target)}
+      onDragEnd={(e) => onDragEndEl?.(el.id, e.target)}
+      onTransformEnd={(e) => onTransformEndEl?.(el.id, e.target)}
       clipFunc={(ctx: SceneContext) => {
         ctx.beginPath();
         ctx.rect(0, 0, boxW, boxH);
