@@ -12,7 +12,7 @@ import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
 import Payments from "./pages/Payments";
 import Receipts from "./pages/Receipts";
-import LabelDesigner from "./pages/LabelDesigner";
+import LabelStudio from "./pages/LabelStudio";
 import Settings from "./pages/Settings";
 import PublicOrder from "./pages/PublicOrder";
 import Quotes from "./pages/Quotes";
@@ -35,6 +35,7 @@ export type Page =
 
 function AdminApp() {
   const [page, setPage] = useState<Page>("dashboard");
+  const [returnTo, setReturnTo] = useState<Page>("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -49,13 +50,35 @@ function AdminApp() {
     if (m) setPage("calendar");
   }, []);
 
-  // Product/order label filters only apply while the Labels page is open.
+  // Product/order label filters only apply while the Labels page is open, and
+  // any non-studio page is remembered as the Back target for the studio.
   useEffect(() => {
     if (page !== "labels") {
       setLabelFilter(null);
       setLabelProductFilter(null);
+      setReturnTo(page);
     }
   }, [page]);
+
+  // Shared entry point for the full-screen Label Studio; keeps track of where
+  // to return when the studio's Back button is used.
+  const openLabels = (opts?: { order?: string | null; product?: string | null }) => {
+    setReturnTo(page === "labels" ? returnTo : (page as Page));
+    setLabelFilter(opts?.order ?? null);
+    setLabelProductFilter(opts?.product ?? null);
+    setPage("labels");
+  };
+
+  // Full-screen studio: renders without the admin chrome (Sidebar/Topbar).
+  if (page === "labels") {
+    return (
+      <LabelStudio
+        filterByOrder={labelFilter}
+        filterByProduct={labelProductFilter}
+        onBack={() => setPage(returnTo || "dashboard")}
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-sand-50 text-cocoa">
@@ -85,7 +108,13 @@ function AdminApp() {
         />
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
           {page === "dashboard" && <Dashboard setPage={setPage} />}
-          {page === "orders" && <Orders search={search} setPage={setPage} setLabelFilter={setLabelFilter} />}
+          {page === "orders" && (
+            <Orders
+              search={search}
+              setPage={setPage}
+              setLabelFilter={(orderId) => openLabels({ order: orderId })}
+            />
+          )}
           {page === "calendar" && (
             <CalendarView
               onOpenInventory={(id) => {
@@ -98,11 +127,7 @@ function AdminApp() {
           {page === "products" && (
             <Products
               search={search}
-              onOpenLabels={(productId) => {
-                setLabelFilter(null);
-                setLabelProductFilter(productId);
-                setPage("labels");
-              }}
+              onOpenLabels={(productId) => openLabels({ product: productId })}
             />
           )}
           {page === "gallery" && <Gallery />}
@@ -113,7 +138,6 @@ function AdminApp() {
           {page === "customers" && <Customers search={search} />}
           {page === "payments" && <Payments search={search} />}
           {page === "receipts" && <Receipts search={search} />}
-          {page === "labels" && <LabelDesigner filterByOrder={labelFilter} filterByProduct={labelProductFilter} />}
           {page === "settings" && <Settings />}
         </main>
       </div>
