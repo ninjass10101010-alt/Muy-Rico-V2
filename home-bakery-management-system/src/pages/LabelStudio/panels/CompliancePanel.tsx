@@ -71,15 +71,22 @@ export default function CompliancePanel({ profile, onOpenInspector }: Props) {
    * focused for when the panel closes). On <lg the DocumentInspector lives in
    * the drawer, so close the panel, open the inspector drawer, then focus.
    * `allergens` lives inside this panel, so it always stays put.
+   *
+   * Selection is cleared first: Inspector only mounts DocumentInspector when
+   * `selection === null`, and the field inputs live there. React has not
+   * committed that mount synchronously inside this event handler, so the
+   * lookup is deferred with setTimeout(0) — by then the re-render has flushed
+   * and the targets exist in the DOM.
    */
   function focusField(target: string, inPanel: boolean) {
+    select(null);
     if (!inPanel && window.matchMedia("(max-width: 1023px)").matches) {
       closePanel();
       onOpenInspector?.();
       window.setTimeout(() => focusFixTarget(target), 400);
       return;
     }
-    focusFixTarget(target);
+    window.setTimeout(() => focusFixTarget(target), 0);
   }
 
   // ── Fix-it wiring (ports legacy LabelDesigner onComplianceFix) ───────────

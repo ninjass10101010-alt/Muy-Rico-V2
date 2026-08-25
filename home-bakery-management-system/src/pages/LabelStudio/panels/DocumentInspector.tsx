@@ -56,6 +56,7 @@ export default function DocumentInspector({ profile }: Props) {
             className="input"
           />
           <textarea
+            data-fix-target="details"
             value={doc.details}
             onChange={(e) => updateField("details", e.target.value)}
             placeholder="Short description"
@@ -97,7 +98,10 @@ export default function DocumentInspector({ profile }: Props) {
             <input
               type="number"
               value={doc.bestByDays}
-              onChange={(e) => updateField("bestByDays", Number(e.target.value))}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                updateField("bestByDays", Number.isFinite(n) ? n : 7);
+              }}
               placeholder="Best by (days)"
               className="input"
             />
