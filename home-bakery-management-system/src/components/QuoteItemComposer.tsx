@@ -27,9 +27,10 @@ interface QuoteItemComposerProps {
   submitLabel: string;
   onSubmit: (item: DraftQuoteItem) => void;
   onCancel?: () => void;
+  submitting?: boolean;
 }
 
-export default function QuoteItemComposer({ initial, submitLabel, onSubmit, onCancel }: QuoteItemComposerProps) {
+export default function QuoteItemComposer({ initial, submitLabel, onSubmit, onCancel, submitting }: QuoteItemComposerProps) {
   const lockedType = initial?.product_type;
   const [itemType, setItemType] = useState<QuoteItemType>(lockedType ?? "cake");
 
@@ -253,7 +254,7 @@ export default function QuoteItemComposer({ initial, submitLabel, onSubmit, onCa
         )}
         <button
           onClick={handleSubmit}
-          disabled={!composeValid}
+          disabled={!composeValid || submitting}
           title={composeValid ? submitLabel : "Complete the required fields first"}
           className="rounded-xl bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:bg-coral/80 disabled:cursor-not-allowed disabled:opacity-40"
         >

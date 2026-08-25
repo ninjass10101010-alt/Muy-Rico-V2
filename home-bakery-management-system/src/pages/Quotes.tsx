@@ -93,6 +93,13 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
   const [emailing, setEmailing] = useState(false);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [addingItem, setAddingItem] = useState(false);
+  const [savingItem, setSavingItem] = useState<number | null>(null);
+
+  const view = useMemo(
+    () => (selected ? quotes.find((q) => q.id === selected.id) ?? selected : null),
+    [selected, quotes],
+  );
 
   const filtered = useMemo(() => {
     return quotes
@@ -114,6 +121,8 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
     setEditingItemId(null);
     setAddOpen(false);
     setEmailing(false);
+    setAddingItem(false);
+    setSavingItem(null);
   }
 
   async function saveQuote() {
@@ -175,19 +184,19 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
   }
 
   const history = useMemo(() => {
-    if (!selected || !selected.email) return null;
-    const email = selected.email.toLowerCase();
+    if (!view || !view.email) return null;
+    const email = view.email.toLowerCase();
     const customer = customers.find((c) => (c.email || "").toLowerCase() === email);
     const pastOrders = customer
       ? orders.filter((o) => o.customerId === customer.id).length
       : 0;
     const otherQuotes = quotes.filter(
-      (q) => q.id !== selected.id && q.email.toLowerCase() === email,
+      (q) => q.id !== view.id && q.email.toLowerCase() === email,
     ).length;
     return { pastOrders, otherQuotes };
-  }, [selected, customers, orders, quotes]);
+  }, [view, customers, orders, quotes]);
 
-  const itemsEditable = !!selected && selected.status !== "converted" && selected.status !== "archived";
+  const itemsEditable = !!view && view.status !== "converted" && view.status !== "archived";
 
   return (
     <div className="space-y-4">
@@ -255,21 +264,21 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
 
       {/* Detail Modal */}
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected ? `Quote #${selected.id}` : ""} wide>
-        {selected && (
+        {view && selected && (
           <div className="space-y-5">
             {/* Customer info */}
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-semibold text-cocoa">
-                  {selected.customerName}
+                  {view.customerName}
                   <span className="ml-2 inline-block rounded-full bg-sand-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cocoa-muted">
-                    {selected.language}
+                    {view.language}
                   </span>
                 </p>
-                <p className="text-xs text-cocoa-muted">{selected.email}</p>
-                {selected.phone && <p className="text-xs text-cocoa-muted">{selected.phone}</p>}
+                <p className="text-xs text-cocoa-muted">{view.email}</p>
+                {view.phone && <p className="text-xs text-cocoa-muted">{view.phone}</p>}
               </div>
-              <Badge tone={selected.status}>{selected.status}</Badge>
+              <Badge tone={view.status}>{view.status}</Badge>
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2">
@@ -280,14 +289,14 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                 </h3>
 
                 {/* Visuals zone */}
-                {(selected.referenceImageUrl || (selected.inspiration && selected.inspiration.length > 0)) && (
+                {(view.referenceImageUrl || (view.inspiration && view.inspiration.length > 0)) && (
                   <div className="space-y-3">
-                    {selected.referenceImageUrl && (
+                    {view.referenceImageUrl && (
                       <div>
                         <p className="mb-1 text-xs font-medium text-cocoa-muted">Reference photo</p>
-                        <a href={selected.referenceImageUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={view.referenceImageUrl} target="_blank" rel="noopener noreferrer">
                           <img
-                            src={selected.referenceImageUrl}
+                            src={view.referenceImageUrl}
                             alt="Customer reference"
                             className="max-h-64 w-full rounded-xl border border-sand-200 object-cover"
                             onError={(e) => {
@@ -297,11 +306,11 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                         </a>
                       </div>
                     )}
-                    {selected.inspiration && selected.inspiration.length > 0 && (
+                    {view.inspiration && view.inspiration.length > 0 && (
                       <div>
                         <p className="mb-1 text-xs font-medium text-cocoa-muted">Inspiration they picked</p>
                         <div className="flex flex-wrap gap-2">
-                          {selected.inspiration.map((insp, idx) => (
+                          {view.inspiration.map((insp, idx) => (
                             <a
                               key={idx}
                               href={insp.image_url || undefined}
@@ -330,42 +339,42 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
 
             {/* Items Section */}
             <div className="space-y-3">
-              {selected.items.length > 0 && (
+              {view.items.length > 0 && (
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-cocoa-muted">
-                  {selected.items.length} {selected.items.length === 1 ? "Item" : "Items"}
+                  {view.items.length} {view.items.length === 1 ? "Item" : "Items"}
                 </h3>
               )}
-              {selected.items.length === 0 && (
+              {view.items.length === 0 && (
                 <div className="rounded-xl bg-cream-deep/50 p-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <ProductIcon emoji="🎂" size={28} imageUrl={null} />
                     <span className="font-semibold text-cocoa">
-                      {selected.cakeFlavor ? `Custom Cake — ${selected.cakeFlavor}` : "Custom Cake"}
+                      {view.cakeFlavor ? `Custom Cake — ${view.cakeFlavor}` : "Custom Cake"}
                     </span>
                   </div>
-                  {selected.filling && (
+                  {view.filling && (
                     <div className="flex justify-between gap-4">
                       <span className="text-cocoa-muted text-xs">Filling</span>
-                      <span className="font-medium text-cocoa text-sm text-right">{selected.filling}</span>
+                      <span className="font-medium text-cocoa text-sm text-right">{view.filling}</span>
                     </div>
                   )}
-                  {selected.frosting && (
+                  {view.frosting && (
                     <div className="flex justify-between gap-4">
                       <span className="text-cocoa-muted text-xs">Frosting</span>
-                      <span className="font-medium text-cocoa text-sm text-right">{selected.frosting}</span>
+                      <span className="font-medium text-cocoa text-sm text-right">{view.frosting}</span>
                     </div>
                   )}
-                  {selected.servingSize && (
+                  {view.servingSize && (
                     <div className="flex justify-between gap-4">
                       <span className="text-cocoa-muted text-xs">Serving size</span>
-                      <span className="font-medium text-cocoa text-sm text-right">{selected.servingSize}</span>
+                      <span className="font-medium text-cocoa text-sm text-right">{view.servingSize}</span>
                     </div>
                   )}
-                  {selected.toppings.length > 0 && (
+                  {view.toppings.length > 0 && (
                     <div>
                       <p className="text-cocoa-muted text-xs">Toppings</p>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {selected.toppings.map((t) => (
+                        {view.toppings.map((t) => (
                           <span key={t} className="rounded-full bg-coral-light/20 px-2 py-0.5 text-xs font-medium text-coral ring-1 ring-coral-light">
                             {t}
                           </span>
@@ -375,7 +384,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                   )}
                 </div>
               )}
-              {selected.items.map((item, idx) => {
+              {view.items.map((item, idx) => {
                 const labels = ITEM_DETAIL_LABELS[item.product_type] || {};
                 const skipDetail = (key: string) =>
                   (item.product_type === "custom" && key === "name") ||
@@ -389,7 +398,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                         imageUrl={item.reference_image_url}
                       />
                       <span className="font-semibold text-cocoa">{itemCardTitle(item)}</span>
-                      {selected.items.length > 1 && (
+                      {view.items.length > 1 && (
                         <span className="text-xs text-cocoa-muted">#{idx + 1}</span>
                       )}
                       {itemsEditable && editingItemId !== item.id && (
@@ -416,11 +425,19 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                       <QuoteItemComposer
                         initial={{ product_type: item.product_type, details: item.details }}
                         submitLabel="Save item"
-                        onSubmit={(draft: DraftQuoteItem) =>
+                        submitting={savingItem === item.id}
+                        onSubmit={(draft: DraftQuoteItem) => {
+                          setSavingItem(item.id);
                           handleUpdateQuoteItem(selected.id, item.id, { details: draft.details })
-                            .then(() => setEditingItemId(null))
-                            .catch(() => setSaveMsg("Failed to update item."))
-                        }
+                            .then(() => {
+                              setSavingItem(null);
+                              setEditingItemId(null);
+                            })
+                            .catch(() => {
+                              setSavingItem(null);
+                              setSaveMsg("Failed to update item.");
+                            });
+                        }}
                         onCancel={() => setEditingItemId(null)}
                       />
                     ) : (
@@ -477,15 +494,23 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                   + Add item
                 </button>
               )}
-              {itemsEditable && addOpen && selected && (
+              {itemsEditable && addOpen && view && (
                 <div className="rounded-xl border border-sand-200 p-4">
                   <QuoteItemComposer
                     submitLabel="Add item"
-                    onSubmit={(draft: DraftQuoteItem) =>
+                    submitting={addingItem}
+                    onSubmit={(draft: DraftQuoteItem) => {
+                      setAddingItem(true);
                       handleAddQuoteItem(selected.id, draft)
-                        .then(() => setAddOpen(false))
-                        .catch(() => setSaveMsg("Failed to add item."))
-                    }
+                        .then(() => {
+                          setAddingItem(false);
+                          setAddOpen(false);
+                        })
+                        .catch(() => {
+                          setAddingItem(false);
+                          setSaveMsg("Failed to add item.");
+                        });
+                    }}
                     onCancel={() => setAddOpen(false)}
                   />
                 </div>
@@ -498,9 +523,9 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
             </div>
 
                 {/* Comments */}
-                {selected.comments && (
+                {view.comments && (
                   <div className="rounded-xl bg-coral-light/20 p-3 text-sm italic text-cocoa">
-                    "{selected.comments}"
+                    "{view.comments}"
                   </div>
                 )}
 
@@ -508,17 +533,17 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                 <div className="rounded-xl border border-sand-100 bg-sand-50 p-4 space-y-1.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-cocoa-muted">Occasion</span>
-                    <span className="font-medium text-cocoa">{selected.occasion || "—"}</span>
+                    <span className="font-medium text-cocoa">{view.occasion || "—"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-cocoa-muted">Desired date</span>
-                    <span className="font-medium text-cocoa">{selected.desiredDate || "—"}</span>
+                    <span className="font-medium text-cocoa">{view.desiredDate || "—"}</span>
                   </div>
-                  {selected.dietary.length > 0 && (
+                  {view.dietary.length > 0 && (
                     <div>
                       <p className="text-cocoa-muted">Dietary</p>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {selected.dietary.map((t) => (
+                        {view.dietary.map((t) => (
                           <span
                             key={t}
                             className="rounded-full bg-mid-green-light/20 px-2 py-0.5 text-xs font-medium text-palm ring-1 ring-mid-green-light"
@@ -565,8 +590,8 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
 
               <div>
                 <p className="text-xs font-medium text-cocoa-muted">Budget customer shared</p>
-                <p className={`mb-2 mt-0.5 text-sm font-semibold ${selected.budget ? "text-cocoa" : "text-cocoa-muted/60"}`}>
-                  {selected.budget || "Not shared"}
+                <p className={`mb-2 mt-0.5 text-sm font-semibold ${view.budget ? "text-cocoa" : "text-cocoa-muted/60"}`}>
+                  {view.budget || "Not shared"}
                 </p>
                 <label className="mb-1 block text-xs font-medium text-cocoa-muted">
                   Your quoted price ($)
@@ -579,7 +604,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                   onChange={(e) => setQuotedPrice(e.target.value)}
                   placeholder="0.00"
                   className="input"
-                  disabled={selected.status === "converted" || selected.status === "archived"}
+                  disabled={view.status === "converted" || view.status === "archived"}
                 />
               </div>
 
@@ -593,40 +618,40 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                   rows={2}
                   placeholder="Notes about this quote..."
                   className="input"
-                  disabled={selected.status === "converted" || selected.status === "archived"}
+                  disabled={view.status === "converted" || view.status === "archived"}
                 />
               </div>
 
-              {selected.status !== "archived" && selected.status !== "converted" && (
+              {view.status !== "archived" && view.status !== "converted" && (
                 <div className="flex gap-2">
                   <button onClick={saveQuote} disabled={saving} className="btn-primary flex-1">
                     {saving ? "Saving..." : "Save"}
                   </button>
                   <button
                     onClick={emailQuote}
-                    disabled={emailing || selected.quotedPrice == null}
+                    disabled={emailing || view.quotedPrice == null}
                     className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={selected.quotedPrice == null ? "Save a quoted price first" : undefined}
+                    title={view.quotedPrice == null ? "Save a quoted price first" : undefined}
                   >
                     {emailing ? "Emailing..." : "Email Quote"}
                   </button>
                   <button
                     onClick={() => setConvertOpen(true)}
-                    disabled={selected.quotedPrice == null}
+                    disabled={view.quotedPrice == null}
                     className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={selected.quotedPrice == null ? "Save a quoted price first" : undefined}
+                    title={view.quotedPrice == null ? "Save a quoted price first" : undefined}
                   >
                     Convert
                   </button>
                 </div>
               )}
 
-              {selected.status === "converted" && selected.convertedOrderId && (
+              {view.status === "converted" && view.convertedOrderId && (
                 <button
                   onClick={() => setPage("orders")}
                   className="btn-secondary w-full"
                 >
-                  View Order #{selected.convertedOrderId} →
+                  View Order #{view.convertedOrderId} →
                 </button>
               )}
 
@@ -636,7 +661,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                 </p>
               )}
 
-              {selected.status !== "converted" && selected.status !== "archived" && (
+              {view.status !== "converted" && view.status !== "archived" && (
                 <button
                   onClick={async () => {
                     if (!window.confirm("Archive this quote? You can unarchive it later.")) return;
@@ -659,7 +684,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
                 Delete quote
               </button>
 
-              {selected.status === "archived" && (
+              {view.status === "archived" && (
                 <button
                   onClick={async () => {
                     const restoreTo = archivedFrom[selected.id] || "new";
@@ -677,9 +702,9 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
 
             {/* Customer history */}
             <div className="rounded-xl border border-sand-100 bg-sand-50 px-4 py-3 text-xs text-cocoa-muted">
-              <span className="font-semibold text-cocoa">{selected.customerName}</span>
-              {" · "}{selected.email}
-              {selected.phone && <>{" · "}{selected.phone}</>}
+              <span className="font-semibold text-cocoa">{view.customerName}</span>
+              {" · "}{view.email}
+              {view.phone && <>{" · "}{view.phone}</>}
               {history && (
                 <span className="text-cocoa-muted/80">
                   {" — "}
@@ -691,8 +716,8 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
             </div>
 
             <div className="flex items-center justify-between text-xs text-cocoa-muted">
-              <span>Created {formatDate(selected.createdAt)}</span>
-              <span>Updated {formatDate(selected.updatedAt)}</span>
+              <span>Created {formatDate(view.createdAt)}</span>
+              <span>Updated {formatDate(view.updatedAt)}</span>
             </div>
           </div>
         )}
