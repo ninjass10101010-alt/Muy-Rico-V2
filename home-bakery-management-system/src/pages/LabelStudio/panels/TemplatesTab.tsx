@@ -136,6 +136,7 @@ function GroupHeader({
 export default function TemplatesTab({ filterByOrder, filterByProduct, onTemplateOpen }: Props) {
   const { profile, labelTemplates, products, handleCreateLabel, handleDeleteLabel } = useStore();
   const doc = useEditorStore((s) => s.doc);
+  const dirty = useEditorStore((s) => s.dirty);
   const loadTemplate = useEditorStore((s) => s.loadTemplate);
   const select = useEditorStore((s) => s.select);
   const setDoc = useEditorStore((s) => s.setDoc);
@@ -252,7 +253,7 @@ export default function TemplatesTab({ filterByOrder, filterByProduct, onTemplat
 
   return (
     <div className="flex-1 space-y-3 overflow-y-auto p-3">
-      {draftDiffers && draft && (
+      {draftDiffers && draft && !dirty && (
         <div className="rounded-xl border border-amber-300 bg-amber-100 px-3 py-2.5 text-xs text-amber-900">
           <p className="font-semibold">Restore unsaved changes from last session?</p>
           <div className="mt-2 flex gap-2">
