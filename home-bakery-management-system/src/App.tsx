@@ -75,6 +75,7 @@ function AdminApp() {
       <LabelStudio
         filterByOrder={labelFilter}
         filterByProduct={labelProductFilter}
+        returnToLabel={returnTo}
         onBack={() => setPage(returnTo || "dashboard")}
       />
     );

@@ -166,6 +166,7 @@ export default function CompliancePanel({ profile, onOpenInspector }: Props) {
       )}
       <aside
         aria-hidden={!open}
+        inert={!open}
         className={`fixed inset-y-0 right-0 z-50 flex w-[360px] max-w-[92vw] flex-col border-l border-sand-200 bg-white shadow-2xl transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
