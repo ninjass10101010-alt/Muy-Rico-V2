@@ -1,10 +1,11 @@
-import { useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type Konva from "konva";
 import type { SceneContext } from "konva/lib/Context";
 import { Ellipse, Group, Image as KImage, Layer, Rect, Stage } from "react-konva";
 import { useShallow } from "zustand/react/shallow";
 import type { BusinessProfile, LabelShape, LabelTemplate } from "../../types";
 import { effectiveDimensions } from "../../components/label/defaultElements";
+import { formatBestBy, resolveBestBy } from "./labelMath";
 import { selectSortedElements, useEditorStore } from "./state";
 import { contentBoxPx, useHtmlImage } from "./capture";
 import ElementNode from "./elements/ElementNode";
@@ -20,7 +21,7 @@ interface FrameGeom {
   isCurved: boolean;
 }
 
-function frameGeometry(
+export function frameGeometry(
   W: number,
   H: number,
   shape: LabelShape,
@@ -150,10 +151,11 @@ export default function StageCanvas({
   const select = useEditorStore((s) => s.select);
   const sorted = useEditorStore(useShallow(selectSortedElements));
   const refs = useRef<Map<string, Konva.Node>>(new Map());
-  const registerRef = (id: string, node: unknown | null) => {
+  const registerRef = useCallback((id: string, node: unknown | null) => {
     if (node) refs.current.set(id, node as Konva.Node);
     else refs.current.delete(id);
-  };
+  }, []);
+  const bestByStr = useMemo(() => formatBestBy(resolveBestBy(doc)), [doc]);
 
   const { effW, effH } = effectiveDimensions(
     doc.labelWidth,
@@ -196,6 +198,7 @@ export default function StageCanvas({
               H={H}
               selected={selection === el.id}
               editing={editingId === el.id}
+              bestByStr={bestByStr}
               registerRef={registerRef}
             />
           )

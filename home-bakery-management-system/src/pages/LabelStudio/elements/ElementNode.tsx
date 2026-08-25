@@ -1,16 +1,10 @@
 import type Konva from "konva";
 import type { SceneContext } from "konva/lib/Context";
 import { Ellipse, Group, Image as KImage, Line, Rect, Text } from "react-konva";
+import { memo } from "react";
 import type { ReactNode } from "react";
 import type { BusinessProfile, LabelElement, LabelTemplate, NfpData } from "../../../types";
-import {
-  NFP_ROWS,
-  dvPercent,
-  effectiveText,
-  formatBestBy,
-  resolveBestBy,
-  wrapLines,
-} from "../labelMath";
+import { NFP_ROWS, dvPercent, effectiveText, wrapLines } from "../labelMath";
 import { firstFamily, useHtmlImage, useQrDataUrl } from "../capture";
 
 export { firstFamily };
@@ -23,6 +17,7 @@ interface Props {
   H: number;
   selected: boolean;
   editing: boolean;
+  bestByStr: string;
   registerRef: (id: string, node: unknown | null) => void;
 }
 
@@ -86,10 +81,12 @@ function TextNode({
 
 function LogoNode({
   label,
+  W,
   boxW,
   boxH,
 }: {
   label: LabelTemplate;
+  W: number;
   boxW: number;
   boxH: number;
 }) {
@@ -108,7 +105,7 @@ function LogoNode({
       height={boxH}
       align="center"
       verticalAlign="middle"
-      fontSize={Math.min(boxW, boxH) * 0.9}
+      fontSize={((label.logoSize ?? 16) / 100) * W}
       lineHeight={1}
       fontFamily={firstFamily(label.font)}
       fill={label.textColor}
@@ -133,16 +130,17 @@ function QrNode({
   const url = useQrDataUrl(value);
   const img = useHtmlImage(url || undefined);
   const pad = boxW * 0.04;
+  const side = Math.max(0, Math.min(boxW, boxH) - pad * 2);
   return (
     <>
       <Rect width={boxW} height={boxH} fill="#ffffff" />
       {img && (
         <KImage
           image={img}
-          x={pad}
-          y={pad}
-          width={Math.max(0, boxW - pad * 2)}
-          height={Math.max(0, boxH - pad * 2)}
+          x={(boxW - side) / 2}
+          y={(boxH - side) / 2}
+          width={side}
+          height={side}
         />
       )}
     </>
@@ -371,7 +369,7 @@ function NfpNode({
   );
 }
 
-export default function ElementNode({
+export function ElementNode({
   el,
   label,
   profile,
@@ -379,13 +377,13 @@ export default function ElementNode({
   H,
   selected,
   editing,
+  bestByStr,
   registerRef,
 }: Props) {
   if (el.hidden) return null;
 
   const boxW = el.w * W;
   const boxH = el.h * H;
-  const bestByStr = formatBestBy(resolveBestBy(label));
   const text = el.type === "text" ? effectiveText(el, label, profile, bestByStr) : "";
   if (el.type === "text" && !text && !selected && !editing) return null;
 
@@ -405,7 +403,7 @@ export default function ElementNode({
       }}
     >
       {el.type === "text" && <TextNode el={el} label={label} W={W} text={text} />}
-      {el.type === "logo" && <LogoNode label={label} boxW={boxW} boxH={boxH} />}
+      {el.type === "logo" && <LogoNode label={label} W={W} boxW={boxW} boxH={boxH} />}
       {el.type === "qr" && (
         <QrNode el={el} label={label} profile={profile} boxW={boxW} boxH={boxH} />
       )}
@@ -417,3 +415,5 @@ export default function ElementNode({
     </Group>
   );
 }
+
+export default memo(ElementNode);
