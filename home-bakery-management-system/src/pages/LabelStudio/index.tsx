@@ -33,6 +33,7 @@ import { makeFallback, normalizeLabel } from "./templateUtils";
 import { selectCanRedo, selectCanUndo, useEditorStore } from "./state";
 import type { LeftTab } from "./state";
 import CompliancePanel from "./panels/CompliancePanel";
+import AddTab from "./panels/AddTab";
 
 const DRAFT_KEY = "muyrico.labelstudio.draft";
 const COALESCE_MS = 600;
@@ -41,13 +42,14 @@ const ZOOM_STEP = 25;
 interface Props {
   filterByOrder?: string | null;
   filterByProduct?: string | null;
+  returnToLabel?: string;
   onBack: () => void;
 }
 
 const TOOL_BTN =
   "flex items-center justify-center rounded-lg border border-sand-200 p-2 text-cocoa-muted transition hover:bg-sand-50 hover:text-cocoa disabled:cursor-not-allowed disabled:opacity-40";
 
-export default function LabelStudio({ filterByOrder, filterByProduct, onBack }: Props) {
+export default function LabelStudio({ filterByOrder, filterByProduct, returnToLabel, onBack }: Props) {
   const { profile, labelTemplates, products, handleCreateLabel, handleUpdateLabel, loading } =
     useStore();
   const doc = useEditorStore((s) => s.doc);
@@ -211,7 +213,7 @@ export default function LabelStudio({ filterByOrder, filterByProduct, onBack }: 
     function deleteSelected() {
       const st = useEditorStore.getState();
       const sel = st.selection ? st.doc.elements.find((el) => el.id === st.selection) : null;
-      if (!sel || sel.field === "disclaimer") return;
+      if (!sel || sel.field === "disclaimer" || sel.lock) return;
       st.setElements(st.doc.elements.filter((el) => el.id !== sel.id));
       st.select(null);
     }
@@ -378,11 +380,11 @@ export default function LabelStudio({ filterByOrder, filterByProduct, onBack }: 
         <button
           type="button"
           onClick={requestBack}
-          title="Back to Dashboard"
+          title={`Back to ${returnToLabel || "Dashboard"}`}
           className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-cocoa-muted transition hover:bg-sand-100 hover:text-cocoa"
         >
           <ArrowLeft size={16} />
-          <span className="hidden sm:inline">Dashboard</span>
+          <span className="hidden sm:inline">{returnToLabel || "Dashboard"}</span>
         </button>
         <div className="h-6 w-px shrink-0 bg-sand-200" />
         <input
@@ -566,14 +568,17 @@ export default function LabelStudio({ filterByOrder, filterByProduct, onBack }: 
               </button>
             ))}
           </div>
-          <div className="flex flex-1 items-start justify-center p-4 pt-8">
-            <p className="text-center text-xs leading-relaxed text-cocoa-muted">
-              {leftTab === "add"
-                ? "Add controls land in Task 7"
-                : leftTab === "layers"
-                  ? "Layers panel lands in Task 8"
-                  : "Template browser lands in Task 8"}
-            </p>
+          <div className="flex min-h-0 flex-1 flex-col">
+            {leftTab === "add" && <AddTab />}
+            {leftTab !== "add" && (
+              <div className="flex flex-1 items-start justify-center p-4 pt-8">
+                <p className="text-center text-xs leading-relaxed text-cocoa-muted">
+                  {leftTab === "layers"
+                    ? "Layers panel lands in Task 8"
+                    : "Template browser lands in Task 8"}
+                </p>
+              </div>
+            )}
           </div>
         </aside>
 
