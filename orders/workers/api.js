@@ -271,6 +271,13 @@ export default {
       const qem = path.match(/^\/api\/quotes\/(\d+)\/email$/);
       if (qem && method === 'POST') return await emailQuote(Number(qem[1]), env, ctx);
 
+      const qim = path.match(/^\/api\/quotes\/(\d+)\/items$/);
+      if (qim && method === 'POST') return await addQuoteItem(Number(qim[1]), request, env);
+
+      const qiim = path.match(/^\/api\/quotes\/(\d+)\/items\/(\d+)$/);
+      if (qiim && method === 'PATCH') return await updateQuoteItem(Number(qiim[1]), Number(qiim[2]), request, env);
+      if (qiim && method === 'DELETE') return await deleteQuoteItemHandler(Number(qiim[1]), Number(qiim[2]), env);
+
       const qm = path.match(/^\/api\/quotes\/(\d+)$/);
       if (qm) {
         const id = Number(qm[1]);
@@ -3167,6 +3174,112 @@ async function updateQuote(id, request, env, ctx, actor) {
       // No auto-email when archiving
     }
 
+    return json({ ok: true }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+// ─── Quote items (add / edit / remove on existing quotes) ───────────────────
+
+const QUOTE_ITEM_TYPES = ['cake', 'cakepops', 'cupcakes', 'custom'];
+
+function validateQuoteItem(item) {
+  if (!item || typeof item !== 'object') return 'Invalid item';
+  if (!QUOTE_ITEM_TYPES.includes(item.product_type)) return 'Invalid product type';
+  const d = (item.details && typeof item.details === 'object') ? item.details : {};
+  if (item.product_type === 'custom' && !String(d.name || '').trim()) return 'Custom items require a name in details';
+  return null;
+}
+
+function assertQuoteEditable(quote) {
+  if (quote.status === 'converted' || quote.status === 'archived') {
+    return json({ error: `Quote is ${quote.status}; items cannot be changed` }, 400);
+  }
+  return null;
+}
+
+async function loadQuoteOr404(id, env) {
+  return env.DB.prepare(
+    `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
+  ).bind(id).first();
+}
+
+async function loadQuoteItemOr404(quoteId, itemId, env) {
+  return env.DB.prepare(
+    'SELECT * FROM cake_quote_items WHERE id = ? AND quote_id = ?'
+  ).bind(itemId, quoteId).first();
+}
+
+async function addQuoteItem(id, request, env) {
+  try {
+    const quote = await loadQuoteOr404(id, env);
+    if (!quote) return json({ error: 'Not found' }, 404);
+    const guard = assertQuoteEditable(quote);
+    if (guard) return guard;
+    const body = await request.json();
+    const err = validateQuoteItem(body);
+    if (err) return json({ error: err }, 400);
+    const refUrl = body.reference_image_url === undefined ? null : body.reference_image_url;
+    const result = await env.DB.prepare(`
+      INSERT INTO cake_quote_items (quote_id, product_type, sort_order, details, reference_image_url)
+      VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM cake_quote_items WHERE quote_id = ?), ?, ?)
+    `).bind(id, body.product_type, id, JSON.stringify(body.details || {}), refUrl).run();
+    return json({
+      ok: true,
+      item: { id: result.meta.last_row_id, product_type: body.product_type, details: body.details || {}, reference_image_url: refUrl },
+    }, 201);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function updateQuoteItem(id, itemId, request, env) {
+  try {
+    const quote = await loadQuoteOr404(id, env);
+    if (!quote) return json({ error: 'Not found' }, 404);
+    const guard = assertQuoteEditable(quote);
+    if (guard) return guard;
+    const item = await loadQuoteItemOr404(id, itemId, env);
+    if (!item) return json({ error: 'Not found' }, 404);
+    const body = await request.json();
+    const sets = [];
+    const binds = [];
+    if (body.details !== undefined) {
+      const err = validateQuoteItem({ product_type: item.product_type, details: body.details });
+      if (err) return json({ error: err }, 400);
+      sets.push('details = ?');
+      binds.push(JSON.stringify(body.details));
+    }
+    if (body.reference_image_url !== undefined) {
+      sets.push('reference_image_url = ?');
+      binds.push(body.reference_image_url);
+    }
+    if (sets.length === 0) return json({ error: 'Nothing to update' }, 400);
+    await env.DB.prepare(`UPDATE cake_quote_items SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, itemId).run();
+    return json({
+      ok: true,
+      item: {
+        id: itemId,
+        product_type: item.product_type,
+        details: body.details !== undefined ? body.details : JSON.parse(item.details || '{}'),
+        reference_image_url: body.reference_image_url !== undefined ? body.reference_image_url : item.reference_image_url,
+      },
+    }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function deleteQuoteItemHandler(id, itemId, env) {
+  try {
+    const quote = await loadQuoteOr404(id, env);
+    if (!quote) return json({ error: 'Not found' }, 404);
+    const guard = assertQuoteEditable(quote);
+    if (guard) return guard;
+    const item = await loadQuoteItemOr404(id, itemId, env);
+    if (!item) return json({ error: 'Not found' }, 404);
+    await env.DB.prepare('DELETE FROM cake_quote_items WHERE id = ?').bind(itemId).run();
     return json({ ok: true }, 200);
   } catch (e) {
     return json({ error: String(e) }, 500);
