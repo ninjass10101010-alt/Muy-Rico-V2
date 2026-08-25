@@ -6,14 +6,28 @@
 import { PDFDocument, StandardFonts, rgb, degrees, PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
-import type { LabelTemplate, LabelElement, BusinessProfile } from "../types";
-import { DISCLAIMER_STANDARD } from "./disclaimer";
+import type { LabelTemplate, LabelElement, BusinessProfile, NfpData } from "../types";
+import { effectiveText, formatBestBy, resolveBestBy } from "./labelText";
+import { NFP_ROWS, dvPercent } from "./nfpRows";
 
 // Brand fonts — Vite resolves these to URLs; we fetch the bytes at runtime for pdf-lib embedding
 import cormorantUrl from "../assets/fonts/CormorantGaramond-Regular.ttf";
 import quicksandUrl from "../assets/fonts/Quicksand-Regular.ttf";
 
 const PT_PER_IN = 72;
+
+const TEXT_FIELDS: string[] = [
+  "businessName", "businessId", "productName", "details", "ingredients",
+  "allergens", "netWeight", "price", "bestBy", "disclaimer",
+];
+
+/** User-safe error for export failures; UI paths catch this and surface a toast. */
+export class ExportError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = "ExportError";
+  }
+}
 
 const _fontBytes: { cormorant?: ArrayBuffer; quicksand?: ArrayBuffer } = {};
 
@@ -25,12 +39,13 @@ async function getFonts(doc: PDFDocument) {
       fetch(quicksandUrl).then((r) => r.arrayBuffer()),
     ]);
   }
-  const [cormorant, quicksand, helv] = await Promise.all([
-    doc.embedFont(_fontBytes.cormorant),
-    doc.embedFont(_fontBytes.quicksand),
+  const [cormorant, quicksand, helv, helvBold] = await Promise.all([
+    doc.embedFont(_fontBytes.cormorant!),
+    doc.embedFont(_fontBytes.quicksand!),
     doc.embedFont(StandardFonts.Helvetica),
+    doc.embedFont(StandardFonts.HelveticaBold),
   ]);
-  return { cormorant, quicksand, helv };
+  return { cormorant, quicksand, helv, helvBold };
 }
 
 function hexToRgb(hex: string) {
@@ -75,32 +90,25 @@ function wrapText(text: string, font: any, size: number, maxW: number): string[]
   return lines.length ? lines : [""];
 }
 
-function effectiveText(el: LabelElement, label: LabelTemplate, profile: BusinessProfile, bestByDateStr?: string | null): string {
-  const effName = label.businessName || profile.name;
-  const effPhone = label.phoneNumber || profile.phone;
-  const effReg = label.registrationNumber || profile.registrationNumber;
-  const effAddr = label.address || profile.address;
-  const isReg = label.businessIdMode === "registration";
-  switch (el.field) {
-    case "businessName": return effName;
-    case "businessId": return isReg ? `${effPhone} \u00B7 ${effReg || ""}` : effAddr;
-    case "productName": return label.productName || "Product Name";
-    case "details": return label.details;
-    case "ingredients": return label.ingredients ? `Ingredients: ${label.ingredients}` : "";
-    case "allergens": return label.allergens;
-    case "netWeight": return label.netWeightUS || label.netWeight || "";
-    case "price": return label.showPrice ? label.price : "";
-    case "bestBy": return label.showBestBy ? `Best by ${bestByDateStr || ""}` : "";
-    case "disclaimer": return label.showDisclaimer ? DISCLAIMER_STANDARD : "";
-    default: return "";
+/**
+ * Detect the raster image format of a data URL or raw byte buffer.
+ * Data-URL prefix wins when present; otherwise sniff magic bytes.
+ * Throws for anything that isn't PNG or JPEG.
+ */
+export function sniffImageMime(input: string | Uint8Array): "png" | "jpg" {
+  if (typeof input === "string") {
+    if (input.startsWith("data:image/png")) return "png";
+    if (input.startsWith("data:image/jpeg") || input.startsWith("data:image/jpg")) return "jpg";
+    throw new Error("labelExport: unknown image data-url type");
   }
+  const b = input;
+  if (b.length >= 3 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "png";
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpg";
+  throw new Error("labelExport: unknown image bytes (not PNG or JPEG)");
 }
 
-
-
-
-interface AveryLayout { labelW: number; labelH: number; cols: number; rows: number; marginLeft: number; marginTop: number; gapH: number; gapV: number; }
-const AVERY: Record<string, AveryLayout> = {
+export interface AveryLayout { labelW: number; labelH: number; cols: number; rows: number; marginLeft: number; marginTop: number; gapH: number; gapV: number; }
+export const AVERY_LAYOUTS: Record<string, AveryLayout> = {
   single: { labelW: 3, labelH: 4, cols: 1, rows: 1, marginLeft: 0, marginTop: 0, gapH: 0, gapV: 0 },
   "5164": { labelW: 3.33, labelH: 4, cols: 2, rows: 3, marginLeft: 0.156, marginTop: 0.5, gapH: 0.25, gapV: 0 },
   "5163": { labelW: 4, labelH: 2, cols: 2, rows: 4, marginLeft: 0.156, marginTop: 0.5, gapH: 0.19, gapV: 0 },
@@ -119,7 +127,7 @@ export async function renderLabelPdf(
   const isSquareish = shape === "square" || shape === "circle";
 
   const sheet = opts.sheet || label.averyPreset || "single";
-  const layout = AVERY[sheet] || AVERY.single;
+  const layout = AVERY_LAYOUTS[sheet] || AVERY_LAYOUTS.single;
 
   let lw = label.labelWidth || 3;
   let lh = label.labelHeight || 4;
@@ -133,10 +141,8 @@ export async function renderLabelPdf(
   const labelWPt = lw * PT_PER_IN;
   const labelHPt = lh * PT_PER_IN;
 
-  // Best-by date: use stored snapshot if present, else compute
-  const bestByDateStr = label.bestByDate
-    ? new Date(label.bestByDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    : new Date(Date.now() + ((label.bestByDays || 7) * 86400000)).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  // Best-by date: shared resolution logic with the canvas preview
+  const bestByDateStr = label.showBestBy ? formatBestBy(resolveBestBy(label)) : "";
 
   // Background
   const bg = (() => { try { return hexToRgb(label.bgColor); } catch { return rgb(1,1,1); } })();
@@ -149,7 +155,7 @@ export async function renderLabelPdf(
   const paddingBoxH = labelHPt - 2 * BORDER_PT;
   const contentBoxW = labelWPt - 2 * BORDER_PT - 2 * (padPct * labelWPt);
 
-  function renderLabelOnPage(page: PDFPage, ox: number, oy: number) {
+  async function renderLabelOnPage(page: PDFPage, ox: number, oy: number) {
     // Background
     page.drawRectangle({ x: ox, y: oy, width: labelWPt, height: labelHPt, color: bg });
     // Elements sorted by z
@@ -160,12 +166,12 @@ export async function renderLabelPdf(
       // PDF draws at the border edge, so offset by BORDER_PT
       const elOx = ox + BORDER_PT;
       const elOy = oy + BORDER_PT;
-      if (el.type === "text" || ["businessName","businessId","productName","details","ingredients","allergens","netWeight","price","bestBy","disclaimer"].includes(el.field)) {
+      if (el.type === "text" || (el.field !== undefined && TEXT_FIELDS.includes(el.field))) {
         drawTextElementOffset(page, el, label, profile, fonts, paddingBoxW, paddingBoxH, elOx, elOy, bestByDateStr, contentBoxW);
       } else if (el.field === "qr" || el.type === "qr") {
-        drawQrElementOffset(page, el, doc, paddingBoxW, paddingBoxH, elOx, elOy);
+        await drawQrElementOffset(page, el, doc, paddingBoxW, paddingBoxH, elOx, elOy);
       } else if (el.field === "logo" || el.type === "logo") {
-        drawLogoElementOffset(page, el, doc, paddingBoxW, paddingBoxH, elOx, elOy);
+        await drawLogoElementOffset(page, el, doc, paddingBoxW, paddingBoxH, elOx, elOy);
       } else if (el.field === "nfp" || el.type === "nfp") {
         drawNfpElementOffset(page, el, label, fonts, paddingBoxW, paddingBoxH, elOx, elOy);
       } else {
@@ -175,7 +181,7 @@ export async function renderLabelPdf(
   }
 
   // Offset versions of draw functions
-  function drawTextElementOffset(page: PDFPage, el: LabelElement, label: LabelTemplate, profile: BusinessProfile, fonts: any, pageW: number, pageH: number, ox: number, oy: number, bestBy?: string | null, contentBoxW?: number) {
+  function drawTextElementOffset(page: PDFPage, el: LabelElement, label: LabelTemplate, profile: BusinessProfile, fonts: any, pageW: number, pageH: number, ox: number, oy: number, bestBy?: string, contentBoxW?: number) {
     const text = effectiveText(el, label, profile, bestBy);
     if (!text) return;
     const font = pickFont(el, label, fonts);
@@ -203,8 +209,12 @@ export async function renderLabelPdf(
     });
   }
 
+  // Emoji logos can't be embedded as text in Helvetica (tofu); warn once per
+  // export and skip — the raster path is the fidelity path for emoji.
+  let emojiLogoWarned = false;
+
   async function drawQrElementOffset(page: PDFPage, el: LabelElement, doc: PDFDocument, pageW: number, pageH: number, ox: number, oy: number) {
-    const website = label.websiteUrl || "https://muy-rico.com";
+    const website = el.qrValue || label.websiteUrl || profile.website || "https://muy-rico.com";
     const size = Math.min(el.w * pageW, el.h * pageH);
     const x = el.x * pageW + ox;
     const y = oy + pageH - (el.y * pageH) - size;
@@ -213,21 +223,35 @@ export async function renderLabelPdf(
       const bytes = Uint8Array.from(atob(dataUrl.split(",")[1]), (c) => c.charCodeAt(0));
       const img = await doc.embedPng(bytes);
       page.drawImage(img, { x, y, width: size, height: size });
-    } catch {}
+    } catch (err) {
+      console.warn("labelExport: QR embed failed:", err);
+      throw new ExportError("Could not generate the QR code for this label.", err);
+    }
   }
 
   async function drawLogoElementOffset(page: PDFPage, el: LabelElement, doc: PDFDocument, pageW: number, pageH: number, ox: number, oy: number) {
-    if (!label.logoImage) return;
+    if (!label.logoImage) {
+      if (label.logoEmoji && !emojiLogoWarned) {
+        emojiLogoWarned = true;
+        console.warn("labelExport: emoji logos are skipped in vector PDF export — use “PDF exact” for pixel-perfect emoji logos.");
+      }
+      return;
+    }
     const w = el.w * pageW;
     const h = el.h * pageH;
     const x = el.x * pageW + ox;
     const y = oy + pageH - (el.y * pageH) - h;
     try {
       const res = await fetch(label.logoImage);
+      if (!res.ok) throw new Error(`logo fetch failed (${res.status})`);
       const bytes = new Uint8Array(await res.arrayBuffer());
-      const img = label.logoImage!.includes(".png") ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+      const mime = sniffImageMime(bytes);
+      const img = mime === "png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
       page.drawImage(img, { x, y, width: w, height: h });
-    } catch {}
+    } catch (err) {
+      console.warn("labelExport: logo embed failed:", err);
+      throw new ExportError("Could not embed the logo image in the PDF.", err);
+    }
   }
 
   function drawShapeElementOffset(page: PDFPage, el: LabelElement, label: LabelTemplate, pageW: number, pageH: number, ox: number, oy: number) {
@@ -250,44 +274,150 @@ export async function renderLabelPdf(
   function drawNfpElementOffset(page: PDFPage, el: LabelElement, label: LabelTemplate, fonts: any, pageW: number, pageH: number, ox: number, oy: number) {
     const data = el.nfpData;
     if (!data) return;
-    const font = fonts.helv;
     const x = el.x * pageW + ox;
     const yBottom = oy + pageH - (el.y * pageH) - (el.h * pageH);
     const w = el.w * pageW;
     const h = el.h * pageH;
     const top = yBottom + h;
     const borderC = colorOf(el, label);
-    const labelSz = w * 0.028;
-    const valSz = w * 0.025;
-    const rowH = h / 14;
-    page.drawRectangle({ x, y: yBottom, width: w, height: h, borderColor: borderC, borderWidth: 2, color: undefined });
-    page.drawRectangle({ x, y: top - rowH * 1.5, width: w, height: rowH * 1.5, color: borderC });
-    page.drawText("Nutrition Facts", { x: x + w * 0.04, y: top - rowH * 1.2, size: labelSz * 1.3, font, color: rgb(1,1,1) });
-    const rows: [string, string][] = [
-      [`Serving size: ${data.servingSize || ""}`, `${data.servings || ""} servings`],
-      ["Calories", data.calories || ""],
-      ["Total Fat", data.totalFat || ""],
-      ["Saturated Fat", data.satFat || ""],
-      ["Trans Fat", data.transFat || ""],
-      ["Cholesterol", data.cholesterol || ""],
-      ["Sodium", data.sodium || ""],
-      ["Total Carbohydrate", data.totalCarb || ""],
-      ["Dietary Fiber", data.fiber || ""],
-      ["Sugars", data.sugars || ""],
-      ["Added Sugars", data.addedSugars || ""],
-      ["Protein", data.protein || ""],
-    ];
-    rows.forEach(([k, v], i) => {
-      const ry = top - rowH * (1.5 + i + 1);
-      page.drawText(k, { x: x + w * 0.04, y: ry, size: valSz, font, color: rgb(0.1,0.1,0.1) });
-      page.drawText(v, { x: x + w * 0.55, y: ry, size: valSz, font, color: rgb(0.1,0.1,0.1) });
-      page.drawLine({ start: {x, y: ry - 2}, end: {x: x + w, y: ry - 2}, thickness: 0.3, color: rgb(0.7,0.7,0.7) });
+
+    // Mirrors the canvas NfpNode layout so labels/DV values match the preview.
+    const rows = NFP_ROWS.filter(
+      (r) => r.group !== "micro" || (data[r.key] || "").trim() !== ""
+    );
+    const NFP_PLACEHOLDER: Partial<Record<keyof NfpData, string>> = {
+      servingSize: "1 serving",
+      servings: "1",
+    };
+    const border = 2;
+    const padX = w * 0.035;
+    const padY = h * 0.02;
+    const innerW = w - padX * 2;
+    const slot = h / (rows.length + 3);
+    const titleFs = slot * 1.0;
+    const rowFs = slot * 0.48;
+    const headFs = slot * 0.42;
+    const footFs = slot * 0.34;
+    const dvColW = innerW * 0.16;
+    const valGap = innerW * 0.01;
+    const indentW = w * 0.03;
+    const titleSep = Math.max(2, slot * 0.14);
+    const titleFont = fonts.helvBold;
+    const rowFont = fonts.helv;
+    const rowFontBold = fonts.helvBold;
+
+    // Canvas y grows downward from padY; convert to PDF y (upward from bottom).
+    const toPdfY = (yDown: number) => top - yDown;
+
+    page.drawRectangle({ x, y: yBottom, width: w, height: h, color: rgb(1, 1, 1) });
+    page.drawRectangle({ x, y: yBottom, width: w, height: h, borderColor: borderC, borderWidth: border, color: undefined });
+
+    let y = padY;
+
+    // Title
+    page.drawText("Nutrition Facts", {
+      x: x + padX,
+      y: toPdfY(y) - titleFs * 0.85,
+      size: titleFs,
+      font: titleFont,
+      color: rgb(0, 0, 0),
+    });
+    y += slot * 1.05;
+    page.drawLine({
+      start: { x: x + padX, y: toPdfY(y) },
+      end: { x: x + padX + innerW, y: toPdfY(y) },
+      thickness: titleSep,
+      color: rgb(0, 0, 0),
+    });
+    y += titleSep;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const raw = (data[r.key] || "").trim();
+      const val = raw || NFP_PLACEHOLDER[r.key] || "0";
+      const dv = dvPercent(raw, r.dvThreshold);
+      const ty = y + (slot - rowFs) / 2;
+      const f = r.bold ? rowFontBold : rowFont;
+      const lx = x + padX + r.indent * indentW;
+      page.drawText(r.label, {
+        x: lx,
+        y: toPdfY(ty) - rowFs * 0.85,
+        size: rowFs,
+        font: f,
+        color: rgb(0, 0, 0),
+      });
+      // Value column, right-aligned, leaving room for the %DV column
+      const valW = innerW - dvColW - valGap;
+      const valTextW = rowFont.widthOfTextAtSize(val, rowFs);
+      page.drawText(val, {
+        x: x + padX + Math.max(0, valW - valTextW),
+        y: toPdfY(ty) - rowFs * 0.85,
+        size: rowFs,
+        font: f,
+        color: rgb(0, 0, 0),
+      });
+      if (dv) {
+        const dvTextW = rowFontBold.widthOfTextAtSize(dv, rowFs);
+        page.drawText(dv, {
+          x: x + padX + Math.max(0, innerW - dvTextW),
+          y: toPdfY(ty) - rowFs * 0.85,
+          size: rowFs,
+          font: rowFontBold,
+          color: rgb(0, 0, 0),
+        });
+      }
+
+      const next = rows[i + 1];
+      const sepW = r.key === "calories" ? 3 : next && next.group === "micro" ? 2 : 1;
+      y += slot;
+      page.drawLine({
+        start: { x: x + padX, y: toPdfY(y) },
+        end: { x: x + padX + innerW, y: toPdfY(y) },
+        thickness: sepW,
+        color: rgb(0, 0, 0),
+      });
+
+      if (r.key === "calories") {
+        y += sepW;
+        const dvHead = "% Daily Value*";
+        const dvHeadW = rowFontBold.widthOfTextAtSize(dvHead, headFs);
+        page.drawText(dvHead, {
+          x: x + padX + Math.max(0, innerW - dvHeadW),
+          y: toPdfY(y) - headFs * 0.85,
+          size: headFs,
+          font: rowFontBold,
+          color: rgb(0, 0, 0),
+        });
+        y += slot * 0.7;
+      }
+    }
+
+    // Footnote
+    const footText =
+      "* The % Daily Value tells you how much a nutrient in a serving of food contributes to a daily diet.";
+    const footH = footFs * 1.15 * 2;
+    const fy = Math.max(y + 2, h - padY - border - footH);
+    page.drawLine({
+      start: { x: x + padX, y: toPdfY(fy - 2) },
+      end: { x: x + padX + innerW, y: toPdfY(fy - 2) },
+      thickness: 1,
+      color: rgb(0, 0, 0),
+    });
+    const footLines = wrapText(footText, rowFont, footFs, innerW);
+    footLines.forEach((line, i) => {
+      page.drawText(line, {
+        x: x + padX,
+        y: toPdfY(fy) - footFs * 0.85 - i * footFs * 1.15,
+        size: footFs,
+        font: rowFont,
+        color: rgb(0, 0, 0),
+      });
     });
   }
 
   if (sheet === "single") {
     const page = doc.addPage([labelWPt, labelHPt]);
-    renderLabelOnPage(page, 0, 0);
+    await renderLabelOnPage(page, 0, 0);
   } else {
     // Letter-size sheet
     const sheetW = 8.5 * PT_PER_IN;
@@ -303,7 +433,7 @@ export async function renderLabelPdf(
           if (copy >= copies) break;
           const ox = (layout.marginLeft + c * (layout.labelW + layout.gapH)) * PT_PER_IN;
           const oy = (sheetH / PT_PER_IN - layout.marginTop - (r + 1) * layout.labelH - r * layout.gapV) * PT_PER_IN;
-          renderLabelOnPage(page, ox, oy);
+          await renderLabelOnPage(page, ox, oy);
           copy++;
         }
       }

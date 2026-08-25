@@ -26,10 +26,20 @@ import {
 import type { LabelElement, LabelTemplate } from "../../types";
 import { effectiveDimensions } from "../../components/label/defaultElements";
 import ComplianceScore from "../../components/label/ComplianceScore";
+import AverySheet from "../../components/label/AverySheet";
 import Modal from "../../components/ui/Modal";
 import { useStore } from "../../context/StoreContext";
 import { newId } from "../../utils/format";
-import StageCanvas from "./StageCanvas";
+import {
+  ExportError,
+  downloadPdf,
+  openPdfInNewTab,
+  printPdf,
+  renderLabelPdf,
+  sharePdf,
+} from "../../utils/labelExport";
+import { renderRasterPdf } from "../../utils/labelRasterPdf";
+import StageCanvas, { type StageCanvasHandle } from "./StageCanvas";
 import { makeFallback, normalizeLabel } from "./templateUtils";
 import { selectCanRedo, selectCanUndo, useEditorStore } from "./state";
 import type { LeftTab } from "./state";
@@ -53,6 +63,26 @@ interface Props {
 
 const TOOL_BTN =
   "flex items-center justify-center rounded-lg border border-sand-200 p-2 text-cocoa-muted transition hover:bg-sand-50 hover:text-cocoa disabled:cursor-not-allowed disabled:opacity-40";
+
+type SheetPreset = "single" | "5164" | "5163" | "8163";
+
+function exportFileName(name: string, ext: string): string {
+  const base =
+    (name || "label")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "label";
+  return `${base}.${ext}`;
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 
 export default function LabelStudio({ filterByOrder, filterByProduct, returnToLabel, onBack }: Props) {
   const {
@@ -400,6 +430,99 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
     else onBack();
   }
 
+  // ── Export pipeline ───────────────────────────────────────────────────────
+  const stageCanvasRef = useRef<StageCanvasHandle>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [sheetPreset, setSheetPreset] = useState<SheetPreset>(doc.averyPreset);
+  useEffect(() => {
+    setSheetPreset(doc.averyPreset);
+  }, [doc.averyPreset]);
+  const canShare =
+    typeof navigator !== "undefined" &&
+    typeof (navigator as Navigator & { canShare?: (d: ShareData) => boolean }).canShare === "function";
+
+  async function captureStage(format: "png" | "jpg") {
+    const handle = stageCanvasRef.current;
+    if (!handle) throw new ExportError("The label canvas is not ready yet.");
+    return handle.toDataUrl({ dpi: 300, effWIn: effW, format });
+  }
+
+  async function rasterPdfBytes(sheet: SheetPreset) {
+    const { dataUrl } = await captureStage("png");
+    return renderRasterPdf(dataUrl, { effWIn: effW, effHIn: effH, sheet });
+  }
+
+  function runExport(key: string, task: () => Promise<void>) {
+    if (exporting) return;
+    setExporting(key);
+    setSaveError(null);
+    task()
+      .catch((err) => {
+        console.warn("Export failed:", err);
+        setSaveError(
+          err instanceof ExportError
+            ? `Export failed — ${err.message}`
+            : "Export failed — please try again."
+        );
+      })
+      .finally(() => setExporting(null));
+  }
+
+  function handlePng() {
+    runExport("png", async () => {
+      const { dataUrl } = await captureStage("png");
+      downloadDataUrl(dataUrl, exportFileName(doc.name, "png"));
+    });
+  }
+
+  function handleJpg() {
+    runExport("jpg", async () => {
+      const { dataUrl } = await captureStage("jpg");
+      downloadDataUrl(dataUrl, exportFileName(doc.name, "jpg"));
+    });
+  }
+
+  function handlePdfExact() {
+    runExport("pdfexact", async () => {
+      const bytes = await rasterPdfBytes("single");
+      downloadPdf(bytes, exportFileName(doc.name, "pdf"));
+    });
+  }
+
+  function handlePdfVector() {
+    runExport("pdfvector", async () => {
+      const bytes = await renderLabelPdf(doc, profile, { sheet: "single" });
+      downloadPdf(bytes, exportFileName(doc.name, "pdf"));
+    });
+  }
+
+  function handlePrint(sheet: string) {
+    runExport("print", async () => {
+      const bytes = await rasterPdfBytes(sheet as SheetPreset);
+      printPdf(bytes);
+    });
+  }
+
+  function handleOpenPrint() {
+    if (exporting) return;
+    // Open the window synchronously in the click handler to dodge popup
+    // blockers; the async raster bytes are routed into it afterwards.
+    const win = window.open("", "_blank");
+    runExport("openprint", async () => {
+      const bytes = await rasterPdfBytes("single");
+      openPdfInNewTab(bytes, win);
+    });
+  }
+
+  function handleShare() {
+    runExport("share", async () => {
+      const bytes = await rasterPdfBytes("single");
+      const filename = exportFileName(doc.name, "pdf");
+      const ok = await sharePdf(bytes, filename);
+      if (!ok) downloadPdf(bytes, filename);
+    });
+  }
+
   const railTabs: { id: LeftTab; label: string; icon: typeof Plus }[] = [
     { id: "add", label: "Add", icon: Plus },
     { id: "layers", label: "Layers", icon: Layers },
@@ -550,28 +673,54 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
               <span className="hidden lg:inline">Export</span>
             </button>
             {menu === "export" && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-sand-200 bg-white py-1 shadow-xl">
+              <div className="absolute right-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-sand-200 bg-white py-1 shadow-xl">
                 {(
                   [
-                    { icon: ImageIcon, label: "PNG" },
-                    { icon: FileImage, label: "JPG" },
-                    { icon: FileText, label: "PDF exact" },
-                    { icon: FileCode, label: "PDF vector" },
-                    { icon: Printer, label: "Print" },
-                    { icon: ExternalLink, label: "Open & Print" },
-                    { icon: Share2, label: "Share" },
+                    { key: "png", icon: ImageIcon, label: "PNG", desktopOnly: true, run: handlePng },
+                    { key: "jpg", icon: FileImage, label: "JPG", desktopOnly: true, run: handleJpg },
+                    { key: "pdfexact", icon: FileText, label: "PDF — exact preview", desktopOnly: false, run: handlePdfExact },
+                    { key: "pdfvector", icon: FileCode, label: "PDF — vector text", desktopOnly: true, run: handlePdfVector },
+                    { key: "print", icon: Printer, label: "Print", desktopOnly: true, run: () => handlePrint(sheetPreset) },
+                    { key: "openprint", icon: ExternalLink, label: "Open & Print", desktopOnly: false, run: handleOpenPrint },
+                    {
+                      key: "share",
+                      icon: Share2,
+                      label: "Share",
+                      desktopOnly: false,
+                      disabled: !canShare,
+                      run: handleShare,
+                    },
                   ] as const
-                ).map(({ icon: Icon, label }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    disabled
-                    title="Wired in Task 11"
-                    className="flex w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm text-cocoa-muted opacity-60"
-                  >
-                    <Icon size={14} /> {label}
-                  </button>
-                ))}
+                ).map(({ key, icon: Icon, label, desktopOnly, run, ...item }) => {
+                  const isDisabled =
+                    exporting !== null || ("disabled" in item && item.disabled);
+                  if (!desktopOnly && "disabled" in item && item.disabled) return null; // hide Share on mobile when unsupported
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={run}
+                      disabled={isDisabled}
+                      title={key === "share" && !canShare ? "Sharing is not supported on this device" : undefined}
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-cocoa transition hover:bg-sand-50 disabled:cursor-not-allowed disabled:opacity-40 ${
+                        desktopOnly ? "hidden lg:flex" : ""
+                      }`}
+                    >
+                      <Icon size={14} className="text-cocoa-muted" />
+                      {exporting === key ? "Exporting…" : label}
+                    </button>
+                  );
+                })}
+                <div className="mt-1 hidden border-t border-sand-100 px-3 py-2 lg:block">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-cocoa-muted">
+                    Print layout
+                  </p>
+                  <AverySheet
+                    averyPreset={sheetPreset}
+                    onChange={(p) => setSheetPreset(p as SheetPreset)}
+                    onPrint={(p) => handlePrint(p)}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -629,7 +778,7 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
               </button>
             </div>
           )}
-          <StageCanvas baseScale={baseScale} profile={profile} />
+          <StageCanvas ref={stageCanvasRef} baseScale={baseScale} profile={profile} />
         </main>
 
         {/* Inspector column */}

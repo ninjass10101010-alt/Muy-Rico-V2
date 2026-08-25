@@ -1,47 +1,10 @@
-import type { BusinessProfile, LabelElement, LabelTemplate, NfpData } from "../../types";
-import { disclaimerText } from "../../utils/disclaimer";
+// Text resolution and NFP rows live in dependency-free utils modules so the
+// PDF export path (src/utils) can share them without a utils→pages import.
+export { resolveBestBy, formatBestBy, effectiveText } from "../../utils/labelText";
+export { NFP_ROWS, dvPercent } from "../../utils/nfpRows";
+export type { NfpRow } from "../../utils/nfpRows";
 
 export interface Rect { x: number; y: number; w: number; h: number }
-
-export function resolveBestBy(label: LabelTemplate, now: Date = new Date()): Date {
-  if (label.bestByDate) {
-    const d = new Date(label.bestByDate);
-    if (!isNaN(d.getTime())) return d;
-  }
-  return new Date(now.getTime() + (label.bestByDays || 7) * 86400000);
-}
-
-export function formatBestBy(d: Date): string {
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-export function effectiveText(
-  el: LabelElement,
-  label: LabelTemplate,
-  profile: BusinessProfile,
-  bestByStr?: string
-): string {
-  const effName = label.businessName || profile.name || "";
-  const effPhone = label.phoneNumber || profile.phone || "";
-  const effReg = label.registrationNumber || profile.registrationNumber || "";
-  const effAddr = label.address || profile.address || "";
-  const isReg = label.businessIdMode === "registration";
-  switch (el.field) {
-    case "businessName": return effName;
-    case "businessId":
-      return isReg ? `${effPhone} · ${effReg}` : effAddr;
-    case "productName": return label.productName || "";
-    case "details": return label.details || "";
-    case "ingredients": return label.ingredients ? `Ingredients: ${label.ingredients}` : "";
-    case "allergens": return label.allergens || "";
-    case "netWeight": return label.netWeightUS || label.netWeight || "";
-    case "price": return label.showPrice ? label.price || "" : "";
-    case "bestBy":
-      return label.showBestBy ? `Best by ${bestByStr ?? formatBestBy(resolveBestBy(label))}` : "";
-    case "disclaimer": return label.showDisclaimer ? disclaimerText() : "";
-    default: return el.type === "text" ? el.text || "" : "";
-  }
-}
 
 /** Greedy word wrap. `measure(line)` returns rendered width; caller supplies metrics. */
 export function wrapLines(
@@ -103,41 +66,4 @@ export function computeSnap(
   if (guidesX.length === 0) dx = 0;
   if (guidesY.length === 0) dy = 0;
   return { dx, dy, guidesX, guidesY };
-}
-
-export interface NfpRow {
-  key: keyof NfpData;
-  label: string;
-  indent: 0 | 1;
-  bold?: boolean;
-  dvThreshold?: number; // % Daily Value denominator (2000-cal diet)
-  group: "header" | "core" | "micro";
-}
-
-export const NFP_ROWS: NfpRow[] = [
-  { key: "servingSize", label: "Serving Size", indent: 0, bold: true, group: "header" },
-  { key: "servings", label: "Servings Per Container", indent: 0, bold: true, group: "header" },
-  { key: "calories", label: "Calories", indent: 0, bold: true, group: "core" },
-  { key: "totalFat", label: "Total Fat", indent: 0, bold: true, dvThreshold: 78, group: "core" },
-  { key: "satFat", label: "Saturated Fat", indent: 1, dvThreshold: 20, group: "core" },
-  { key: "transFat", label: "Trans Fat", indent: 1, group: "core" },
-  { key: "cholesterol", label: "Cholesterol", indent: 0, dvThreshold: 300, group: "core" },
-  { key: "sodium", label: "Sodium", indent: 0, dvThreshold: 2300, group: "core" },
-  { key: "totalCarb", label: "Total Carbohydrate", indent: 0, bold: true, dvThreshold: 275, group: "core" },
-  { key: "fiber", label: "Dietary Fiber", indent: 1, dvThreshold: 28, group: "core" },
-  { key: "sugars", label: "Total Sugars", indent: 1, group: "core" },
-  { key: "addedSugars", label: "Includes Added Sugars", indent: 1, dvThreshold: 50, group: "core" },
-  { key: "protein", label: "Protein", indent: 0, bold: true, group: "core" },
-  { key: "vitD", label: "Vitamin D", indent: 0, dvThreshold: 20, group: "micro" },
-  { key: "calcium", label: "Calcium", indent: 0, dvThreshold: 1300, group: "micro" },
-  { key: "iron", label: "Iron", indent: 0, dvThreshold: 18, group: "micro" },
-  { key: "potassium", label: "Potassium", indent: 0, dvThreshold: 4700, group: "micro" },
-  { key: "vitA", label: "Vitamin A", indent: 0, group: "micro" },
-  { key: "vitC", label: "Vitamin C", indent: 0, group: "micro" },
-];
-
-export function dvPercent(raw: string, threshold?: number): string {
-  const v = parseFloat(raw);
-  if (!threshold || isNaN(v) || v <= 0) return "";
-  return `${Math.round((v / threshold) * 100)}%`;
 }

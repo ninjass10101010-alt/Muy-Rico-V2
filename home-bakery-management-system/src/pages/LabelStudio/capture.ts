@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import type Konva from "konva";
+import { ExportError } from "../../utils/labelExport";
 
 export function contentBoxPx(effWIn: number, effHIn: number, pxPerIn: number) {
   return { W: Math.round(effWIn * pxPerIn), H: Math.round(effHIn * pxPerIn) };
@@ -75,4 +77,43 @@ export function useQrDataUrl(value: string): string {
     };
   }, [value]);
   return url;
+}
+
+export interface ExportStagePngOptions {
+  /** Target resolution in dots per inch (e.g. 300 for print). */
+  dpi: number;
+  /** Effective label width in inches (drives pixelRatio). */
+  effWIn: number;
+  /** Output format. */
+  format?: "png" | "jpg";
+}
+
+/**
+ * Capture the stage as a raster image at the requested DPI.
+ * Callers hide editor chrome (guides/transformer overlay) around the capture —
+ * see StageCanvas.toDataUrl, which wraps this.
+ */
+export async function exportStagePng(
+  stage: Konva.Stage,
+  opts: ExportStagePngOptions
+): Promise<{ dataUrl: string; widthPx: number }> {
+  const { dpi, effWIn, format = "png" } = opts;
+  try {
+    const stageW = stage.width();
+    if (!stageW || stageW <= 0) throw new Error("stage has no width");
+    // Wait for webfonts so text rasterizes with the final typefaces.
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+    const pixelRatio = (effWIn * dpi) / stageW;
+    const dataUrl = stage.toDataURL({
+      pixelRatio,
+      mimeType: format === "jpg" ? "image/jpeg" : "image/png",
+      quality: format === "jpg" ? 0.95 : undefined,
+    });
+    return { dataUrl, widthPx: Math.round(effWIn * dpi) };
+  } catch (err) {
+    console.warn("labelExport: stage capture failed:", err);
+    throw new ExportError("Could not capture the label image for export.", err);
+  }
 }

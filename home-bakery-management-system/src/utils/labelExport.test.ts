@@ -1,14 +1,78 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import fs from "fs";
 import path from "path";
+import zlib from "zlib";
 import { fileURLToPath } from "url";
 import type { LabelTemplate, BusinessProfile } from "../types";
 import { DEFAULT_REMINDER_CONFIG } from "../types";
+import { sniffImageMime } from "./labelExport";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function toArrayBuffer(buf: Buffer): ArrayBuffer {
-  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  return Uint8Array.from(buf).buffer as ArrayBuffer;
+}
+
+// ── Tiny valid PNG fixture (built with node zlib — no canvas needed) ─────────
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(buf: Uint8Array): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Uint8Array): Uint8Array {
+  const out = new Uint8Array(12 + data.length);
+  const dv = new DataView(out.buffer);
+  dv.setUint32(0, data.length);
+  out[4] = type.charCodeAt(0);
+  out[5] = type.charCodeAt(1);
+  out[6] = type.charCodeAt(2);
+  out[7] = type.charCodeAt(3);
+  out.set(data, 8);
+  dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
+  return out;
+}
+
+function tinyPngDataUrl(w = 2, h = 2): string {
+  const ihdr = new Uint8Array(13);
+  const dv = new DataView(ihdr.buffer);
+  dv.setUint32(0, w);
+  dv.setUint32(4, h);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // color type RGB
+  const stride = w * 3 + 1;
+  const raw = new Uint8Array(stride * h);
+  for (let y = 0; y < h; y++) {
+    raw[y * stride] = 0; // filter none
+    for (let x = 0; x < w; x++) {
+      const o = y * stride + 1 + x * 3;
+      raw[o] = 200;
+      raw[o + 1] = 120;
+      raw[o + 2] = 60;
+    }
+  }
+  const idat = zlib.deflateSync(raw);
+  const sig = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const parts = [sig, pngChunk("IHDR", ihdr), pngChunk("IDAT", idat), pngChunk("IEND", new Uint8Array(0))];
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const png = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) {
+    png.set(p, off);
+    off += p.length;
+  }
+  return "data:image/png;base64," + Buffer.from(png).toString("base64");
 }
 
 const cormorantBytes = toArrayBuffer(
@@ -27,6 +91,12 @@ const mockFetch = vi.fn((url: string) => {
   }
   if (url === "/mock/quicksand.ttf") {
     return Promise.resolve(new Response(quicksandBytes));
+  }
+  if (url.startsWith("data:")) {
+    const b64 = url.slice(url.indexOf(",") + 1);
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return Promise.resolve(new Response(bytes));
   }
   return Promise.reject(new Error(`Unexpected fetch: ${url}`));
 });
@@ -53,7 +123,7 @@ function makeLabel(overrides: Partial<LabelTemplate> = {}): LabelTemplate {
     showBestBy: true,
     bestByDays: 7,
     logoEmoji: "\uD83E\uDDC1",
-    logoImage: null,
+    logoImage: undefined,
     logoSize: 16,
     font: "'Cormorant Garamond', Georgia, serif",
     businessIdMode: "registration",
@@ -64,7 +134,7 @@ function makeLabel(overrides: Partial<LabelTemplate> = {}): LabelTemplate {
     labelWidth: 3,
     labelHeight: 4,
     displayOrder: 0,
-    elements: null,
+    elements: [],
     websiteUrl: "https://muy-rico.com",
     orientation: "portrait",
     disclaimerVariant: "standard",
@@ -74,7 +144,7 @@ function makeLabel(overrides: Partial<LabelTemplate> = {}): LabelTemplate {
     allergenTags: ["Wheat", "Milk"],
     noAllergensConfirmed: false,
     nutrientClaim: false,
-    bgImage: null,
+    bgImage: undefined,
     averyPreset: "single",
     ...overrides,
   };
@@ -187,6 +257,30 @@ const PRODUCTS = [
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+describe("sniffImageMime", () => {
+  it("detects png data url", () => {
+    expect(sniffImageMime("data:image/png;base64,iVBOR")).toBe("png");
+  });
+  it("detects jpg data url", () => {
+    expect(sniffImageMime("data:image/jpeg;base64,/9j/")).toBe("jpg");
+  });
+  it("detects jpg data url alias", () => {
+    expect(sniffImageMime("data:image/jpg;base64,/9j/")).toBe("jpg");
+  });
+  it("detects png magic bytes", () => {
+    expect(sniffImageMime(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe("png");
+  });
+  it("detects jpeg magic bytes", () => {
+    expect(sniffImageMime(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe("jpg");
+  });
+  it("throws on unknown", () => {
+    expect(() => sniffImageMime(new Uint8Array([1, 2, 3]))).toThrow();
+  });
+  it("throws on unknown data-url type", () => {
+    expect(() => sniffImageMime("data:image/gif;base64,R0lGOD")).toThrow();
+  });
+});
+
 describe("PDF export regression suite", () => {
   let renderLabelPdf: typeof import("./labelExport").renderLabelPdf;
 
@@ -287,7 +381,7 @@ describe("PDF export regression suite", () => {
         const label = makeLabel(prod.conf);
         const bytes = await renderLabelPdf(label, profile, { sheet: "single" });
 
-        const blob = new Blob([bytes], { type: "application/pdf" });
+        const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
         const blobBytes = new Uint8Array(await blob.arrayBuffer());
 
         expect(blobBytes.length).toBe(bytes.length);
@@ -382,6 +476,39 @@ describe("PDF export regression suite", () => {
       const { pages } = await loadPdf(bytes);
       expect(pages).toBe(1);
       expect(bytes.length).toBeGreaterThan(200);
+    });
+  });
+  // ── Batch 8 ──────────────────────────────────────────────────────────────
+
+  describe("BATCH 8: logo image embedding (kills silent logo drop)", () => {
+    it("embeds a PNG logo into the PDF (no throw, ≥1 raw stream)", async () => {
+      const label = makeLabel({
+        ...PRODUCTS[0].conf,
+        logoImage: tinyPngDataUrl(),
+        logoEmoji: "",
+      });
+      const bytes = await renderLabelPdf(label, profile, { sheet: "single" });
+      const doc = await PDFDocument.load(bytes);
+      const streams = doc.context
+        .enumerateIndirectObjects()
+        .filter(([, obj]) => obj instanceof PDFRawStream);
+      expect(streams.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("emoji-only logo renders without throwing and without image streams", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const label = makeLabel({ ...PRODUCTS[1].conf, logoEmoji: "🧁", logoImage: undefined });
+      const bytes = await renderLabelPdf(label, profile, { sheet: "single" });
+      const doc = await PDFDocument.load(bytes);
+      const imageStreams = doc.context
+        .enumerateIndirectObjects()
+        .filter(
+          ([, obj]) =>
+            obj instanceof PDFRawStream &&
+            obj.dict.get(PDFName.of("Subtype")) === PDFName.of("Image")
+        );
+      expect(imageStreams.length).toBe(0);
+      warn.mockRestore();
     });
   });
 });

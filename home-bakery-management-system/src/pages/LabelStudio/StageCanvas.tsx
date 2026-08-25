@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import type { SceneContext } from "konva/lib/Context";
 import { Ellipse, Group, Image as KImage, Layer, Line, Rect, Stage, Transformer } from "react-konva";
@@ -8,12 +8,21 @@ import { clamp01, effectiveDimensions } from "../../components/label/defaultElem
 import { computeSnap, formatBestBy, resolveBestBy } from "./labelMath";
 import type { Rect as SnapRect } from "./labelMath";
 import { selectSortedElements, useEditorStore } from "./state";
-import { contentBoxPx, useHtmlImage } from "./capture";
+import { contentBoxPx, exportStagePng, useHtmlImage } from "./capture";
 import ElementNode from "./elements/ElementNode";
 import InlineTextEdit, { isInlineEditable } from "./InlineTextEdit";
 import { useGestures } from "./hooks/useGestures";
 
 export { contentBoxPx };
+
+/** Imperative capture API exposed by the stage (used by the Export popover). */
+export interface StageCanvasHandle {
+  toDataUrl(opts: {
+    dpi: number;
+    effWIn: number;
+    format?: "png" | "jpg";
+  }): Promise<{ dataUrl: string; widthPx: number }>;
+}
 
 const PX_PER_IN_BASE = 96;
 const SNAP_PX = 8;
@@ -175,13 +184,8 @@ function BackgroundFrame({
   );
 }
 
-export default function StageCanvas({
-  baseScale,
-  profile,
-}: {
-  baseScale: number;
-  profile: BusinessProfile;
-}) {
+const StageCanvas = forwardRef<StageCanvasHandle, { baseScale: number; profile: BusinessProfile }>(
+  function StageCanvas({ baseScale, profile }, ref) {
   const doc = useEditorStore((s) => s.doc);
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
@@ -204,6 +208,7 @@ export default function StageCanvas({
   const bestByStr = useMemo(() => formatBestBy(resolveBestBy(doc)), [doc]);
 
   const stageRef = useRef<Konva.Stage>(null);
+  const overlayLayerRef = useRef<Konva.Layer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const trRef = useRef<Konva.Transformer>(null);
@@ -215,6 +220,28 @@ export default function StageCanvas({
   }, [baseScale]);
 
   useGestures(stageRef, containerRef);
+
+  // Export capture API: hide editor chrome (guides + transformer overlay),
+  // rasterize at the requested DPI, then restore the overlay.
+  useImperativeHandle(ref, () => ({
+    toDataUrl: async (opts) => {
+      const stage = stageRef.current;
+      if (!stage) throw new Error("Stage is not mounted");
+      const overlay = overlayLayerRef.current;
+      if (overlay) {
+        overlay.visible(false);
+        stage.draw();
+      }
+      try {
+        return await exportStagePng(stage, opts);
+      } finally {
+        if (overlay) {
+          overlay.visible(true);
+          stage.draw();
+        }
+      }
+    },
+  }), []);
 
   const [guides, setGuides] = useState<Guides>(EMPTY_GUIDES);
 
@@ -372,7 +399,7 @@ export default function StageCanvas({
               )
             )}
           </Layer>
-          <Layer>
+          <Layer ref={overlayLayerRef}>
             {guides.guidesX.map((gx, i) => (
               <Line
                 key={`gx-${i}`}
@@ -427,4 +454,6 @@ export default function StageCanvas({
       )}
     </div>
   );
-}
+});
+
+export default StageCanvas;
