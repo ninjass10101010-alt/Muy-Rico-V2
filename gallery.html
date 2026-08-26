@@ -25,6 +25,7 @@
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="motion.js"></script>
 </head>
 <body>
 
@@ -146,23 +147,6 @@
   </div>
 
   <script>
-    // Resilience: if the GSAP CDN failed, stub the animation API and reveal all content.
-    if (typeof window.gsap === 'undefined') {
-      const noop = () => {};
-      window.gsap = {
-        registerPlugin: noop, set: noop, from: noop,
-        to: (t, vars) => { if (vars && vars.onComplete) setTimeout(vars.onComplete, ((vars.delay || 0) * 1000) + 400); },
-        fromTo: noop,
-        getProperty: () => 0,
-        timeline: () => ({ from() { return this; }, to() { return this; }, fromTo() { return this; } }),
-        utils: { toArray: (s) => Array.from(document.querySelectorAll(s)) }
-      };
-      window.ScrollTrigger = window.ScrollTrigger || { getAll: () => [], create: noop };
-      document.documentElement.classList.add('no-gsap');
-    }
-
-    gsap.registerPlugin(ScrollTrigger);
-
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let currentLang = 'es';
 
@@ -246,18 +230,18 @@
       }
       const groups = groupPhotos(photos);
       root.innerHTML = groups.map(g => `
-        <section class="gallery-album reveal" id="album-${escapeHtml(g.product_id)}">
+        <section class="gallery-album" id="album-${escapeHtml(g.product_id)}" data-motion="clip">
           <div class="gallery-album-header">
             <span class="gallery-album-emoji">${escapeHtml(g.product_emoji || '📸')}</span>
             <h2 class="lang-fade" data-es="${escapeHtml(g.product_name_es)}" data-en="${escapeHtml(g.product_name)}">${escapeHtml(g.product_name)}</h2>
           </div>
-          <div class="gallery-grid">
+          <div class="gallery-grid" data-motion-group>
             ${g.photos.map(ph => {
               const title = ph.title;
               const titleEs = ph.title_es || ph.title;
               const href = `quote.html?inspiration=${encodeURIComponent(ph.id)}`;
               return `
-                <article class="gallery-card">
+                <article class="gallery-card" data-motion="rise">
                   <img class="gallery-card-img" src="${escapeHtml(ph.image_url)}" alt="${escapeHtml(title)}" loading="lazy" />
                   <div class="gallery-card-body">
                     <h3 class="gallery-card-title lang-fade" data-es="${escapeHtml(titleEs)}" data-en="${escapeHtml(title)}">${escapeHtml(title)}</h3>
@@ -299,26 +283,10 @@
       else currentLang = (navigator.language || 'en').startsWith('es') ? 'es' : 'en';
     })();
 
-    if (!prefersReduced) {
-      const animateEl = (el, delay = 0) => {
-        if (el.dataset.revealed) return;
-        el.dataset.revealed = '1';
-        gsap.fromTo(el,
-          { y: 24, autoAlpha: 0 },
-          {
-            scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none none' },
-            y: 0, autoAlpha: 1, duration: 0.7, delay, ease: 'power3.out'
-          }
-        );
-      };
-      gsap.utils.toArray('.reveal').forEach(el => animateEl(el));
-      window.initGalleryReveals = function () {
-        gsap.utils.toArray('.gallery-album.reveal').forEach((el, i) => animateEl(el, (i % 4) * 0.08));
-      };
-    } else {
-      window.initGalleryReveals = function () {};
-      gsap.set('.reveal', { autoAlpha: 1, y: 0 });
-    }
+    if (window.MuyRicoMotion) MuyRicoMotion.init({});
+    window.initGalleryReveals = function () {
+      MuyRicoMotion.bindReveals(document.getElementById('gallery-root'));
+    };
 
     applyLangToDOM(currentLang);
     loadGallery();
