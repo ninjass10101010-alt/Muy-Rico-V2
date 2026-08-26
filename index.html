@@ -31,6 +31,7 @@
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="motion.js"></script>
 
   <!-- Structured data: local bakery -->
   <script type="application/ld+json">
@@ -108,7 +109,7 @@
         <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
         <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
       </div>
-      <a href="order.html" class="btn btn-forest masthead-order"><span class="lang-fade" data-es="Ordena en Línea" data-en="Order Online">Order Online</span></a>
+      <a href="order.html" class="btn btn-forest masthead-order" data-magnetic><span class="lang-fade" data-es="Ordena en Línea" data-en="Order Online">Order Online</span></a>
     </div>
   </header>
 
@@ -135,7 +136,7 @@
           A little piece of Mexico and the Caribbean, here in Holland, Michigan.
         </p>
         <div class="hero-ctas hero-anim">
-          <a href="order.html" class="btn btn-forest btn-xl"><span class="lang-fade" data-es="Hacer un Pedido" data-en="Place an Order">Place an Order</span></a>
+          <a href="order.html" class="btn btn-forest btn-xl" data-magnetic><span class="lang-fade" data-es="Hacer un Pedido" data-en="Place an Order">Place an Order</span></a>
           <a href="#story" class="link-arrow"><span class="lang-fade" data-es="Nuestra Historia" data-en="Our Story">Our Story</span> ↓</a>
         </div>
         <div class="hero-proof hero-anim">
@@ -172,34 +173,34 @@
              data-es="Los favoritos de la familia — horneados a la orden cada semana."
              data-en="Family favorites — baked to order every week.">Family favorites — baked to order every week.</p>
         </div>
-        <div class="oven-strip reveal" id="oven-strip">
+        <div class="oven-strip" id="oven-strip" data-motion-group>
           <!-- Baked-in defaults; replaced by featured products from /api/products when available -->
-          <a class="oven-card" href="order.html#tile-prod_conchas">
-            <div class="frame"><img class="frame-img" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
+          <a class="oven-card" data-motion="rise" href="order.html#tile-prod_conchas">
+            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name">Conchas</h3>
               <span class="oven-card-price">$4</span>
             </div>
             <p class="oven-card-desc lang-fade" data-es="Vainilla, chocolate y fresa" data-en="Vanilla, chocolate &amp; fresa">Vanilla, chocolate &amp; fresa</p>
           </a>
-          <a class="oven-card" href="order.html#tile-prod_cookie">
-            <div class="frame"><img class="frame-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
+          <a class="oven-card" data-motion="rise" href="order.html#tile-prod_cookie">
+            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name lang-fade" data-es="Galletas de Chispas" data-en="Chocolate Chip Coqui">Chocolate Chip Coqui</h3>
               <span class="oven-card-price">$4</span>
             </div>
             <p class="oven-card-desc lang-fade" data-es="Suaves, recién horneadas" data-en="Soft-baked, made fresh">Soft-baked, made fresh</p>
           </a>
-          <a class="oven-card" href="order.html#tile-prod_empanadas">
-            <div class="frame"><img class="frame-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
+          <a class="oven-card" data-motion="rise" href="order.html#tile-prod_empanadas">
+            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name">Empanadas</h3>
               <span class="oven-card-price">$3</span>
             </div>
             <p class="oven-card-desc lang-fade" data-es="Doradas y rellenas a mano" data-en="Golden, filled by hand">Golden, filled by hand</p>
           </a>
-          <a class="oven-card" href="order.html#tile-prod_custom_cake">
-            <div class="frame"><img class="frame-img" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
+          <a class="oven-card" data-motion="rise" href="order.html#tile-prod_custom_cake">
+            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name lang-fade" data-es="Pastel Personalizado" data-en="Custom Cake">Custom Cake</h3>
               <span class="oven-card-price" style="font-size:0.75rem;">desde $60+</span>
@@ -218,7 +219,7 @@
       <div class="section-inner">
         <div class="story-grid">
           <figure class="story-photo reveal">
-            <img class="story-photo-img" id="story-img" src="story-rebecca-jeff.webp" alt="Rebecca y Jeffery García con la bandera de Puerto Rico y México" loading="lazy"/>
+            <img class="story-photo-img" id="story-img" src="story-rebecca-jeff.webp" alt="Rebecca y Jeffery García con la bandera de Puerto Rico y México" loading="lazy" data-parallax="30"/>
             <figcaption class="story-photo-caption lang-fade" data-site-key="story_image_caption"
                         data-es="Rebecca y Jeffery — Holland, Michigan"
                         data-en="Rebecca &amp; Jeffery — Holland, Michigan">Rebecca &amp; Jeffery — Holland, Michigan</figcaption>
@@ -393,8 +394,8 @@
 
     <!-- ============ CTA BAND ============ -->
     <section class="cta-band">
-      <img class="engraving" src="monstera-leaf.svg" alt="" aria-hidden="true" style="width:180px;top:-30px;left:-40px;transform:rotate(-15deg);"/>
-      <img class="engraving" src="monstera-leaf.svg" alt="" aria-hidden="true" style="width:150px;bottom:-40px;right:-30px;transform:rotate(140deg);"/>
+      <img class="engraving" src="monstera-leaf.svg" alt="" aria-hidden="true" data-float style="width:180px;top:-30px;left:-40px;transform:rotate(-15deg);"/>
+      <img class="engraving" src="monstera-leaf.svg" alt="" aria-hidden="true" data-float style="--float-dur:10s;width:150px;bottom:-40px;right:-30px;transform:rotate(140deg);"/>
       <p class="eyebrow cta-band-eyebrow"><span class="lang-fade" data-es="¿Antojo de algo rico?" data-en="Craving something rico?">Craving something rico?</span></p>
         <h2 class="cta-band-title lang-fade"
           data-es="Horneado <em class='es-italic'>a la orden</em>, solo para ti."
@@ -403,7 +404,7 @@
          data-es="Elige tus favoritos del menú — ¡nosotros nos encargamos del resto!"
          data-en="Pick your favorites from the menu — we'll handle the rest!">Pick your favorites from the menu — we'll handle the rest!</p>
       <div class="cta-band-ctas">
-        <a href="order.html" class="btn btn-forest btn-xl"><span class="lang-fade" data-es="Ordena en Línea" data-en="Order Online">Order Online</span></a>
+        <a href="order.html" class="btn btn-forest btn-xl" data-magnetic><span class="lang-fade" data-es="Ordena en Línea" data-en="Order Online">Order Online</span></a>
         <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" class="btn btn-ghost btn-xl">
           <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
           <span class="lang-fade" data-es="Síguenos" data-en="Follow Us">Follow Us</span>
@@ -453,23 +454,6 @@
   </main>
 
   <script>
-    // Resilience: if the GSAP CDN failed, stub the animation API and reveal all content.
-    if (typeof window.gsap === 'undefined') {
-      const noop = () => {};
-      window.gsap = {
-        registerPlugin: noop, set: noop, from: noop,
-        to: (t, vars) => { if (vars && vars.onComplete) setTimeout(vars.onComplete, ((vars.delay || 0) * 1000) + 400); },
-        fromTo: noop,
-        getProperty: () => 0,
-        timeline: () => ({ from() { return this; }, to() { return this; }, fromTo() { return this; } }),
-        utils: { toArray: (s) => Array.from(document.querySelectorAll(s)) }
-      };
-      window.ScrollTrigger = window.ScrollTrigger || { getAll: () => [], create: noop };
-      document.documentElement.classList.add('no-gsap');
-    }
-
-    gsap.registerPlugin(ScrollTrigger);
-
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isDev = ['localhost', '127.0.0.1'].includes(location.hostname);
     const ORDER_API = isDev ? 'http://localhost:8787' : 'https://muy-rico-orders-api.bexgarcia0208.workers.dev';
@@ -499,30 +483,18 @@
       applyLangToDOM(lang);
     }
 
-    /* ---------------- Motion ---------------- */
-    function initReveals() {
-      if (prefersReduced) {
-        gsap.set('.reveal', { autoAlpha: 1, y: 0 });
-        return;
+    /* ---------------- Motion (shared system) ---------------- */
+    MuyRicoMotion.init({
+      hero: function (ctx) {
+        ctx.gsap.fromTo('.hero-photo',
+          { x: 40, scale: 1.04, autoAlpha: 0 },
+          { x: 0, scale: 1, autoAlpha: 1, duration: ctx.TOKENS.heroDur, ease: 'expo.out', clearProps: 'all' });
+        ctx.gsap.fromTo('.hero-copy .hero-anim',
+          { y: 26, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: ctx.TOKENS.revealDur, stagger: ctx.TOKENS.stagger,
+            ease: 'expo.out', delay: 0.15, clearProps: 'opacity,visibility,transform' });
       }
-      gsap.utils.toArray('.reveal').forEach(el => {
-        gsap.fromTo(el,
-          { y: 24, autoAlpha: 0 },
-          { scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none reverse' },
-            y: 0, autoAlpha: 1, duration: 0.8, ease: 'power3.out' }
-        );
-      });
-    }
-    if (!prefersReduced) {
-      // One orchestrated entrance: copy column staggers in, photo slides from the right
-      gsap.fromTo('.hero-photo',
-        { x: 40, autoAlpha: 0 },
-        { x: 0, autoAlpha: 1, duration: 1, ease: 'power3.out', clearProps: 'all' });
-      gsap.fromTo('.hero-copy .hero-anim',
-        { y: 26, autoAlpha: 0 },
-        { y: 0, autoAlpha: 1, duration: 0.8, stagger: 0.12,
-          ease: 'power3.out', delay: 0.15, clearProps: 'opacity,visibility,transform' });
-    }
+    });
 
     /* ---------------- Hamburger ---------------- */
     const hamburgerBtn = document.getElementById('hamburger-btn');
@@ -660,7 +632,6 @@
       }
     }
 
-    initReveals();
     loadSite();
     loadFeatured();
   </script>
