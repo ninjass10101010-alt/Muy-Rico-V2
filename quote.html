@@ -22,6 +22,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=2">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="motion.js"></script>
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
 
   <style>
@@ -320,7 +323,7 @@
     </header>
 
     <!-- Hero -->
-    <section class="hero-section">
+    <section class="hero-section" data-motion="fade">
       <div class="hero-eyebrow">
         <div class="eyebrow-line"></div>
         <span class="eyebrow-text lang-fade" data-es="Pasteles Personalizados" data-en="Custom Cakes">Pasteles Personalizados</span>
@@ -361,7 +364,7 @@
 
         <form id="quote-form" novalidate>
           <!-- Customer info -->
-          <div class="form-section">
+          <div class="form-section" data-motion="rise">
             <h2 class="form-section-title lang-fade" data-es="Tu Información" data-en="Your Information">Your Information</h2>
             <div class="form-row">
               <div class="form-group">
@@ -388,7 +391,7 @@
           </div>
 
           <!-- Order-level details -->
-          <div class="form-section">
+          <div class="form-section" data-motion="rise">
             <h2 class="form-section-title lang-fade" data-es="Detalles del Pedido" data-en="Order Details">Order Details</h2>
 
             <div class="form-row form-row-2">
@@ -448,7 +451,7 @@
           </div>
 
           <!-- Items Section -->
-          <div class="form-section">
+          <div class="form-section" data-motion="rise">
             <h2 class="form-section-title lang-fade" data-es="Tus Artículos" data-en="Your Items">Your Items</h2>
             <div id="items-container" class="space-y-6">
               <!-- Item cards will be inserted here dynamically -->
@@ -482,7 +485,7 @@
           </div>
 
           <!-- Reference image -->
-          <div class="form-section">
+          <div class="form-section" data-motion="rise">
             <h2 class="form-section-title lang-fade" data-es="Imagen de Referencia" data-en="Reference Image">Reference Image</h2>
             <p class="form-help lang-fade"
                data-es="Opcional — sube una imagen de referencia (JPG/PNG/WEBP, máx. 5MB)"
@@ -512,7 +515,7 @@
           </div>
 
           <!-- Inspiration gallery -->
-          <div class="form-section" id="inspiration-section">
+          <div class="form-section" id="inspiration-section" data-motion="rise">
             <h2 class="form-section-title lang-fade" data-es="Inspiración" data-en="Inspiration">Inspiration</h2>
             <p class="form-help lang-fade"
                data-es="Explora nuestros trabajos anteriores para inspirarte. Estas fotos son inspiración para tu pedido personalizado — no son artículos que puedas comprar directamente."
@@ -526,7 +529,7 @@
           </div>
 
           <!-- Comments & budget -->
-          <div class="form-section">
+          <div class="form-section" data-motion="rise">
             <h2 class="form-section-title lang-fade" data-es="Comentarios" data-en="Comments">Comments</h2>
             <div class="form-group">
               <label for="comments" class="form-label lang-fade" data-es="Describe tu visión" data-en="Describe your vision">Describe your vision</label>
@@ -545,7 +548,7 @@
           </div>
 
           <!-- Submit -->
-          <div class="form-section" style="text-align: center;">
+          <div class="form-section" data-motion="rise" style="text-align: center;">
             <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--clay-deep);"></div>
             <div id="form-success" style="display:none; background: rgba(30,70,54,0.06); border: 1px solid var(--forest-soft); border-radius: 12px; padding: 24px; margin-bottom: 16px;">
               <p style="font-size: 18px; font-family: 'Playfair Display', serif; color: var(--forest); font-weight: 600; margin-bottom: 4px;" class="lang-fade"
@@ -582,6 +585,8 @@
   </main>
 
   <script>
+  if (window.MuyRicoMotion) MuyRicoMotion.init({});
+
   // ─── Language toggle (matches index.html / order.html / gallery.html pattern) ──
   let currentLang = (function () {
     try {
