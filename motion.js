@@ -10,7 +10,7 @@
   /* Resilience: if the GSAP CDN failed, stub the animation API and reveal
      all content via CSS (.no-gsap). Mirrors the previous per-page stubs,
      including the onComplete-after-delay `to` used by the order cart. */
-  if (typeof window.gsap === 'undefined') {
+  if (typeof window.gsap === 'undefined' || typeof window.ScrollTrigger === 'undefined') {
     var noop = function () {};
     var chain = {
       add: function () { return this; },
@@ -119,7 +119,7 @@
       var group = el.parentElement ? el.parentElement.closest('[data-motion-group]') : null;
       if (group && !group.dataset.groupBound) {
         bindGroup(group);
-      } else if (!group) {
+      } else if (!el.dataset.motionBound) {
         bindSingle(el);
       }
     });
