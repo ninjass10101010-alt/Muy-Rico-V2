@@ -5,7 +5,7 @@ Live website for **Muy Rico**, a family-owned Mexican bakery in Holland, Michiga
 ## 📦 Tech Stack
 
 - Static marketing site: HTML5 / CSS3 / Vanilla JS — "Editorial Panadería" design system (cream `#FAF6EC`, forest `#1E4636`, hairline borders, no gradients)
-- [GSAP 3](https://gsap.com/) for scroll animations (fade + rise only; no infinite loops)
+- [GSAP 3](https://gsap.com/) via a shared motion system (`motion.js`): orchestrated entrances, declarative scroll reveals (`data-motion`), subtle parallax, gentle ambient accents; honors `prefers-reduced-motion` and degrades gracefully without the CDN
 - Admin dashboard: React 19 + Vite + Tailwind 4 (single-file bundle)
 - Backend: Cloudflare Workers + D1 (SQLite)
 - Auth: Cloudflare Access (email + one-time PIN)
