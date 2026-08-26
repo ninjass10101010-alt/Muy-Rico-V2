@@ -484,17 +484,19 @@
     }
 
     /* ---------------- Motion (shared system) ---------------- */
-    MuyRicoMotion.init({
-      hero: function (ctx) {
-        ctx.gsap.fromTo('.hero-photo',
-          { x: 40, scale: 1.04, autoAlpha: 0 },
-          { x: 0, scale: 1, autoAlpha: 1, duration: ctx.TOKENS.heroDur, ease: 'expo.out', clearProps: 'all' });
-        ctx.gsap.fromTo('.hero-copy .hero-anim',
-          { y: 26, autoAlpha: 0 },
-          { y: 0, autoAlpha: 1, duration: ctx.TOKENS.revealDur, stagger: ctx.TOKENS.stagger,
-            ease: 'expo.out', delay: 0.15, clearProps: 'opacity,visibility,transform' });
-      }
-    });
+    if (window.MuyRicoMotion) {
+      MuyRicoMotion.init({
+        hero: function (ctx) {
+          ctx.gsap.fromTo('.hero-photo',
+            { x: 40, scale: 1.04, autoAlpha: 0 },
+            { x: 0, scale: 1, autoAlpha: 1, duration: ctx.TOKENS.heroDur, ease: 'expo.out', clearProps: 'all' });
+          ctx.gsap.fromTo('.hero-copy .hero-anim',
+            { y: 26, autoAlpha: 0 },
+            { y: 0, autoAlpha: 1, duration: ctx.TOKENS.revealDur, stagger: ctx.TOKENS.stagger,
+              ease: 'expo.out', delay: 0.15, clearProps: 'opacity,visibility,transform' });
+        }
+      });
+    }
 
     /* ---------------- Hamburger ---------------- */
     const hamburgerBtn = document.getElementById('hamburger-btn');
