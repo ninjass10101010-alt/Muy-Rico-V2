@@ -1,0 +1,144 @@
+[
+  {
+    "page": "index.html",
+    "mode": "normal",
+    "errors": 2,
+    "errorList": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "gallery.html",
+    "mode": "normal",
+    "errors": 1,
+    "errorList": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "order.html",
+    "mode": "normal",
+    "errors": 2,
+    "errorList": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "quote.html",
+    "mode": "normal",
+    "errors": 1,
+    "errorList": [
+      "Failed to load resource: the server responded with a status of 404 (File not found)"
+    ]
+  },
+  {
+    "page": "index.html",
+    "mode": "reduced-motion",
+    "hasReducedClass": false,
+    "animated": 0,
+    "hidden": [
+      {
+        "id": "testimonials",
+        "class": "section hairline-top"
+      }
+    ],
+    "errors": 2,
+    "errorList": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "gallery.html",
+    "mode": "reduced-motion",
+    "hasReducedClass": false,
+    "animated": 0,
+    "hidden": [],
+    "errors": 1,
+    "errorList": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "order.html",
+    "mode": "reduced-motion",
+    "hasReducedClass": false,
+    "animated": 0,
+    "hidden": [],
+    "errors": 2,
+    "errorList": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "quote.html",
+    "mode": "reduced-motion",
+    "hasReducedClass": false,
+    "animated": 0,
+    "hidden": [],
+    "errors": 1,
+    "errorList": [
+      "Failed to load resource: the server responded with a status of 404 (File not found)"
+    ]
+  },
+  {
+    "page": "index.html",
+    "mode": "cdn-blocked",
+    "noGsap": true,
+    "hidden": [
+      {
+        "id": "testimonials",
+        "class": "section hairline-top"
+      }
+    ],
+    "errors": 4,
+    "errorList": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "gallery.html",
+    "mode": "cdn-blocked",
+    "noGsap": true,
+    "hidden": [],
+    "errors": 3,
+    "errorList": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "order.html",
+    "mode": "cdn-blocked",
+    "noGsap": true,
+    "hidden": [],
+    "errors": 6,
+    "errorList": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  {
+    "page": "quote.html",
+    "mode": "cdn-blocked",
+    "noGsap": true,
+    "hidden": [],
+    "errors": 3,
+    "errorList": [
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 404 (File not found)"
+    ]
+  }
+]
