@@ -1680,14 +1680,7 @@
 
       const productsGrid = document.getElementById('products-grid');
       window.initProductReveals = function () {
-        // Kill only this grid's triggers (created by init's document-wide pass or a previous run)
-        // and clear bind-marks so tiles rebind — leaves hero/footer triggers alive.
-        ScrollTrigger.getAll().forEach(st => {
-          if (st.trigger && st.trigger.dataset && productsGrid.contains(st.trigger)) {
-            st.kill();
-            delete st.trigger.dataset.motionBound;
-          }
-        });
+        ScrollTrigger.getAll().forEach(st => st.kill());
         if (window.MuyRicoMotion) MuyRicoMotion.bindReveals(productsGrid);
       };
 
@@ -1695,11 +1688,11 @@
         hero: function (ctx) {
           const g = ctx.gsap, T = ctx.TOKENS;
           const tl = g.timeline({ defaults: { ease: 'expo.out' } });
-          tl.fromTo('.hero-eyebrow', { y: 30, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.revealDur })
-            .fromTo('.hero-headline-top', { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.heroDur }, '-=0.5')
-            .fromTo('.hero-headline-bottom', { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.heroDur }, '-=0.8')
-            .fromTo('.hero-divider', { scaleX: 0, autoAlpha: 0 }, { scaleX: 1, autoAlpha: 1, duration: T.revealDur, transformOrigin: 'left center' }, '-=0.6')
-            .fromTo('.hero-description', { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.7 }, '-=0.5');
+          tl.from('.hero-eyebrow', { y: 30, autoAlpha: 0, duration: T.revealDur })
+            .from('.hero-headline-top', { y: 40, autoAlpha: 0, duration: T.heroDur }, '-=0.5')
+            .from('.hero-headline-bottom', { y: 40, autoAlpha: 0, duration: T.heroDur }, '-=0.8')
+            .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: T.revealDur, transformOrigin: 'left center' }, '-=0.6')
+            .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5');
 
           g.to('.hero-ctas > *', {
             y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12,
@@ -1709,9 +1702,9 @@
           g.from('.sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card',
             { x: -40, autoAlpha: 0, duration: T.revealDur, stagger: 0.1, ease: 'power3.out', delay: 0.2 });
 
-          g.fromTo('.footer-hib-row', { scale: 0.94, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: T.revealDur, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 95%' } });
-          g.fromTo('.footer-coqui-divider > *', { scale: 0.85, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.5, stagger: 0.08, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 92%' } });
-          g.fromTo('.footer-copyright, .footer-tagline', { y: 15, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.1, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 90%' } });
+          g.from('.footer-hib-row', { scale: 0.94, autoAlpha: 0, duration: T.revealDur, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 95%' } });
+          g.from('.footer-coqui-divider > *', { scale: 0.85, autoAlpha: 0, duration: 0.5, stagger: 0.08, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 92%' } });
+          g.from('.footer-copyright, .footer-tagline', { y: 15, autoAlpha: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 90%' } });
         }
       });
 
