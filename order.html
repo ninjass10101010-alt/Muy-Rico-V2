@@ -1722,7 +1722,7 @@
 
       document.querySelectorAll('[data-es][data-en]').forEach(el => {
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
-        el.textContent = el.getAttribute('data-' + lang);
+        el.innerHTML = el.getAttribute('data-' + lang);
       });
       document.querySelectorAll('[data-es-placeholder][data-en-placeholder]').forEach(el => {
         el.setAttribute('placeholder', el.getAttribute('data-' + lang + '-placeholder'));
