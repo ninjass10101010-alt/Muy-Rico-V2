@@ -13,7 +13,7 @@ import type { ChangeEvent } from "react";
 import type { LabelElement, LabelShape } from "../../../types";
 import { defaultNfpElement, defaultShapeElement } from "../../../components/label/defaultElements";
 import { newId } from "../../../utils/format";
-import { fitElementsToAspect } from "../templateUtils";
+import { rescaleTemplateForDimensions } from "../templateUtils";
 import { selectElements, useEditorStore } from "../state";
 
 const FONT_CHOICES = [
@@ -122,11 +122,27 @@ export default function AddTab() {
   }
 
   function changeShape(next: LabelShape) {
-    setDoc({ ...doc, shape: next, elements: fitElementsToAspect(elements) }, true);
+    setDoc(
+      rescaleTemplateForDimensions(doc, {
+        labelWidth: doc.labelWidth,
+        labelHeight: doc.labelHeight,
+        shape: next,
+        orientation: doc.orientation || "portrait",
+      }),
+      true
+    );
   }
 
   function applySize(w: number, h: number) {
-    setDoc({ ...doc, labelWidth: w, labelHeight: h }, true);
+    setDoc(
+      rescaleTemplateForDimensions(doc, {
+        labelWidth: w,
+        labelHeight: h,
+        shape: doc.shape,
+        orientation: doc.orientation || "portrait",
+      }),
+      true
+    );
     setCustomW(String(w));
     setCustomH(String(h));
   }
@@ -270,8 +286,16 @@ export default function AddTab() {
             onChange={(e) => setCustomW(e.target.value)}
             onBlur={() => {
               const n = Number(customW) || 3;
-              updateField("labelWidth", n);
               setCustomW(String(n));
+              setDoc(
+                rescaleTemplateForDimensions(doc, {
+                  labelWidth: n,
+                  labelHeight: Number(customH) || doc.labelHeight,
+                  shape: doc.shape,
+                  orientation: doc.orientation || "portrait",
+                }),
+                true
+              );
             }}
             aria-label="Custom width (in)"
             className="input min-h-11 w-16 text-xs"
@@ -286,8 +310,16 @@ export default function AddTab() {
             onChange={(e) => setCustomH(e.target.value)}
             onBlur={() => {
               const n = Number(customH) || 4;
-              updateField("labelHeight", n);
               setCustomH(String(n));
+              setDoc(
+                rescaleTemplateForDimensions(doc, {
+                  labelWidth: Number(customW) || doc.labelWidth,
+                  labelHeight: n,
+                  shape: doc.shape,
+                  orientation: doc.orientation || "portrait",
+                }),
+                true
+              );
             }}
             aria-label="Custom height (in)"
             className="input min-h-11 w-16 text-xs"
@@ -299,7 +331,17 @@ export default function AddTab() {
           <button
             type="button"
             disabled={isSquareShape}
-            onClick={() => updateField("orientation", "portrait")}
+            onClick={() =>
+              setDoc(
+                rescaleTemplateForDimensions(doc, {
+                  labelWidth: doc.labelWidth,
+                  labelHeight: doc.labelHeight,
+                  shape: doc.shape,
+                  orientation: "portrait",
+                }),
+                true
+              )
+            }
             className={`flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition ${
               doc.orientation === "portrait" && !isSquareShape
                 ? "border-palm bg-palm text-white"
@@ -311,7 +353,17 @@ export default function AddTab() {
           <button
             type="button"
             disabled={isSquareShape}
-            onClick={() => updateField("orientation", "landscape")}
+            onClick={() =>
+              setDoc(
+                rescaleTemplateForDimensions(doc, {
+                  labelWidth: doc.labelWidth,
+                  labelHeight: doc.labelHeight,
+                  shape: doc.shape,
+                  orientation: "landscape",
+                }),
+                true
+              )
+            }
             className={`flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition ${
               doc.orientation === "landscape" && !isSquareShape
                 ? "border-palm bg-palm text-white"

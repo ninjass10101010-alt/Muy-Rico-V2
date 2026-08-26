@@ -1,5 +1,10 @@
-import type { LabelElement, LabelTemplate } from "../../types";
-import { defaultElementsFor } from "../../components/label/defaultElements";
+import type { LabelElement, LabelTemplate, LabelOrientation, LabelShape } from "../../types";
+import {
+  defaultElementsFor,
+  effectiveDimensions,
+} from "../../components/label/defaultElements";
+import { cqwToPt, ptToCqw } from "../../utils/compliance";
+import { wrapLines } from "./labelMath";
 
 export function normalizeLabel(t: LabelTemplate, profileWebsite: string): LabelTemplate {
   const legacyOrder = /^MR-\d+|^Order #\d+/.test(t.name);
@@ -103,4 +108,99 @@ export function fitElementsToAspect(elements: LabelElement[]): LabelElement[] {
     const y = Math.min(Math.max(el.y * scale, 0), 1 - h);
     return { ...el, x, y, w, h };
   });
+}
+
+export interface TemplateDims {
+  labelWidth: number;
+  labelHeight: number;
+  shape: LabelShape;
+  orientation: LabelOrientation;
+}
+
+export type TextMeasure = (line: string, fontFamily: string, px: number, bold: boolean) => number;
+
+let cachedCtx: CanvasRenderingContext2D | null | undefined;
+function defaultMeasure(line: string, fontFamily: string, px: number, bold: boolean): number {
+  if (cachedCtx === undefined) {
+    try {
+      cachedCtx = document.createElement("canvas").getContext("2d");
+    } catch {
+      cachedCtx = null;
+    }
+  }
+  if (!cachedCtx) return line.length * px * 0.5;
+  cachedCtx.font = `${bold ? 700 : 400} ${px}px ${fontFamily}`;
+  return cachedCtx.measureText(line).width;
+}
+
+const PX_PER_IN = 96;
+
+/**
+ * Re-fit a template for a new dimension set: fonts keep their PHYSICAL size
+ * (pt-parity), boxes keep relative positions, text boxes auto-grow to fit
+ * their re-wrapped content (clamped at the label bottom). Pure; one store
+ * commit per user action happens at the call site.
+ */
+export function rescaleTemplateForDimensions(
+  prev: LabelTemplate,
+  next: TemplateDims,
+  measure: TextMeasure = defaultMeasure
+): LabelTemplate {
+  const prevEff = effectiveDimensions(
+    prev.labelWidth, prev.labelHeight, prev.shape, prev.orientation || "portrait"
+  );
+  const nextEff = effectiveDimensions(
+    next.labelWidth, next.labelHeight, next.shape, next.orientation
+  );
+
+  let elements = fitElementsToAspect(prev.elements || []);
+
+  if (Math.abs(prevEff.effW - nextEff.effW) > 1e-9) {
+    elements = elements.map((el) => {
+      if (el.type === "text" && el.fontSizeOverride != null) {
+        const pt = cqwToPt(el.fontSizeOverride, prevEff.effW);
+        // No rounding here: pt-parity must survive round-trips exactly
+        // (normative tests assert parity to 5 decimal places).
+        return { ...el, fontSizeOverride: ptToCqw(pt, nextEff.effW) };
+      }
+      return el;
+    });
+  }
+
+  // Auto-grow text boxes whose re-wrapped content exceeds their height.
+  const nextWpx = nextEff.effW * PX_PER_IN;
+  const nextHpx = nextEff.effH * PX_PER_IN;
+  elements = elements.map((el) => {
+    if (el.type !== "text" || el.hidden) return el;
+    const text = el.text ?? "";
+    if (!text.trim()) return el;
+    const family = firstFamilyOf(el.fontFamilyOverride || prev.font);
+    const px = ((el.fontSizeOverride ?? 4) / 100) * nextWpx;
+    const lines = wrapLines(
+      text,
+      (s) => measure(s, family, px, Boolean(el.bold)),
+      Math.max(1, el.w * nextWpx)
+    );
+    const neededNorm = (lines.length * px * 1.2) / nextHpx;
+    if (neededNorm > el.h) {
+      return { ...el, h: Math.min(neededNorm, Math.max(0.01, 1 - el.y)) };
+    }
+    return el;
+  });
+
+  const widthChanged = Math.abs(prevEff.effW - nextEff.effW) > 1e-9;
+  const logoSize =
+    widthChanged && prev.logoSize != null
+      ? Math.round(ptToCqw(cqwToPt(prev.logoSize, prevEff.effW), nextEff.effW) * 100) / 100
+      : prev.logoSize;
+
+  return { ...prev, ...next, elements, logoSize };
+}
+
+// NOTE: intentionally mirrors firstFamily in capture.ts — do NOT import from
+// capture.ts (keeps templateUtils DOM-light and test-friendly); duplication is
+// two lines and acceptable here (DRY exception documented in the plan).
+function firstFamilyOf(stack: string): string {
+  const m = stack.match(/'([^']+)'|"([^"]+)"/);
+  return (m?.[1] || m?.[2] || stack.split(",")[0] || "sans-serif").trim();
 }
