@@ -10,7 +10,9 @@
   /* Resilience: if the GSAP CDN failed, stub the animation API and reveal
      all content via CSS (.no-gsap). Mirrors the previous per-page stubs,
      including the onComplete-after-delay `to` used by the order cart. */
-  if (typeof window.gsap === 'undefined' || typeof window.ScrollTrigger === 'undefined') {
+  var gsapMissing = typeof window.gsap === 'undefined';
+  var stMissing = typeof window.ScrollTrigger === 'undefined';
+  if (gsapMissing || stMissing) {
     var noop = function () {};
     var chain = {
       add: function () { return this; },
@@ -19,27 +21,32 @@
       fromTo: function () { return this; },
       set: function () { return this; }
     };
-    window.gsap = {
-      registerPlugin: noop,
-      set: noop,
-      from: noop,
-      fromTo: noop,
-      to: function (t, vars) {
-        if (vars && vars.onComplete) setTimeout(vars.onComplete, ((vars.delay || 0) * 1000) + 400);
-      },
-      getProperty: function () { return 0; },
-      timeline: function () {
-        var t = {};
-        ['add', 'from', 'to', 'fromTo', 'set'].forEach(function (m) { t[m] = chain[m]; });
-        return t;
-      },
-      utils: { toArray: function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); } }
-    };
-    window.ScrollTrigger = window.ScrollTrigger || { getAll: function () { return []; }, create: noop };
+    if (gsapMissing) {
+      window.gsap = {
+        registerPlugin: noop,
+        set: noop,
+        from: noop,
+        fromTo: noop,
+        to: function (t, vars) {
+          if (vars && vars.onComplete) setTimeout(vars.onComplete, ((vars.delay || 0) * 1000) + 400);
+        },
+        getProperty: function () { return 0; },
+        timeline: function () {
+          var t = {};
+          ['add', 'from', 'to', 'fromTo', 'set'].forEach(function (m) { t[m] = chain[m]; });
+          return t;
+        },
+        utils: { toArray: function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); } }
+      };
+    }
+    if (stMissing) {
+      window.ScrollTrigger = window.ScrollTrigger || { getAll: function () { return []; }, create: noop };
+    }
     docEl.classList.add('no-gsap');
   }
-
-  gsap.registerPlugin(ScrollTrigger);
+  if (!docEl.classList.contains('no-gsap')) {
+    gsap.registerPlugin(ScrollTrigger);
+  }
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var active = !reduced && !docEl.classList.contains('no-gsap');
@@ -152,7 +159,7 @@
         xTo(clamp((e.clientX - (r.left + r.width / 2)) * 0.18, -6, 6));
         yTo(clamp((e.clientY - (r.top + r.height / 2)) * 0.18, -6, 6));
       });
-      el.addEventListener('mouseleave', function () { xTo(0); yTo(0); });
+      el.addEventListener('mouseleave', function () { xTo(0); yTo(0); gsap.to(el, { scale: 1, duration: 0.2 }); });
       el.addEventListener('mousedown', function () { gsap.to(el, { scale: 0.97, duration: 0.12 }); });
       el.addEventListener('mouseup', function () { gsap.to(el, { scale: 1, duration: 0.2 }); });
     });
