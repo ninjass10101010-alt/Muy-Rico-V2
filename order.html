@@ -1681,7 +1681,7 @@
       const productsGrid = document.getElementById('products-grid');
       window.initProductReveals = function () {
         ScrollTrigger.getAll().forEach(st => {
-          if (st.trigger && productsGrid.contains(st.trigger)) st.kill();
+          if (st.trigger && productsGrid && productsGrid.contains(st.trigger)) st.kill();
         });
         if (window.MuyRicoMotion) MuyRicoMotion.bindReveals(productsGrid);
       };

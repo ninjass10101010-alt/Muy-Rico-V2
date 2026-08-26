@@ -285,7 +285,9 @@
 
     if (window.MuyRicoMotion) MuyRicoMotion.init({});
     window.initGalleryReveals = function () {
-      if (window.MuyRicoMotion) MuyRicoMotion.bindReveals(document.getElementById('gallery-root'));
+      if (!window.MuyRicoMotion) return;
+      var root = document.getElementById('gallery-root');
+      if (root) MuyRicoMotion.bindReveals(root);
     };
 
     applyLangToDOM(currentLang);
