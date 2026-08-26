@@ -29,6 +29,7 @@
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="motion.js"></script>
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
@@ -1445,23 +1446,6 @@
   </div>
 
   <script>
-    // Resilience: if the GSAP CDN failed, stub the animation API and reveal all content.
-    if (typeof window.gsap === 'undefined') {
-      const noop = () => {};
-      window.gsap = {
-        registerPlugin: noop, set: noop, from: noop,
-        to: (t, vars) => { if (vars && vars.onComplete) setTimeout(vars.onComplete, ((vars.delay || 0) * 1000) + 400); },
-        fromTo: noop,
-        getProperty: () => 0,
-        timeline: () => ({ from() { return this; }, to() { return this; }, fromTo() { return this; } }),
-        utils: { toArray: (s) => Array.from(document.querySelectorAll(s)) }
-      };
-      window.ScrollTrigger = window.ScrollTrigger || { getAll: () => [], create: noop };
-      document.documentElement.classList.add('no-gsap');
-    }
-
-    gsap.registerPlugin(ScrollTrigger);
-
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let currentLang = 'en';
 
@@ -1694,54 +1678,45 @@
       else currentLang = (navigator.language || 'en').startsWith('es') ? 'es' : 'en';
     })();
 
-      if (!prefersReduced) {
-        const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-        heroTl.from('.hero-eyebrow', { y: 30, autoAlpha: 0, duration: 0.8 })
-              .from('.hero-headline-top', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.5')
-              .from('.hero-headline-bottom', { y: 40, autoAlpha: 0, duration: 1 }, '-=0.8')
-              .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: 0.8, transformOrigin: 'left center' }, '-=0.6')
-              .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5');
-
-        // Buttons — separate from main timeline, CSS starts them hidden
-        gsap.to('.hero-ctas > *', {
-          y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12,
-          ease: 'power3.out', delay: 1.5
+      const productsGrid = document.getElementById('products-grid');
+      window.initProductReveals = function () {
+        // Kill only this grid's triggers (created by init's document-wide pass or a previous run)
+        // and clear bind-marks so tiles rebind — leaves hero/footer triggers alive.
+        ScrollTrigger.getAll().forEach(st => {
+          if (st.trigger && st.trigger.dataset && productsGrid.contains(st.trigger)) {
+            st.kill();
+            delete st.trigger.dataset.motionBound;
+          }
         });
+        if (window.MuyRicoMotion) MuyRicoMotion.bindReveals(productsGrid);
+      };
 
-      gsap.from('.sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card', {
-        x: -40, autoAlpha: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out', delay: 0.2
+      if (window.MuyRicoMotion) MuyRicoMotion.init({
+        hero: function (ctx) {
+          const g = ctx.gsap, T = ctx.TOKENS;
+          const tl = g.timeline({ defaults: { ease: 'expo.out' } });
+          tl.fromTo('.hero-eyebrow', { y: 30, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.revealDur })
+            .fromTo('.hero-headline-top', { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.heroDur }, '-=0.5')
+            .fromTo('.hero-headline-bottom', { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.heroDur }, '-=0.8')
+            .fromTo('.hero-divider', { scaleX: 0, autoAlpha: 0 }, { scaleX: 1, autoAlpha: 1, duration: T.revealDur, transformOrigin: 'left center' }, '-=0.6')
+            .fromTo('.hero-description', { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.7 }, '-=0.5');
+
+          g.to('.hero-ctas > *', {
+            y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12,
+            ease: 'power3.out', delay: 1.5
+          });
+
+          g.from('.sidebar-brand, .sidebar-nav, .lang-switch-wrap, .cookie-card',
+            { x: -40, autoAlpha: 0, duration: T.revealDur, stagger: 0.1, ease: 'power3.out', delay: 0.2 });
+
+          g.fromTo('.footer-hib-row', { scale: 0.94, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: T.revealDur, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 95%' } });
+          g.fromTo('.footer-coqui-divider > *', { scale: 0.85, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.5, stagger: 0.08, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 92%' } });
+          g.fromTo('.footer-copyright, .footer-tagline', { y: 15, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.1, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 90%' } });
+        }
       });
 
-      // Only animate .reveal tiles, NOT the order panel
-      // Extracted so it can re-run after live products are injected.
-      window.initProductReveals = function () {
-        ScrollTrigger.getAll().forEach(st => st.kill());
-        gsap.utils.toArray('.product-tile.reveal').forEach((el, i) => {
-          gsap.fromTo(el,
-            { y: 40, autoAlpha: 0 },
-            {
-              scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none none' },
-              y: 0, autoAlpha: 1, duration: 0.7, delay: (i % 4) * 0.08, ease: 'power3.out'
-            }
-          );
-        });
-      };
       window.initProductReveals();
-
-      // Load live product menu (replaces the static fallback tiles)
       loadProducts();
-
-      gsap.from('.footer-hib-row', { scale: 0.8, autoAlpha: 0, duration: 0.8, ease: 'back.out(1.5)', scrollTrigger: { trigger: '.site-footer', start: 'top 95%' } });
-      gsap.from('.footer-coqui-divider > *', { scale: 0, autoAlpha: 0, duration: 0.4, stagger: 0.08, ease: 'back.out(2)', scrollTrigger: { trigger: '.site-footer', start: 'top 92%' } });
-      gsap.from('.footer-copyright, .footer-tagline', { y: 15, autoAlpha: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 90%' } });
-
-    } else {
-      // Reduced motion: show everything immediately
-      document.querySelectorAll('.reveal, .hero-ctas .btn').forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; el.style.visibility = 'visible'; });
-      // Inject live products without scroll animations
-      window.initProductReveals = function () {};  // no-op under reduced motion
-      loadProducts();
-    }
 
     // ── Language ──────────────────────────────────────────────────
     function applyLangToDOM(lang) {
