@@ -56,6 +56,10 @@
   --shadow-card-hover: 0 6px 24px rgba(30, 70, 54, 0.10);
   --transition-elastic: all 0.3s ease;
   --transition-smooth: all 0.25s ease;
+  --m-fast: 0.22s;
+  --m-reveal: 0.8s;
+  --m-hero: 1.1s;
+  --m-stagger: 0.09s;
   --sidebar-width: 0px;
 }
 
@@ -659,7 +663,7 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   border: 1px solid var(--hairline);
   border-radius: 14px;
   padding: 1.1rem 1.1rem 1.3rem;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: transform var(--m-fast) ease, box-shadow var(--m-fast) ease, border-color var(--m-fast) ease;
 }
 /* Same pastel cycling as the menu tiles — photo covers the top, color shows below */
 .oven-card:nth-child(3n+1) { background: var(--tint-sage); }
@@ -1219,7 +1223,7 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   border: 1px solid var(--hairline);
   border-radius: 14px;
   padding: 1.6rem;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: transform var(--m-fast) ease, box-shadow var(--m-fast) ease, border-color var(--m-fast) ease;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1403,7 +1407,7 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   display: flex;
   flex-direction: column;
   padding: 0.85rem 0.85rem 1.1rem;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform var(--m-fast) ease, box-shadow var(--m-fast) ease;
 }
 .gallery-card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(30, 70, 54, 0.10); }
 .gallery-card-img {
@@ -1455,17 +1459,37 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
    REVEAL ANIMATIONS (GSAP hooks)
    ========================================================================== */
 
-.reveal { opacity: 0; transform: translateY(20px); }
+/* Hidden initial states apply ONLY when the shared motion system is active
+   (motion.js adds html.js-motion). No JS / reduced-motion / CDN failure =>
+   everything visible statically. */
+html.js-motion .reveal,
+html.js-motion [data-motion="rise"] { opacity: 0; transform: translateY(24px); }
+html.js-motion [data-motion="fade"] { opacity: 0; }
+html.js-motion [data-motion="clip"] { opacity: 0; clip-path: inset(100% 0% 0% 0%); }
+html.js-motion [data-motion="scale"] { opacity: 0; }
 .lang-fade { transition: opacity 0.25s ease; }
+
+/* Ambient float — uses the independent `translate` property so any inline
+   transform (e.g. rotate on decorative engravings) is preserved. */
+@keyframes mr-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+[data-float] { animation: mr-float var(--float-dur, 8s) ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  [data-float] { animation: none; translate: 0 0 !important; }
+}
 
 /* Resilience: if the GSAP CDN fails, animated content must never stay hidden.
    The inline scripts add .no-gsap to <html> when window.gsap is missing. */
 .no-gsap .reveal,
 .no-gsap .hero-anim,
 .no-gsap .hero-photo,
-.no-gsap .hero-ctas > * {
+.no-gsap .hero-ctas > *,
+.no-gsap [data-motion] {
   opacity: 1 !important;
   transform: none !important;
+  clip-path: none !important;
   visibility: visible !important;
 }
 .no-gsap .floating-cart.gsap-shown {
