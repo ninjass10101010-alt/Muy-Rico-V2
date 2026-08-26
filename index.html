@@ -176,7 +176,7 @@
         <div class="oven-strip" id="oven-strip" data-motion-group>
           <!-- Baked-in defaults; replaced by featured products from /api/products when available -->
           <a class="oven-card" data-motion="rise" href="order.html#tile-prod_conchas">
-            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
+            <div class="frame"><img class="frame-img" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name">Conchas</h3>
               <span class="oven-card-price">$4</span>
@@ -184,7 +184,7 @@
             <p class="oven-card-desc lang-fade" data-es="Vainilla, chocolate y fresa" data-en="Vanilla, chocolate &amp; fresa">Vanilla, chocolate &amp; fresa</p>
           </a>
           <a class="oven-card" data-motion="rise" href="order.html#tile-prod_cookie">
-            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
+            <div class="frame"><img class="frame-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name lang-fade" data-es="Galletas de Chispas" data-en="Chocolate Chip Coqui">Chocolate Chip Coqui</h3>
               <span class="oven-card-price">$4</span>
@@ -192,7 +192,7 @@
             <p class="oven-card-desc lang-fade" data-es="Suaves, recién horneadas" data-en="Soft-baked, made fresh">Soft-baked, made fresh</p>
           </a>
           <a class="oven-card" data-motion="rise" href="order.html#tile-prod_empanadas">
-            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
+            <div class="frame"><img class="frame-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name">Empanadas</h3>
               <span class="oven-card-price">$3</span>
@@ -200,7 +200,7 @@
             <p class="oven-card-desc lang-fade" data-es="Doradas y rellenas a mano" data-en="Golden, filled by hand">Golden, filled by hand</p>
           </a>
           <a class="oven-card" data-motion="rise" href="order.html#tile-prod_custom_cake">
-            <div class="frame"><img class="frame-img" data-motion="scale" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
+            <div class="frame"><img class="frame-img" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name lang-fade" data-es="Pastel Personalizado" data-en="Custom Cake">Custom Cake</h3>
               <span class="oven-card-price" style="font-size:0.75rem;">desde $60+</span>
@@ -592,7 +592,7 @@
         const price = '$' + (Number(p.price) || 0);
         const img = p.image_url ? escapeHtml(p.image_url) : 'menu-conchas.webp';
         return `
-          <a class="oven-card" href="order.html#tile-${encodeURIComponent(p.id)}">
+          <a class="oven-card" data-motion="rise" href="order.html#tile-${encodeURIComponent(p.id)}">
             <div class="frame"><img class="frame-img" src="${img}" alt="${nameEn}" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name lang-fade" data-es="${nameEs}" data-en="${nameEn}">${nameEn}</h3>
@@ -601,6 +601,8 @@
             <p class="oven-card-desc lang-fade" data-es="${descEs}" data-en="${descEn}">${descEn}</p>
           </a>`;
       }).join('');
+      strip.removeAttribute('data-group-bound');
+      if (window.MuyRicoMotion) MuyRicoMotion.bindReveals(strip);
     }
     async function loadFeatured() {
       try {
