@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMethodLabel, buildReceiptHtml, formatStatusLabel } from '../workers/receipt-html.js';
+import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel } from '../workers/receipt-html.js';
 
 const baseOrder = {
   id: 42,
@@ -87,6 +87,43 @@ describe('buildReceiptHtml', () => {
     );
     expect(html).toContain('$96.00');
     expect(html).toContain('−$24.00');
+  });
+});
+
+describe('emailMeta', () => {
+  it('paid order keeps the original receipt subject and wording', () => {
+    const en = emailMeta({ ...baseOrder }, true);
+    expect(en.subject).toBe('Receipt — Muy Rico Order #42');
+    expect(en.receipt).toBe('RECEIPT');
+    expect(en.total).toBe('TOTAL PAID');
+    expect(en.paidNote).toBe('Your payment was received and your order is being prepared.');
+    const es = emailMeta({ ...baseOrder }, false);
+    expect(es.subject).toBe('Recibo — Pedido Muy Rico #42');
+    expect(es.receipt).toBe('RECIBO');
+    expect(es.total).toBe('TOTAL PAGADO');
+  });
+
+  it('unpaid order uses invoice subject and due wording', () => {
+    const en = emailMeta({ ...baseOrder, payment_status: 'unpaid' }, true);
+    expect(en.subject).toBe('Invoice — Muy Rico Order #42');
+    expect(en.receipt).toBe('INVOICE');
+    expect(en.total).toBe('TOTAL DUE');
+    expect(en.paidNote).toBe('Your order is confirmed. Payment is due at pickup.');
+    const es = emailMeta({ ...baseOrder, payment_status: 'unpaid' }, false);
+    expect(es.subject).toBe('Factura — Pedido Muy Rico #42');
+    expect(es.receipt).toBe('FACTURA');
+    expect(es.total).toBe('TOTAL A PAGAR');
+  });
+
+  it('partial order uses invoice subject, TOTAL label, and deposit wording', () => {
+    const en = emailMeta({ ...baseOrder, payment_status: 'partial' }, true);
+    expect(en.subject).toBe('Invoice — Muy Rico Order #42');
+    expect(en.receipt).toBe('INVOICE');
+    expect(en.total).toBe('TOTAL');
+    expect(en.paidNote).toBe('Your order is confirmed. Deposit received — balance due at pickup.');
+    const es = emailMeta({ ...baseOrder, payment_status: 'partial' }, false);
+    expect(es.total).toBe('TOTAL');
+    expect(es.paidNote).toContain('Depósito recibido');
   });
 });
 

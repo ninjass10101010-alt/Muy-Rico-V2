@@ -64,7 +64,7 @@ import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from '.
 import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode } from './enrich-lib.js';
 import { validatePickupDate, pickupChangeEvent } from './order-date.js';
 import { rewriteRecipeForGroup } from './groups-lib.js';
-import { buildMethodLabel, buildReceiptHtml, formatStatusLabel } from './receipt-html.js';
+import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel } from './receipt-html.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -914,31 +914,9 @@ async function sendCustomerConfirmation(env, order) {
   const methodLabel = buildMethodLabel(order, isEn);
   const statusLabel = order.status ? formatStatusLabel(order.status, isEn) : '—';
 
-  const L = isEn ? {
-    subject: `Receipt — Muy Rico Order #${order.id}`,
-    receipt: 'RECEIPT',
-    thanks: 'Thank you for your order!',
-    paidNote: 'Your payment was received and your order is being prepared.',
-    date: 'Date',
-    payment: 'Payment',
-    statusLabel: 'Status',
-    pickup: 'Pickup',
-    total: 'TOTAL PAID',
-    contact: 'Questions about your order? Reply to this email or call/text us at (616) 218-3582.',
-    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
-  } : {
-    subject: `Recibo — Pedido Muy Rico #${order.id}`,
-    receipt: 'RECIBO',
-    thanks: '¡Gracias por tu pedido!',
-    paidNote: 'Tu pago fue recibido y tu pedido se está preparando.',
-    date: 'Fecha',
-    payment: 'Pago',
-    statusLabel: 'Estado',
-    pickup: 'Recogida',
-    total: 'TOTAL PAGADO',
-    contact: '¿Preguntas sobre tu pedido? Responde a este correo o llámanos al (616) 218-3582.',
-    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
-  };
+  // Subject + wording come from receipt-html.js (single source of truth) so the
+  // subject, plain-text part, and HTML part stay in sync for paid/unpaid/partial.
+  const L = emailMeta(order, isEn);
 
   // Plain-text fallback (improves spam score + accessibility)
   let textItems = '';
@@ -1086,6 +1064,7 @@ async function getReceiptHtml(id, env, url) {
       payment_method: receipt.payment_method || 'unknown',
       payment_sub_method: receipt.payment_sub_method || null,
       status: receipt.order_status || 'pending',
+      payment_status: 'paid', // snapshot predates invoice rendering; keep old paid-RECEIPT behavior
       pickup_date: null,
       pickup_time: null,
       created_at: receipt.created_at,

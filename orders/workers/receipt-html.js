@@ -2,7 +2,8 @@
 // Pure receipt/invoice rendering helpers (extracted from api.js for unit testing).
 // buildReceiptHtml renders the branded HTML used both as the customer email body
 // and the /api/receipts/:id/html view. Paid orders render as RECEIPT; unpaid and
-// partial orders render as INVOICE with due-at-pickup wording.
+// partial orders render as INVOICE with due-at-pickup wording. emailMeta exposes
+// the same payment-status-aware wording for the email subject + plain-text part.
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
@@ -57,14 +58,53 @@ export function formatStatusLabel(status, isEn) {
   return map[status] || status;
 }
 
+// Shared wording for the receipt header, total line, and intro note — used by
+// buildReceiptHtml and by the customer email's subject + plain-text part, so all
+// three stay in sync across paid / unpaid / partial orders.
+export function emailMeta(order, isEn) {
+  const isPaid = order.payment_status === 'paid';
+  const isPartial = order.payment_status === 'partial';
+  return isEn ? {
+    subject: `${isPaid ? 'Receipt' : 'Invoice'} — Muy Rico Order #${order.id}`,
+    receipt: isPaid ? 'RECEIPT' : 'INVOICE',
+    thanks: 'Thank you for your order!',
+    paidNote: isPaid
+      ? 'Your payment was received and your order is being prepared.'
+      : isPartial
+        ? 'Your order is confirmed. Deposit received — balance due at pickup.'
+        : 'Your order is confirmed. Payment is due at pickup.',
+    date: 'Date',
+    payment: 'Payment',
+    statusLabel: 'Status',
+    pickup: 'Pickup',
+    total: isPaid ? 'TOTAL PAID' : isPartial ? 'TOTAL' : 'TOTAL DUE',
+    contact: 'Questions about your order? Reply to this email or call/text us at (616) 218-3582.',
+    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  } : {
+    subject: `${isPaid ? 'Recibo' : 'Factura'} — Pedido Muy Rico #${order.id}`,
+    receipt: isPaid ? 'RECIBO' : 'FACTURA',
+    thanks: '¡Gracias por tu pedido!',
+    paidNote: isPaid
+      ? 'Tu pago fue recibido y tu pedido se está preparando.'
+      : isPartial
+        ? 'Tu pedido está confirmado. Depósito recibido — el saldo se paga al recoger.'
+        : 'Tu pedido está confirmado. El pago se realiza al recoger.',
+    date: 'Fecha',
+    payment: 'Pago',
+    statusLabel: 'Estado',
+    pickup: 'Recogida',
+    total: isPaid ? 'TOTAL PAGADO' : isPartial ? 'TOTAL' : 'TOTAL A PAGAR',
+    contact: '¿Preguntas sobre tu pedido? Responde a este correo o llámanos al (616) 218-3582.',
+    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  };
+}
+
 export function buildReceiptHtml(order, isEn) {
   const customer = order.customer_name.trim();
   const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '$0.00';
   const orderDate = (order.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
   const methodLabel = buildMethodLabel(order, isEn);
   const statusLabel = order.status ? formatStatusLabel(order.status, isEn) : '—';
-  const isPaid = order.payment_status === 'paid';
-  const isPartial = order.payment_status === 'partial';
   const notes = (order.notes || '').trim();
   const discountCents = Number(order.discount_cents) || 0;
   const subtotalCents = Number(order.subtotal_cents) || ((Number(order.total_cents) || 0) + discountCents);
@@ -87,48 +127,23 @@ export function buildReceiptHtml(order, isEn) {
     }
   })();
 
-  const L = isEn ? {
-    receipt: isPaid ? 'RECEIPT' : 'INVOICE',
-    thanks: 'Thank you for your order!',
-    paidNote: isPaid
-      ? 'Your payment was received and your order is being prepared.'
-      : isPartial
-        ? 'Your order is confirmed. Deposit received — balance due at pickup.'
-        : 'Your order is confirmed. Payment is due at pickup.',
-    date: 'Date',
-    payment: 'Payment',
-    statusLabel: 'Status',
-    pickup: 'Pickup',
-    notes: 'Notes',
-    item: 'Item',
-    qty: 'Qty',
-    amount: 'Amount',
-    subtotal: 'Subtotal',
-    discount: 'Discount',
-    total: isPaid ? 'TOTAL PAID' : isPartial ? 'TOTAL' : 'TOTAL DUE',
-    contact: 'Questions about your order? Reply to this email or call/text us at (616) 218-3582.',
-    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
-  } : {
-    receipt: isPaid ? 'RECIBO' : 'FACTURA',
-    thanks: '¡Gracias por tu pedido!',
-    paidNote: isPaid
-      ? 'Tu pago fue recibido y tu pedido se está preparando.'
-      : isPartial
-        ? 'Tu pedido está confirmado. Depósito recibido — el saldo se paga al recoger.'
-        : 'Tu pedido está confirmado. El pago se realiza al recoger.',
-    date: 'Fecha',
-    payment: 'Pago',
-    statusLabel: 'Estado',
-    pickup: 'Recogida',
-    notes: 'Notas',
-    item: 'Producto',
-    qty: 'Cant.',
-    amount: 'Importe',
-    subtotal: 'Subtotal',
-    discount: 'Descuento',
-    total: isPaid ? 'TOTAL PAGADO' : isPartial ? 'TOTAL' : 'TOTAL A PAGAR',
-    contact: '¿Preguntas sobre tu pedido? Responde a este correo o llámanos al (616) 218-3582.',
-    footer: 'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  const L = {
+    ...emailMeta(order, isEn),
+    ...(isEn ? {
+      notes: 'Notes',
+      item: 'Item',
+      qty: 'Qty',
+      amount: 'Amount',
+      subtotal: 'Subtotal',
+      discount: 'Discount',
+    } : {
+      notes: 'Notas',
+      item: 'Producto',
+      qty: 'Cant.',
+      amount: 'Importe',
+      subtotal: 'Subtotal',
+      discount: 'Descuento',
+    }),
   };
 
   const discountRows = discountCents > 0 ? `
