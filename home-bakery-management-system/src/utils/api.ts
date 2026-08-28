@@ -680,8 +680,41 @@ export async function generateReceiptApi(orderId: number): Promise<{ ok: boolean
   return apiFetch(`/api/orders/${orderId}/generate-receipt`, { method: "POST" });
 }
 
-export function receiptHtmlUrl(receiptId: string): string {
-  return `${API_BASE}/api/receipts/${encodeURIComponent(receiptId)}/html`;
+export function receiptHtmlUrl(receiptId: string, lang?: 'en' | 'es'): string {
+  const base = `${API_BASE}/api/receipts/${encodeURIComponent(receiptId)}/html`;
+  return lang ? `${base}?lang=${lang}` : base;
+}
+
+export async function downloadReceiptHtml(receiptId: string, lang?: 'en' | 'es'): Promise<void> {
+  const url = receiptHtmlUrl(receiptId, lang);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('fetch failed');
+    const html = await res.text();
+    const blob = new Blob([html], { type: 'text/html' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `receipt-${receiptId}${lang ? `-${lang}` : ''}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch {
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
+export async function shareReceipt(receiptId: string, lang?: 'en' | 'es'): Promise<boolean> {
+  const url = receiptHtmlUrl(receiptId, lang);
+  const absolute = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: `Receipt ${receiptId}`, url: absolute });
+      return true;
+    } catch { return false; }
+  }
+  return false;
 }
 
 // ─── Label templates ──────────────────────────────────────────────────────────
