@@ -4,6 +4,7 @@ import { useStore } from "../context/StoreContext";
 import Badge from "../components/ui/Badge";
 import ProductIcon from "../components/ProductIcon";
 import Modal from "../components/ui/Modal";
+import EditOrderModal from "../components/EditOrderModal";
 import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod, dueTier, urgencyRank, DUE_TIER_LABELS } from "../utils/format";
 import { generateOrderLabels, receiptHtmlUrl, fetchOrder } from "../utils/api";
 import type { ApiOrderEvent } from "../utils/api";
@@ -35,6 +36,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [orderEvents, setOrderEvents] = useState<ApiOrderEvent[]>([]);
   const [dueEdit, setDueEdit] = useState<string | null>(null);
   const [dueError, setDueError] = useState<string | null>(null);
+  const [editOrder, setEditOrder] = useState<Order | null>(null);
   const eventsFetchId = useRef<number | null>(null);
 
   const filtered = useMemo(() => {
@@ -343,7 +345,13 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   </button>
                 )}
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setEditOrder(selected); setSelected(null); }}
+                  className="rounded-lg border border-sand-200 px-2.5 py-1 text-xs font-semibold text-cocoa transition hover:bg-sand-50"
+                >
+                  Edit
+                </button>
                 <Badge tone={selected.source}>{selected.source}</Badge>
                 <Badge tone={selected.status}>{selected.status}</Badge>
               </div>
@@ -752,6 +760,16 @@ export default function Orders({ search, setPage, setLabelFilter }: {
           </div>
         )}
       </Modal>
+
+      <EditOrderModal
+        open={!!editOrder}
+        order={editOrder}
+        onClose={() => setEditOrder(null)}
+        onSaved={async () => {
+          setEditOrder(null);
+          await refreshOrders();
+        }}
+      />
     </div>
   );
 }
