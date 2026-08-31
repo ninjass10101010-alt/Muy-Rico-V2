@@ -145,7 +145,7 @@ export function computeOrderTotals(
   items: { qty: number; price: number }[],
   discount: number
 ): { subtotal: number; discount: number; total: number } {
-  const subtotal = items.reduce((sum, i) => sum + i.qty * i.price, 0);
+  const subtotal = items.reduce((sum, i) => sum + Math.round(i.qty * i.price * 100) / 100, 0);
   let d = Number.isFinite(discount) ? Math.max(0, discount) : 0;
   d = Math.min(d, subtotal);
   return { subtotal, discount: d, total: subtotal - d };

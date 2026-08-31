@@ -20,16 +20,22 @@ export default function EditOrderModal({
   const { products, apiUpdateOrder } = useStore();
   const [items, setItems] = useState<OrderItem[]>([]);
   const [discount, setDiscount] = useState(0);
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [discountDraft, setDiscountDraft] = useState("");
   const [productPick, setProductPick] = useState("");
   const [flavorSelections, setFlavorSelections] = useState<Record<string, string>>({});
   const [packPick, setPackPick] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  const itemKey = (i: OrderItem) => `${i.productId ?? ""}|${i.flavorNote ?? ""}`;
+
   useEffect(() => {
     if (open && order) {
       setItems(order.items.map((i) => ({ ...i })));
       setDiscount(order.discount);
+      setPriceDrafts(Object.fromEntries(order.items.map((i) => [itemKey(i), String(i.price)])));
+      setDiscountDraft(String(order.discount));
       setProductPick("");
       setFlavorSelections({});
       setPackPick("");
@@ -46,8 +52,6 @@ export default function EditOrderModal({
   const flavorsComplete = pickedFlavorGroups.every((g) => !!flavorSelections[g.name]);
 
   const totals = useMemo(() => computeOrderTotals(items, discount), [items, discount]);
-
-  const itemKey = (i: OrderItem) => `${i.productId ?? ""}|${i.flavorNote ?? ""}`;
 
   function addItem() {
     const p = products.find((pr) => pr.id === productPick);
@@ -103,7 +107,7 @@ export default function EditOrderModal({
           emoji: i.emoji,
           flavorNote: i.flavorNote,
         })),
-        discount_cents: Math.round(discount * 100),
+        discount_cents: Math.round((Number.isFinite(Number(discountDraft)) ? Math.max(0, Number(discountDraft)) : 0) * 100),
       });
       onSaved();
     } catch (err: any) {
@@ -150,8 +154,18 @@ export default function EditOrderModal({
                     type="number"
                     min={0}
                     step={0.01}
-                    value={item.price}
-                    onChange={(e) => updatePrice(itemKey(item), Number(e.target.value))}
+                    value={priceDrafts[itemKey(item)] ?? String(item.price)}
+                    onChange={(e) => {
+                      const key = itemKey(item);
+                      const raw = e.target.value;
+                      setPriceDrafts((d) => ({ ...d, [key]: raw }));
+                      updatePrice(key, Number(raw));
+                    }}
+                    onBlur={() => {
+                      const key = itemKey(item);
+                      const v = Number(priceDrafts[key] ?? String(item.price));
+                      setPriceDrafts((d) => ({ ...d, [key]: String(Number.isFinite(v) ? Math.max(0, v) : 0) }));
+                    }}
                     className="w-20 rounded-md border border-sand-200 px-2 py-1 text-right text-sm outline-none focus:border-palm"
                   />
                   <button
@@ -240,11 +254,13 @@ export default function EditOrderModal({
               <input
                 type="number"
                 min={0}
-                value={discount}
+                value={discountDraft}
                 onChange={(e) => {
+                  setDiscountDraft(e.target.value);
                   const v = Number(e.target.value);
                   setDiscount(Number.isFinite(v) ? Math.max(0, v) : 0);
                 }}
+                onBlur={() => setDiscountDraft(String(Number.isFinite(Number(discountDraft)) ? Math.max(0, Number(discountDraft)) : 0))}
                 className="w-20 rounded-md border border-sand-200 px-2 py-0.5 text-right outline-none focus:border-palm"
               />
             </div>

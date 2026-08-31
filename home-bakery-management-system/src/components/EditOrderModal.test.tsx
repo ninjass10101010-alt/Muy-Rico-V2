@@ -62,6 +62,25 @@ function setDiscountInput(container: HTMLElement, value: string) {
   });
 }
 
+function typePrice(container: HTMLElement, value: string) {
+  const priceInput = container.querySelector<HTMLInputElement>('input[type="number"]');
+  expect(priceInput).toBeTruthy();
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
+  for (let i = 1; i <= value.length; i++) {
+    const chunk = value.slice(0, i);
+    act(() => {
+      setter.call(priceInput!, chunk);
+      priceInput!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+}
+
+function saveButton(container: HTMLElement) {
+  const btn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "Save Changes");
+  expect(btn).toBeTruthy();
+  return btn as HTMLButtonElement;
+}
+
 describe("EditOrderModal", () => {
   it("renders existing item rows with qty and price", () => {
     const { text, root, container } = render(mkOrder({}));
@@ -125,6 +144,46 @@ describe("EditOrderModal", () => {
   it("renders nothing when closed", () => {
     const { text, root, container } = render(mkOrder({}), false);
     expect(text).toBe("");
+    root.unmount();
+    container.remove();
+  });
+
+  it("keeps the decimal draft while typing a price like 3.50", () => {
+    const { root, container } = render(mkOrder({
+      items: [{ productId: "prod_cupcakes", name: "Cupcakes (Vanilla)", emoji: "🧁", qty: 12, price: 4 }],
+      subtotal: 48, discount: 0, total: 48,
+    }));
+    expect(container.textContent).toContain("$48.00");
+    typePrice(container, "3.50");
+    const priceInput = container.querySelector<HTMLInputElement>('input[type="number"]');
+    expect(priceInput!.value).toBe("3.50");
+    expect(container.textContent).toContain("$42.00");
+    root.unmount();
+    container.remove();
+  });
+
+  it("sends items_json and discount_cents in the save payload", async () => {
+    const { root, container } = render(mkOrder({}));
+    mockApiUpdateOrder.mockResolvedValueOnce(undefined);
+    await act(async () => {
+      saveButton(container).click();
+    });
+    expect(mockApiUpdateOrder).toHaveBeenCalledWith(7, {
+      items_json: [{ name: "Cupcakes (Vanilla)", qty: 12, price: 3.5, productId: "prod_cupcakes", emoji: "🧁", flavorNote: undefined }],
+      discount_cents: 0,
+    });
+    root.unmount();
+    container.remove();
+  });
+
+  it("shows the server inline error and keeps the modal open", async () => {
+    const { root, container } = render(mkOrder({}));
+    mockApiUpdateOrder.mockRejectedValueOnce(new Error("Item 1 quantity must be an integer between 1 and 9999"));
+    await act(async () => {
+      saveButton(container).click();
+    });
+    expect(container.textContent).toContain("Item 1 quantity must be an integer between 1 and 9999");
+    expect(container.textContent).toContain("Cupcakes (Vanilla)");
     root.unmount();
     container.remove();
   });

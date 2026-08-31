@@ -149,4 +149,8 @@ describe("computeOrderTotals", () => {
       { qty: 6, price: 2 },
     ], 0)).toEqual({ subtotal: 52, discount: 0, total: 52 });
   });
+
+  it("rounds each line to cents like the server", () => {
+    expect(computeOrderTotals([{ qty: 1, price: 2.675 }], 0).subtotal).toBe(2.68);
+  });
 });
