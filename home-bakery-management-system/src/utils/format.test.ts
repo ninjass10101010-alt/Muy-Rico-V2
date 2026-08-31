@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatPaymentSubMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_COLORS, dueTier, urgencyRank } from "./format";
+import { formatPaymentSubMethod, PAYMENT_METHOD_LABELS, PAYMENT_METHOD_COLORS, dueTier, urgencyRank, computeOrderTotals } from "./format";
 
 describe("PAYMENT_METHOD_LABELS", () => {
   it("includes paypal", () => {
@@ -126,5 +126,27 @@ describe("urgencyRank", () => {
     const cancelled = { ...base, status: "cancelled" };
     expect(urgencyRank(done)).toBeGreaterThan(urgencyRank(base));
     expect(urgencyRank(cancelled)).toBeGreaterThan(urgencyRank(base));
+  });
+});
+
+describe("computeOrderTotals", () => {
+  it("computes subtotal and total in dollars", () => {
+    expect(computeOrderTotals([{ qty: 12, price: 3.5 }], 0))
+      .toEqual({ subtotal: 42, discount: 0, total: 42 });
+  });
+
+  it("applies discount and clamps to [0, subtotal]", () => {
+    expect(computeOrderTotals([{ qty: 1, price: 100 }], 5))
+      .toEqual({ subtotal: 100, discount: 5, total: 95 });
+    expect(computeOrderTotals([{ qty: 1, price: 100 }], 999).discount).toBe(100);
+    expect(computeOrderTotals([{ qty: 1, price: 100 }], -5).discount).toBe(0);
+    expect(computeOrderTotals([{ qty: 1, price: 100 }], NaN).discount).toBe(0);
+  });
+
+  it("sums multiple items", () => {
+    expect(computeOrderTotals([
+      { qty: 1, price: 40 },
+      { qty: 6, price: 2 },
+    ], 0)).toEqual({ subtotal: 52, discount: 0, total: 52 });
   });
 });

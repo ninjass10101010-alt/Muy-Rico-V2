@@ -140,3 +140,13 @@ export function urgencyRank(o: { dueDate: string; status: string; paymentStatus:
   const payRank = o.paymentStatus === "unpaid" ? 0 : o.paymentStatus === "partial" ? 1 : 2;
   return payRank * 10 + tierRank[tier];
 }
+
+export function computeOrderTotals(
+  items: { qty: number; price: number }[],
+  discount: number
+): { subtotal: number; discount: number; total: number } {
+  const subtotal = items.reduce((sum, i) => sum + i.qty * i.price, 0);
+  let d = Number.isFinite(discount) ? Math.max(0, discount) : 0;
+  d = Math.min(d, subtotal);
+  return { subtotal, discount: d, total: subtotal - d };
+}
