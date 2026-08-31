@@ -3444,7 +3444,7 @@ async function convertQuote(id, request, env, ctx, actor) {
     await env.DB.prepare(`
       INSERT INTO payments (id, order_id, customer_name, amount, method, date)
       VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).bind(payId, orderId, quote.customer_name, depositCents, body.payment_method).run();
+    `).bind(payId, orderId, quote.customer_name, depositCents / 100, body.payment_method).run();
 
     // Log event
     await env.DB.prepare(`
