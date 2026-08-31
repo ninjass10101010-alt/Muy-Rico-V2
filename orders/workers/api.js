@@ -63,6 +63,7 @@ const CORS = {
 import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
 import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode } from './enrich-lib.js';
 import { validatePickupDate, pickupChangeEvent } from './order-date.js';
+import { validateOrderItems, computeOrderTotals } from './order-edit-lib.js';
 import { rewriteRecipeForGroup } from './groups-lib.js';
 import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel } from './receipt-html.js';
 
@@ -650,6 +651,43 @@ async function updateOrder(id, request, env, ctx, actor) {
     if (f === 'status' && !ALLOWED_STATUS.includes(body[f])) return json({ error: 'Invalid status' }, 400);
     sets.push(`${f} = ?`); binds.push(body[f]);
   }
+
+  // Items + totals edits — server-authoritative, validated before any write.
+  let itemsChanged = false;
+  let itemsCount = 0;
+  if (body.items_json !== undefined || body.discount_cents !== undefined) {
+    if (body.discount_cents !== undefined && (!Number.isInteger(body.discount_cents) || body.discount_cents < 0)) {
+      return json({ error: 'Invalid discount_cents' }, 400);
+    }
+    const existing = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+    if (!existing) return json({ error: 'Not found' }, 404);
+    const discountCents = body.discount_cents !== undefined ? body.discount_cents : (existing.discount_cents || 0);
+
+    if (body.items_json !== undefined) {
+      const itemsJson = typeof body.items_json === 'string' ? body.items_json : JSON.stringify(body.items_json);
+      let items;
+      try {
+        items = JSON.parse(itemsJson);
+      } catch {
+        return json({ error: 'Invalid items_json' }, 400);
+      }
+      const check = validateOrderItems(items);
+      if (!check.ok) return json({ error: check.error }, 400);
+      const totals = computeOrderTotals(items, discountCents);
+      sets.push('items_json = ?'); binds.push(JSON.stringify(items));
+      sets.push('subtotal_cents = ?'); binds.push(totals.subtotalCents);
+      sets.push('discount_cents = ?'); binds.push(totals.discountCents);
+      sets.push('total_cents = ?'); binds.push(totals.totalCents);
+      itemsChanged = true;
+      itemsCount = items.length;
+    } else {
+      const subtotalCents = existing.subtotal_cents ?? existing.total_cents ?? 0;
+      const clamped = Math.min(Math.max(Math.round(discountCents), 0), subtotalCents);
+      sets.push('discount_cents = ?'); binds.push(clamped);
+      sets.push('total_cents = ?'); binds.push(subtotalCents - clamped);
+    }
+  }
+
   if (!sets.length) return json({ error: 'Nothing to update' }, 400);
 
   // Pickup date move: validate first, and capture the old date for the audit event.
@@ -690,6 +728,12 @@ async function updateOrder(id, request, env, ctx, actor) {
   await env.DB.prepare(`
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:updated')
   `).bind(id, actor).run();
+
+  if (itemsChanged) {
+    await env.DB.prepare(
+      'INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)'
+    ).bind(id, actor, `order:items_changed: ${itemsCount} items`).run();
+  }
 
   if (pickupMoved) {
     await env.DB.prepare(
