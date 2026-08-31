@@ -766,8 +766,22 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         order={editOrder}
         onClose={() => setEditOrder(null)}
         onSaved={async () => {
+          const id = editOrder?.id;
           setEditOrder(null);
-          await refreshOrders();
+          const fresh = await refreshOrders();
+          const next = fresh.find((o) => o.id === id) ?? null;
+          setSelected(next);
+          if (next) {
+            setLabelGenResult(null);
+            setDueEdit(null);
+            setDueError(null);
+            setOrderEvents([]);
+            eventsFetchId.current = Number(next.id);
+            fetchOrder(Number(next.id)).then((r) => {
+              if (eventsFetchId.current !== Number(next.id)) return;
+              setOrderEvents(r.events);
+            }).catch(() => {});
+          }
         }}
       />
     </div>

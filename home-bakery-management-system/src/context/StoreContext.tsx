@@ -65,7 +65,7 @@ interface StoreContextValue {
   loading: boolean;
   apiDeductInventory: (orderId: number) => Promise<void>;
   resetAllData: () => Promise<void>;
-  refreshOrders: () => Promise<void>;
+  refreshOrders: () => Promise<Order[]>;
   apiCreateOrder: (order: Parameters<typeof apiCreateOrder>[0]) => Promise<{ id: number }>;
   apiUpdateOrder: (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null; pickup_date?: string; items_json?: OrderItemPatch[]; discount_cents?: number }) => Promise<void>;
   apiCancelOrder: (id: number) => Promise<void>;
@@ -99,7 +99,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refreshOrders = useCallback(async () => {
+  const refreshOrders = useCallback(async (): Promise<Order[]> => {
     try {
       const raw = await fetchOrders();
       const mapped: Order[] = raw.map((r) => {
@@ -129,8 +129,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         };
       });
       setOrders(mapped);
+      return mapped;
     } catch (err) {
       console.warn("Failed to fetch orders from API:", err);
+      return [];
     }
   }, []);
 
