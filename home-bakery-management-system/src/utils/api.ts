@@ -105,6 +105,15 @@ export async function createOrder(order: ApiOrderCreate): Promise<{ ok: boolean;
   });
 }
 
+export interface OrderItemPatch {
+  name: string;
+  qty: number;
+  price: number;
+  productId?: string | null;
+  emoji?: string;
+  flavorNote?: string;
+}
+
 export async function updateOrder(
   id: number,
   patch: {
@@ -114,6 +123,8 @@ export async function updateOrder(
     payment_sub_method?: string | null;
     pickup_date?: string;
     notes?: string;
+    items_json?: OrderItemPatch[];
+    discount_cents?: number;
   }
 ): Promise<{ ok: boolean }> {
   return apiFetch(`/api/orders/${id}`, {
