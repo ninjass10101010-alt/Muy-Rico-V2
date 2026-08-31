@@ -241,7 +241,10 @@ export default function EditOrderModal({
                 type="number"
                 min={0}
                 value={discount}
-                onChange={(e) => setDiscount(Math.max(0, Number(e.target.value)))}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setDiscount(Number.isFinite(v) ? Math.max(0, v) : 0);
+                }}
                 className="w-20 rounded-md border border-sand-200 px-2 py-0.5 text-right outline-none focus:border-palm"
               />
             </div>
