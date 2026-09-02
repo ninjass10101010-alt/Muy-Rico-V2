@@ -867,6 +867,7 @@ export interface ApiBusinessProfile {
   applePayEnabled: number | null;
   stripeConnected: number | null;
   updatedAt: string | null;
+  reminders?: string | null;
 }
 
 export async function fetchProfile(): Promise<ApiBusinessProfile | null> {

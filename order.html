@@ -1363,6 +1363,10 @@
                   <span class="ui-icon"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,64H56a8,8,0,0,1,0-16H192a8,8,0,0,0,0-16H56A24,24,0,0,0,32,56V184a24,24,0,0,0,24,24H216a16,16,0,0,0,16-16V80A16,16,0,0,0,216,64Zm0,128H56a8,8,0,0,1-8-8V78.63A23.84,23.84,0,0,0,56,80H216Zm-48-60a12,12,0,1,1,12,12A12,12,0,0,1,168,132Z"/></svg></span>
                   <span>PayPal / Venmo</span>
                 </button>
+                <button type="button" class="payment-tab" data-method="manual" id="tab-manual" onclick="switchPaymentTab('manual')" style="display:none">
+                  <span class="ui-icon"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M184,32H72A16,16,0,0,0,56,48V208a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V48A16,16,0,0,0,184,32Zm0,16V208H72V48Zm-16,88a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,136Zm0-32a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,104Z"/></svg></span>
+                  <span class="lang-fade" data-es="CashApp / Venmo" data-en="CashApp / Venmo">CashApp / Venmo</span>
+                </button>
               </div>
 
               <div class="payment-panel active" id="panel-card">
@@ -1381,6 +1385,15 @@
                 </p>
                 <div id="paypal-button-container"></div>
                 <p id="paypal-error" class="payment-error" style="display:none;"></p>
+              </div>
+
+              <div class="payment-panel" id="panel-manual">
+                <p class="hint lang-fade" data-es="Envía tu pago manualmente y confirma abajo. Tu pedido quedará pendiente hasta que verifiquemos el pago." data-en="Send your payment manually and confirm below. Your order will stay pending until we verify payment.">Send your payment manually and confirm below. Your order will stay pending until we verify payment.</p>
+                <div id="manual-handles" class="manual-handles"></div>
+                <p id="manual-note" class="hint" style="font-size:12px;color:#8a8078;margin-top:10px"></p>
+                <button type="button" id="manual-done-btn" class="btn btn-coral btn-lg payment-btn" style="margin-top:12px" onclick="handleManualDone()">
+                  <span class="lang-fade" data-es="Ya envié el pago" data-en="I've sent the payment">I've sent the payment</span>
+                </button>
               </div>
             </div>
 
@@ -1879,6 +1892,14 @@
       const paypalErr = document.getElementById('paypal-error');
       if (paypalErr) paypalErr.style.display = 'none';
 
+      // Fetch CashApp/Venmo handles for manual-pay tab (best-effort)
+      try {
+        fetch(ORDER_API + '/api/public/payment-options')
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(data){ if(data) populateManualHandles(data); })
+          .catch(function(){});
+      } catch(e){}
+
       // Stripe Payment Element setup
       fetch(CHECKOUT_WORKER + '/stripe-config')
         .then(r => r.json())
@@ -2019,6 +2040,58 @@
       if (method === 'paypal' && !paypalRendered) {
         renderPayPalButtons();
       }
+    }
+
+    function copyHandle(text, btn){
+      function fallback(){
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.select();
+        try{ document.execCommand('copy'); }catch{}
+        document.body.removeChild(ta);
+      }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).catch(fallback);
+      } else fallback();
+      if(btn){
+        const orig = btn.textContent;
+        btn.textContent = currentLang==='en'?'Copied!':'¡Copiado!';
+        setTimeout(()=>{ btn.textContent = orig; }, 1500);
+      }
+    }
+
+    function handleManualDone(){
+      const note = document.getElementById('manual-note');
+      if(note) note.textContent = currentLang==='en'
+        ? 'Thanks! Your order #'+pendingOrderId+' is pending — we will confirm once we see your payment.'
+        : '¡Gracias! Tu pedido #'+pendingOrderId+' está pendiente — confirmaremos al recibir tu pago.';
+      const btn = document.getElementById('manual-done-btn');
+      if(btn) btn.disabled = true;
+    }
+
+    function populateManualHandles(data){
+      const tab = document.getElementById('tab-manual');
+      const container = document.getElementById('manual-handles');
+      if(!tab || !container) return;
+      const am = data && data.acceptedMethods;
+      const showCashapp = !!(am && am.cashapp);
+      const showVenmo = !!(am && am.venmo);
+      const cashtag = data && data.cashtag;
+      const venmo = data && data.venmoHandle;
+      if(!showCashapp && !showVenmo){ tab.style.display='none'; return; }
+      tab.style.display='';
+      let html = '';
+      if(showCashapp && cashtag){
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e3dcd2;border-radius:10px;background:#fff;margin-bottom:8px">'
+          + '<div><div style="font-size:12px;color:#8a8078">Cash App</div><div style="font-weight:700">'+cashtag.replace(/</g,'&lt;')+'</div></div>'
+          + '<button type="button" class="btn" style="padding:6px 12px;font-size:12px" onclick="copyHandle(\''+cashtag.replace(/'/g,"\\'")+'\',this)">Copy</button></div>';
+      }
+      if(showVenmo && venmo){
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e3dcd2;border-radius:10px;background:#fff">'
+          + '<div><div style="font-size:12px;color:#8a8078">Venmo</div><div style="font-weight:700">'+venmo.replace(/</g,'&lt;')+'</div></div>'
+          + '<button type="button" class="btn" style="padding:6px 12px;font-size:12px" onclick="copyHandle(\''+venmo.replace(/'/g,"\\'")+'\',this)">Copy</button></div>';
+      }
+      container.innerHTML = html || '<p class="hint">Contact us for payment details.</p>';
     }
 
     function goBackToInfo(e) {

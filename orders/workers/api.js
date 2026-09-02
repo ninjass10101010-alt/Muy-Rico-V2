@@ -109,8 +109,10 @@ export default {
       path === '/api/quotes' && method === 'POST';
     const isPublicQuoteUpload =
       path === '/api/quotes/upload-image' && method === 'POST';
+    const isPublicPaymentOptions =
+      path === '/api/public/payment-options' && method === 'GET';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -301,6 +303,7 @@ export default {
 
       if (path === '/api/labels' && method === 'GET') return await listLabelTemplates(env);
       if (path === '/api/labels' && method === 'POST') return await createLabelTemplate(request, env, actorName);
+      if (path === '/api/public/payment-options' && method === 'GET') return await getPublicPaymentOptions(env);
       if (path === '/api/profile' && method === 'GET') return await getProfile(env);
       if (path === '/api/profile' && method === 'PUT') return await updateProfile(request, env, actorName);
       if (path === '/api/seed/reset' && method === 'POST') return await resetSeed(env, actorName);
@@ -2686,7 +2689,7 @@ async function deleteLabelTemplate(id, env, actor) {
 const PROFILE_FIELDS = [
   'name', 'tagline', 'address', 'phone', 'email', 'website', 'registration_number',
   'accepted_methods', 'cashtag', 'venmo_handle', 'apple_pay_enabled', 'stripe_connected',
-  'business_type',
+  'business_type', 'reminders',
 ];
 
 async function getProfile(env) {
@@ -2703,6 +2706,7 @@ async function updateProfile(request, env, actor) {
     let val = getBodyField(body, f);
     if (f === 'apple_pay_enabled' || f === 'stripe_connected') val = val ? 1 : 0;
     if (f === 'accepted_methods' && typeof val === 'object') val = JSON.stringify(val);
+    if (f === 'reminders' && typeof val === 'object' && val !== null) val = JSON.stringify(val);
     binds.push(val ?? null);
   }
   try {
@@ -3623,23 +3627,40 @@ async function getQuoteDocumentHtml(id, env, url) {
   });
 }
 
-// ─── Seed reset (re-runs INSERT OR IGNORE for the profile only) ──────────────
+// ─── Seed reset (resets business_profile to demo defaults) ───────────────────
 
 async function resetSeed(env, actor) {
-  const seed = `
-    INSERT OR IGNORE INTO business_profile
-      (id, name, tagline, address, phone, email, registration_number,
-       accepted_methods, cashtag, venmo_handle, apple_pay_enabled, stripe_connected)
-    VALUES
-      ('singleton','Muy Rico','Familia · Tradición · Sabor','Holland, MI','(616) 218-3582',
-       'hello@muy-rico.com','',
-       '{"stripe":false,"cashapp":true,"venmo":true,"applepay":true,"cash":true}',
-       '$MuyRicoBakery','@Muy-Rico',1,0);
-  `;
+  const seedMethods = JSON.stringify({ stripe: false, paypal: false, cashapp: true, venmo: true, applepay: true, cash: true });
   try {
-    await env.DB.exec(seed);
+    await env.DB.prepare("DELETE FROM business_profile WHERE id = 'singleton'").run();
+    await env.DB.prepare(
+      `INSERT INTO business_profile
+        (id, name, tagline, address, phone, email, registration_number,
+         accepted_methods, cashtag, venmo_handle, apple_pay_enabled, stripe_connected, website, business_type)
+       VALUES ('singleton','Muy Rico','Familia · Tradición · Sabor','Holland, MI','(616) 218-3582',
+        'hello@muy-rico.com','',?,'$MuyRicoBakery','@Muy-Rico',1,0,'https://muy-rico.com','cottage')`
+    ).bind(seedMethods).run();
   } catch (err) {
     return json({ error: String(err) }, 500);
   }
   return json({ ok: true }, 200);
+}
+
+async function getPublicPaymentOptions(env) {
+  try {
+    const row = await env.DB.prepare(
+      "SELECT accepted_methods, cashtag, venmo_handle FROM business_profile WHERE id = 'singleton'"
+    ).first();
+    let acceptedMethods = null;
+    try {
+      if (row?.accepted_methods) acceptedMethods = JSON.parse(row.accepted_methods);
+    } catch {}
+    return json(
+      { acceptedMethods, cashtag: row?.cashtag ?? null, venmoHandle: row?.venmo_handle ?? null },
+      200,
+      { "Access-Control-Allow-Origin": "*" }
+    );
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
 }

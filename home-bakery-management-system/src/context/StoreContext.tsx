@@ -23,7 +23,8 @@ import type {
   Receipt,
 } from "../types";
 import { newId } from "../utils/format";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiBusinessProfile, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type OrderItemPatch } from "../utils/api";
+import { mapProfileRow } from "../utils/profile";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type OrderItemPatch } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -465,29 +466,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ─── Business profile ──────────────────────────────────────────────────────
 
-  function apiToProfile(row: ApiBusinessProfile): BusinessProfile {
-    let accepted = seedProfile.acceptedMethods;
-    try {
-      if (row.acceptedMethods) accepted = JSON.parse(row.acceptedMethods) as BusinessProfile["acceptedMethods"];
-    } catch {
-      /* keep seed */
-    }
-    return {
-      name: row.name || seedProfile.name,
-      tagline: row.tagline || seedProfile.tagline,
-      address: row.address || seedProfile.address,
-      phone: row.phone || seedProfile.phone,
-      email: row.email || seedProfile.email,
-      website: row.website || seedProfile.website,
-      registrationNumber: row.registrationNumber || seedProfile.registrationNumber,
-      businessType: row.businessType === "licensed" ? "licensed" : "cottage",
-      acceptedMethods: accepted,
-      cashtag: row.cashtag || seedProfile.cashtag,
-      venmoHandle: row.venmoHandle || seedProfile.venmoHandle,
-      applePayEnabled: Boolean(row.applePayEnabled),
-      stripeConnected: Boolean(row.stripeConnected),
-      reminders: seedProfile.reminders,
-    };
+  function apiToProfile(row: Parameters<typeof mapProfileRow>[0]): BusinessProfile {
+    return mapProfileRow(row);
   }
 
   const refreshProfile = useCallback(async () => {
