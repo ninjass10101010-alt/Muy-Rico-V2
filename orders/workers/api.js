@@ -117,8 +117,11 @@ export default {
     // Quote deposit read: public but token-guarded inside the handler
     const isPublicQuoteDepositGet =
       path.match(/^\/api\/quotes\/\d+\/payable-deposit$/) && method === 'GET';
+    // Quote deposit write: public route, authenticated by X-Webhook-Secret inside the handler
+    const isPublicQuoteDepositPaid =
+      path.match(/^\/api\/quotes\/\d+\/deposit-paid$/) && method === 'POST';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -283,6 +286,9 @@ export default {
 
       const qdp = path.match(/^\/api\/quotes\/(\d+)\/payable-deposit$/);
       if (qdp && method === 'GET') return await getQuoteDepositPayable(Number(qdp[1]), request, env);
+
+      const qdpaid = path.match(/^\/api\/quotes\/(\d+)\/deposit-paid$/);
+      if (qdpaid && method === 'POST') return await quoteDepositPaid(Number(qdpaid[1]), request, env, ctx);
 
       const qim = path.match(/^\/api\/quotes\/(\d+)\/items$/);
       if (qim && method === 'POST') return await addQuoteItem(Number(qim[1]), request, env);
@@ -3232,6 +3238,80 @@ async function getQuoteDepositPayable(id, request, env) {
   }, 200);
 }
 
+async function notifyDuplicateDeposit(env, id, ref, why) {
+  const msg = `⚠️ Duplicate deposit payment on Quote #${id} (ref ${ref} — ${why}) — refund needed`;
+  console.warn(msg);
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+}
+
+// Records the customer-online deposit, auto-converts the quote, notifies owner + customer.
+async function quoteDepositPaid(id, request, env, ctx) {
+  // Shared-secret auth (same pattern as markOrderPaid — no Access on this route)
+  const provided = request.headers.get('X-Webhook-Secret') || '';
+  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+    return json({ error: 'Forbidden — invalid webhook secret' }, 401);
+  }
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const { token, method, ref } = body;
+  const subMethod = body.sub_method || null;
+  const amountCents = Number(body.amount_cents) || 0;
+
+  const quote = await env.DB.prepare(
+    `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
+  ).bind(id).first();
+  if (!quote) return json({ error: 'Not found' }, 404);
+  if (!quote.public_token || token !== quote.public_token) {
+    return json({ error: 'Invalid token' }, 403);
+  }
+  if (!ALLOWED_PAYMENT.includes(method)) {
+    return json({ error: `Invalid method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
+  }
+  if (!ref) return json({ error: 'Missing ref' }, 400);
+
+  // Idempotency: a replay with the same ref is a no-op ack
+  if (quote.deposit_ref) {
+    if (quote.deposit_ref === ref) {
+      return json({ ok: true, already: true, order_id: quote.converted_order_id }, 200);
+    }
+    // Different ref → a real second payment: alert owner, never double-convert
+    ctx.waitUntil(notifyDuplicateDeposit(env, id, ref, 'second payment'));
+    return json({ ok: true, duplicate: true }, 200);
+  }
+
+  // Owner already converted (e.g. cash) before this payment landed
+  if (quote.status === 'converted' || quote.status === 'archived') {
+    await env.DB.prepare(`
+      UPDATE cake_quotes SET deposit_paid_cents = ?, deposit_paid_at = datetime('now'),
+        deposit_method = ?, deposit_ref = ?, updated_at = datetime('now') WHERE id = ?
+    `).bind(amountCents, method, ref, id).run();
+    ctx.waitUntil(notifyDuplicateDeposit(env, id, ref, `quote already ${quote.status}`));
+    return json({ ok: true, duplicate: true, reason: 'already_converted' }, 200);
+  }
+
+  if (quote.quoted_price == null) return json({ error: 'Quote not priced' }, 422);
+  if (!isDepositSufficient(amountCents, quote.quoted_price)) {
+    return json({ error: 'Deposit amount below 50% minimum' }, 400);
+  }
+
+  await env.DB.prepare(`
+    UPDATE cake_quotes SET deposit_paid_cents = ?, deposit_paid_at = datetime('now'),
+      deposit_method = ?, deposit_ref = ?, updated_at = datetime('now') WHERE id = ?
+  `).bind(amountCents, method, ref, id).run();
+
+  const { orderId } = await convertQuoteToOrder(env, id, quote, {
+    depositCents: amountCents, method, subMethod, actor: 'online-deposit',
+  });
+
+  ctx.waitUntil(notifyQuoteConverted(env, id, quote.customer_name, orderId, amountCents, quote.quoted_price, method));
+  ctx.waitUntil(sendDepositConfirmationEmail(env, quote, orderId, amountCents));
+
+  return json({ ok: true, order_id: orderId }, 200);
+}
+
 function quoteItemDisplayName(item) {
   const d = (item.details && typeof item.details === 'object') ? item.details : {};
   switch (item.product_type) {
@@ -3650,6 +3730,66 @@ async function sendQuoteAutoReply(env, quote, items, includePrice) {
     });
   } catch (e) {
     console.error('sendQuoteAutoReply failed:', e);
+  }
+}
+
+async function sendDepositConfirmationEmail(env, quote, orderId, depositCents) {
+  const email = quote.email;
+  const lang = quote.language || 'es';
+  if (!email || !env.RESEND_API_KEY) return;
+
+  const isEn = lang === 'en';
+  const name = escapeHtml(quote.customer_name || '');
+  const deposit = `$${(depositCents / 100).toFixed(2)}`;
+  const balanceCents = quote.quoted_price != null ? quote.quoted_price - depositCents : null;
+
+  const subject = isEn
+    ? `Deposit received! Order #${orderId} confirmed — Muy Rico Bakery`
+    : `¡Depósito recibido! Pedido #${orderId} confirmado — Muy Rico Bakery`;
+
+  const rows = [
+    [isEn ? 'Deposit paid' : 'Depósito pagado', `<strong>${deposit}</strong>`],
+    balanceCents != null ? [isEn ? 'Balance due at pickup' : 'Restante al recoger', `$${(balanceCents / 100).toFixed(2)}`] : null,
+    quote.desired_date ? [isEn ? 'Date' : 'Fecha', escapeHtml(quote.desired_date)] : null,
+  ].filter(Boolean).map(([k, v]) =>
+    `<tr><td style="padding:10px 14px;color:#4a423d;font-size:14px;">${k}</td><td style="padding:10px 14px;text-align:right;color:#2c2523;font-size:14px;">${v}</td></tr>`
+  ).join('');
+
+  const bodyHtml = `<div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; color: #2c2523; line-height: 1.6;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" style="max-width: 160px;">
+  </div>
+  <h2 style="margin:0 0 8px;font-size:20px;">${isEn ? `Order #${orderId} confirmed` : `Pedido #${orderId} confirmado`}</h2>
+  <p style="margin:0 0 4px;">${isEn ? `Hi ${name},` : `Hola ${name}:`}</p>
+  <p style="margin:0 0 12px;">${isEn
+    ? 'Your deposit was received and your date is secured. We will reach out to confirm the final details.'
+    : 'Recibimos tu depósito y tu fecha quedó apartada. Te contactaremos para confirmar los detalles finales.'}</p>
+  <table style="width:100%;border-collapse:collapse;margin:12px 0;background:#faf7f2;border-radius:8px;">${rows}</table>
+  <p style="color:#706561;font-size:11px;margin:16px 0 0;">${isEn
+    ? 'Baked in a home kitchen not inspected by the health department (Michigan Cottage Law). May contain or come into contact with common allergens.'
+    : 'Horneado en una cocina doméstica no inspeccionada por el departamento de salud (Ley Cottage de Michigan). Puede contener alérgenos o haber tenido contacto con ellos.'}</p>
+  <hr style="border: none; border-top: 1px solid #e8dbc4; margin: 24px 0;">
+  <p style="color: #706561; font-size: 12px; text-align: center; margin: 0;">
+    Muy Rico Bakery · Holland, MI<br>${isEn ? 'Family · Tradition · Flavor' : 'Familia · Tradición · Sabor'}
+  </p>
+</div>`;
+
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + env.RESEND_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || 'orders@muy-rico.com',
+        to: email,
+        subject,
+        html: bodyHtml,
+      }),
+    });
+  } catch (e) {
+    console.error('sendDepositConfirmationEmail failed:', e);
   }
 }
 
