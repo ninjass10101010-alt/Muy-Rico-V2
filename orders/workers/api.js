@@ -114,8 +114,11 @@ export default {
       path === '/api/quotes/upload-image' && method === 'POST';
     const isPublicPaymentOptions =
       path === '/api/public/payment-options' && method === 'GET';
+    // Quote deposit read: public but token-guarded inside the handler
+    const isPublicQuoteDepositGet =
+      path.match(/^\/api\/quotes\/\d+\/payable-deposit$/) && method === 'GET';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -277,6 +280,9 @@ export default {
 
       const qem = path.match(/^\/api\/quotes\/(\d+)\/email$/);
       if (qem && method === 'POST') return await emailQuote(Number(qem[1]), env, ctx);
+
+      const qdp = path.match(/^\/api\/quotes\/(\d+)\/payable-deposit$/);
+      if (qdp && method === 'GET') return await getQuoteDepositPayable(Number(qdp[1]), request, env);
 
       const qim = path.match(/^\/api\/quotes\/(\d+)\/items$/);
       if (qim && method === 'POST') return await addQuoteItem(Number(qim[1]), request, env);
@@ -3188,6 +3194,42 @@ async function deleteQuote(id, env) {
   const r = await env.DB.prepare('DELETE FROM cake_quotes WHERE id = ?').bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
+}
+
+// ─── Quote deposit: public token-guarded read for the pay page ──────────────
+
+async function getQuoteDepositPayable(id, request, env) {
+  const url = new URL(request.url);
+  const token = url.searchParams.get('t') || '';
+  const quote = await env.DB.prepare(
+    `SELECT ${QUOTE_FIELDS.join(', ')} FROM cake_quotes WHERE id = ?`
+  ).bind(id).first();
+  if (!quote) return json({ error: 'Not found' }, 404);
+  if (!quote.public_token || token !== quote.public_token) {
+    return json({ error: 'Invalid token' }, 403);
+  }
+  if (quote.quoted_price == null) {
+    return json({ error: 'Quote not yet priced' }, 409);
+  }
+  const itemsByQuote = await getQuoteItems(env, [id]);
+  const items = (itemsByQuote[id] || []).map(i => ({
+    name: quoteItemDisplayName(i),
+    qty: quoteItemQty(i),
+  }));
+  const depositCents = depositCentsFor(quote.quoted_price);
+  return json({
+    ok: true,
+    id: quote.id,
+    customer_name: quote.customer_name,
+    total_cents: quote.quoted_price,
+    deposit_cents: depositCents,
+    balance_cents: quote.quoted_price - depositCents,
+    language: quote.language || 'es',
+    status: quote.status,
+    deposit_paid: quote.deposit_paid_at != null,
+    deposit_paid_at: quote.deposit_paid_at,
+    items,
+  }, 200);
 }
 
 function quoteItemDisplayName(item) {
