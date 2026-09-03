@@ -3318,6 +3318,133 @@ function buildQuoteDocumentHtml(quote, items, lang) {
 </div>`;
 }
 
+// Shared quote → order conversion. `quote` is a cake_quotes row (QUOTE_FIELDS).
+// `subMethod` is an optional JSON string describing the instrument (e.g. card brand/last4).
+async function convertQuoteToOrder(env, id, quote, { depositCents, method, subMethod = null, actor }) {
+  const paymentStatus = depositCents >= quote.quoted_price ? 'paid' : 'partial';
+
+  const quoteItems = (await getQuoteItems(env, [id]))[id] || [];
+  const hasItems = quoteItems.length > 0;
+  const hasCake = quoteItems.some(i => i.product_type === 'cake');
+
+  // Build flavor note: quote-level fields when a cake is involved (or legacy
+  // item-less quotes), otherwise per-item detail summaries.
+  let flavorNote;
+  if (!hasItems || hasCake) {
+    const flavorParts = [quote.cake_flavor];
+    if (quote.filling) flavorParts.push(`Filling: ${quote.filling}`);
+    if (quote.frosting) flavorParts.push(`Frosting: ${quote.frosting}`);
+    if (quote.toppings) {
+      try {
+        const tp = typeof quote.toppings === 'string' ? JSON.parse(quote.toppings) : quote.toppings;
+        if (Array.isArray(tp) && tp.length) flavorParts.push(`Toppings: ${tp.join(', ')}`);
+      } catch {}
+    }
+    flavorNote = flavorParts.join(' | ');
+  } else {
+    flavorNote = quoteItems
+      .map(i => quoteItemDetailsSummary(i.details))
+      .filter(Boolean)
+      .join(' | ');
+  }
+
+  // Build order notes — include quote reference + dietary + comments + image
+  const orderNotesParts = [
+    `From Quote #${id}`,
+    quote.dietary ? `Dietary: ${JSON.parse(typeof quote.dietary === 'string' ? quote.dietary : '[]').join(', ')}` : '',
+    quote.comments || '',
+    quote.reference_image_url ? `Ref image: ${quote.reference_image_url}` : '',
+  ].filter(Boolean);
+  if (hasItems) {
+    orderNotesParts.push('Items:');
+    for (const item of quoteItems) {
+      const detail = quoteItemDetailsSummary(item.details, ['name']);
+      orderNotesParts.push(`- ${quoteItemDisplayName(item)} ×${quoteItemQty(item)}${detail ? ` — ${detail}` : ''}`);
+    }
+  }
+  const orderNotes = orderNotesParts.join('\n');
+
+  // Create the order — single line so totals stay exact
+  let orderLine;
+  if (hasItems) {
+    const lineName = quoteItems
+      .map(i => {
+        const name = quoteItemDisplayName(i);
+        const qty = quoteItemQty(i);
+        return qty > 1 ? `${name} ×${qty}` : name;
+      })
+      .join(' + ');
+    const emoji = hasCake ? '🎂'
+      : quoteItems.some(i => i.product_type === 'cakepops') ? '🍭'
+      : quoteItems.some(i => i.product_type === 'cupcakes') ? '🧁'
+      : '✨';
+    orderLine = {
+      productId: hasCake ? 'prod_custom_cake' : null,
+      name: lineName,
+      emoji,
+      qty: 1,
+      price: quote.quoted_price / 100,
+      flavorNote,
+    };
+  } else {
+    // Legacy quotes (pre-items-table): keep the original Custom Cake line
+    orderLine = {
+      productId: 'prod_custom_cake',
+      name: 'Custom Cake',
+      emoji: '🎂',
+      qty: 1,
+      price: quote.quoted_price / 100,
+      flavorNote,
+    };
+  }
+  const itemsJson = JSON.stringify([orderLine]);
+
+  const orderResult = await env.DB.prepare(`
+    INSERT INTO orders
+      (customer_name, phone, email, pickup_date, items_json,
+       total_cents, payment_method, payment_status, status, notes,
+       created_by, source, language)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?)
+  `).bind(
+    quote.customer_name,
+    quote.phone,
+    quote.email,
+    quote.desired_date || new Date().toISOString().slice(0, 10),
+    itemsJson,
+    quote.quoted_price,
+    method,
+    paymentStatus,
+    orderNotes,
+    actor,
+    quote.language || 'es',
+  ).run();
+
+  const orderId = orderResult.meta.last_row_id;
+
+  // Record deposit payment
+  const payId = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await env.DB.prepare(`
+    UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1
+  `).bind(orderId).run();
+  await env.DB.prepare(`
+    INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+  `).bind(payId, orderId, quote.customer_name, depositCents / 100, method, subMethod).run();
+
+  // Log event
+  await env.DB.prepare(`
+    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
+  `).bind(orderId, actor).run();
+
+  // Update quote
+  await env.DB.prepare(`
+    UPDATE cake_quotes SET status = 'converted', converted_order_id = ?,
+      updated_at = datetime('now') WHERE id = ?
+  `).bind(orderId, id).run();
+
+  return { orderId, paymentStatus };
+}
+
 async function convertQuote(id, request, env, ctx, actor) {
   try {
     const body = await request.json();
@@ -3334,7 +3461,7 @@ async function convertQuote(id, request, env, ctx, actor) {
     }
 
     const depositCents = Number(body.deposit_amount_cents) || 0;
-    const minDeposit = Math.ceil(quote.quoted_price * 0.5);
+    const minDeposit = depositCentsFor(quote.quoted_price);
     if (depositCents < minDeposit) {
       return json({
         error: `Deposit must be at least 50% of quoted price ($${(minDeposit / 100).toFixed(2)})`,
@@ -3347,129 +3474,10 @@ async function convertQuote(id, request, env, ctx, actor) {
       }, 400);
     }
 
-    const isFullPayment = depositCents >= quote.quoted_price;
-    const paymentStatus = isFullPayment ? 'paid' : 'partial';
+    const { orderId, paymentStatus } = await convertQuoteToOrder(env, id, quote, {
+      depositCents, method: body.payment_method, actor,
+    });
 
-    const quoteItems = (await getQuoteItems(env, [id]))[id] || [];
-    const hasItems = quoteItems.length > 0;
-    const hasCake = quoteItems.some(i => i.product_type === 'cake');
-
-    // Build flavor note: quote-level fields when a cake is involved (or legacy
-    // item-less quotes), otherwise per-item detail summaries.
-    let flavorNote;
-    if (!hasItems || hasCake) {
-      const flavorParts = [quote.cake_flavor];
-      if (quote.filling) flavorParts.push(`Filling: ${quote.filling}`);
-      if (quote.frosting) flavorParts.push(`Frosting: ${quote.frosting}`);
-      if (quote.toppings) {
-        try {
-          const tp = typeof quote.toppings === 'string' ? JSON.parse(quote.toppings) : quote.toppings;
-          if (Array.isArray(tp) && tp.length) flavorParts.push(`Toppings: ${tp.join(', ')}`);
-        } catch {}
-      }
-      flavorNote = flavorParts.join(' | ');
-    } else {
-      flavorNote = quoteItems
-        .map(i => quoteItemDetailsSummary(i.details))
-        .filter(Boolean)
-        .join(' | ');
-    }
-
-    // Build order notes — include quote reference + dietary + comments + image
-    const orderNotesParts = [
-      `From Quote #${id}`,
-      quote.dietary ? `Dietary: ${JSON.parse(typeof quote.dietary === 'string' ? quote.dietary : '[]').join(', ')}` : '',
-      quote.comments || '',
-      quote.reference_image_url ? `Ref image: ${quote.reference_image_url}` : '',
-    ].filter(Boolean);
-    if (hasItems) {
-      orderNotesParts.push('Items:');
-      for (const item of quoteItems) {
-        const detail = quoteItemDetailsSummary(item.details, ['name']);
-        orderNotesParts.push(`- ${quoteItemDisplayName(item)} ×${quoteItemQty(item)}${detail ? ` — ${detail}` : ''}`);
-      }
-    }
-    const orderNotes = orderNotesParts.join('\n');
-
-    // Create the order — single line so totals stay exact
-    let orderLine;
-    if (hasItems) {
-      const lineName = quoteItems
-        .map(i => {
-          const name = quoteItemDisplayName(i);
-          const qty = quoteItemQty(i);
-          return qty > 1 ? `${name} ×${qty}` : name;
-        })
-        .join(' + ');
-      const emoji = hasCake ? '🎂'
-        : quoteItems.some(i => i.product_type === 'cakepops') ? '🍭'
-        : quoteItems.some(i => i.product_type === 'cupcakes') ? '🧁'
-        : '✨';
-      orderLine = {
-        productId: hasCake ? 'prod_custom_cake' : null,
-        name: lineName,
-        emoji,
-        qty: 1,
-        price: quote.quoted_price / 100,
-        flavorNote,
-      };
-    } else {
-      // Legacy quotes (pre-items-table): keep the original Custom Cake line
-      orderLine = {
-        productId: 'prod_custom_cake',
-        name: 'Custom Cake',
-        emoji: '🎂',
-        qty: 1,
-        price: quote.quoted_price / 100,
-        flavorNote,
-      };
-    }
-    const itemsJson = JSON.stringify([orderLine]);
-
-    const orderResult = await env.DB.prepare(`
-      INSERT INTO orders
-        (customer_name, phone, email, pickup_date, items_json,
-         total_cents, payment_method, payment_status, status, notes,
-         created_by, source, language)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?)
-    `).bind(
-      quote.customer_name,
-      quote.phone,
-      quote.email,
-      quote.desired_date || new Date().toISOString().slice(0, 10),
-      itemsJson,
-      quote.quoted_price,
-      body.payment_method,
-      paymentStatus,
-      orderNotes,
-      actor,
-      quote.language || 'es',
-    ).run();
-
-    const orderId = orderResult.meta.last_row_id;
-
-    // Record deposit payment
-    const payId = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await env.DB.prepare(`
-      UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1
-    `).bind(orderId).run();
-    await env.DB.prepare(`
-      INSERT INTO payments (id, order_id, customer_name, amount, method, date)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).bind(payId, orderId, quote.customer_name, depositCents / 100, body.payment_method).run();
-
-    // Log event
-    await env.DB.prepare(`
-      INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
-    `).bind(orderId, actor).run();
-
-    // Update quote
-    await env.DB.prepare(`
-      UPDATE cake_quotes SET status = 'converted', converted_order_id = ?,
-        updated_at = datetime('now') WHERE id = ?
-    `).bind(orderId, id).run();
-
-    // Notify
     ctx.waitUntil(notifyQuoteConverted(env, id, quote.customer_name, orderId, depositCents, quote.quoted_price, body.payment_method));
 
     return json({ ok: true, order_id: orderId, payment_status: paymentStatus }, 201);
