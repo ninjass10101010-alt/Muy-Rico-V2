@@ -66,6 +66,9 @@ import { validatePickupDate, pickupChangeEvent } from './order-date.js';
 import { validateOrderItems, computeOrderTotals } from './order-edit-lib.js';
 import { rewriteRecipeForGroup } from './groups-lib.js';
 import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel } from './receipt-html.js';
+import {
+  depositCentsFor, isDepositSufficient, buildPayUrl, generateQuoteToken,
+} from './quote-deposit-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -2729,6 +2732,7 @@ const QUOTE_FIELDS = [
   'comments', 'desired_date', 'budget',
   'quoted_price', 'admin_notes', 'converted_order_id',
   'inspiration',
+  'public_token', 'deposit_paid_cents', 'deposit_paid_at', 'deposit_method', 'deposit_ref',
   'created_at', 'updated_at',
 ];
 
@@ -2848,13 +2852,15 @@ async function createQuote(request, env, ctx, actor) {
 
     const status = isAdmin && quotedPrice != null ? 'replied' : 'new';
 
+    const publicToken = generateQuoteToken();
+
     const result = await env.DB.prepare(`
       INSERT INTO cake_quotes
         (customer_name, email, phone, language, occasion, serving_size,
          cake_flavor, filling, frosting, toppings, dietary,
          reference_image_url, comments, desired_date, budget, inspiration,
-         quoted_price, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         quoted_price, status, public_token)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       body.customer_name.trim(),
       body.email.trim().toLowerCase(),
@@ -2874,6 +2880,7 @@ async function createQuote(request, env, ctx, actor) {
       inspirationJson,
       quotedPrice,
       status,
+      publicToken,
     ).run();
 
     const quoteId = result.meta.last_row_id;
@@ -2907,6 +2914,7 @@ async function createQuote(request, env, ctx, actor) {
           customer_name: body.customer_name,
           occasion: body.occasion || null,
           desired_date: body.desired_date || null,
+          public_token: publicToken,
         };
         ctx.waitUntil(sendQuoteAutoReply(env, quoteRow, itemsForEmail, true));
         ctx.waitUntil(notifyQuoteReplied(env, quoteId, body.customer_name, quotedPrice));
