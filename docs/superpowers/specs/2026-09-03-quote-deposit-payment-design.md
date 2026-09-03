@@ -95,7 +95,7 @@ async function convertQuoteToOrder({ env, id, quote, depositCents, method, actor
 // → { orderId, paymentStatus }
 ```
 
-Contains unchanged: items fetch, flavor note, order notes, single-line order insert (`status 'pending'`, `source 'website'`), payments row insert, `order:created` event, quote → `converted` + `converted_order_id` update. The HTTP `convertQuote` handler keeps its own guards (already-converted, price set, min deposit, ALLOWED_PAYMENT) then calls it — zero behavior change for the manual flow.
+Contains unchanged: items fetch, flavor note, order notes, single-line order insert (`status 'pending'`, `source 'website'`), `order:created` event, quote → `converted` + `converted_order_id` update. One deliberate extension: the payments row insert gains the existing `method_details` column (same insert shape `markOrderPaid` uses) so online deposits record card brand/last4; the manual path passes `null` (identical to today, which omits the column). The HTTP `convertQuote` handler keeps its own guards (already-converted, price set, min deposit, ALLOWED_PAYMENT) then calls it — zero behavior change for the manual flow.
 
 ### 2f. New internal endpoint — `GET /api/quotes/:id/payable-deposit?t=<token>`
 
