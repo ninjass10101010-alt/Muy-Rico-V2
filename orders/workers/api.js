@@ -95,6 +95,8 @@ export default {
     const isPublicProductGet =
       (path === '/api/products' || path.match(/^\/api\/products\/[^/]+$/)) && method === 'GET';
     const isPublicGalleryGet = path === '/api/gallery' && method === 'GET';
+    // Public read-only homepage slideshow slides
+    const isPublicSlideshowGet = path === '/api/slideshow' && method === 'GET';
     // Public read-only homepage content (photos, visit info, published testimonials)
     const isPublicSiteGet = path === '/api/site' && method === 'GET';
     // Internal mark-paid endpoint: public (no Cloudflare Access) but authenticated
@@ -121,7 +123,7 @@ export default {
     const isPublicQuoteDepositPaid =
       path.match(/^\/api\/quotes\/\d+\/deposit-paid$/) && method === 'POST';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSlideshowGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -219,6 +221,17 @@ export default {
         const id = gm[1];
         if (method === 'PATCH')  return await updateGalleryPhoto(id, request, env, actorName);
         if (method === 'DELETE') return await deleteGalleryPhoto(id, env, actorName);
+      }
+
+      if (path === '/api/slideshow' && method === 'GET') return await listSlideshow(env);
+      if (path === '/api/slideshow/all' && method === 'GET') return await listSlideshowAdmin(env);
+      if (path === '/api/slideshow' && method === 'POST') return await createSlideshowSlide(request, env, actorName);
+
+      const sm = path.match(/^\/api\/slideshow\/([A-Za-z0-9_-]+)$/);
+      if (sm) {
+        const id = sm[1];
+        if (method === 'PATCH')  return await updateSlideshowSlide(id, request, env, actorName);
+        if (method === 'DELETE') return await deleteSlideshowSlide(id, env);
       }
 
       if (path === '/api/site' && method === 'GET') return await getSiteContent(env);
@@ -1585,6 +1598,98 @@ async function updateGalleryPhoto(id, request, env, actor) {
 async function deleteGalleryPhoto(id, env, actor) {
   const r = await env.DB.prepare(
     `DELETE FROM gallery WHERE id = ?`
+  ).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// ─── Homepage slideshow (owner-managed, independent of products) ──────────
+
+const SLIDESHOW_FIELDS = [
+  'title', 'title_es', 'description', 'description_es', 'image_url', 'active', 'display_order',
+];
+
+function mapSlideshowRow(r) {
+  return {
+    id: r.id,
+    title: r.title,
+    title_es: r.title_es,
+    description: r.description,
+    description_es: r.description_es,
+    image_url: r.image_url,
+    active: Boolean(r.active),
+    display_order: Number(r.display_order) || 0,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+async function listSlideshow(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM slideshow_slides
+    WHERE active = 1
+    ORDER BY display_order ASC, created_at ASC
+  `).all();
+  return json({ slides: (results || []).map(mapSlideshowRow) }, 200);
+}
+
+async function listSlideshowAdmin(env) {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM slideshow_slides
+    ORDER BY display_order ASC, created_at ASC
+  `).all();
+  return json({ slides: (results || []).map(mapSlideshowRow) }, 200);
+}
+
+async function createSlideshowSlide(request, env, actor) {
+  const body = await request.json();
+  if (!body.title || !body.image_url) {
+    return json({ error: 'Missing required fields: title, image_url' }, 400);
+  }
+  const id = body.id || `sld_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  try {
+    await env.DB.prepare(`
+      INSERT INTO slideshow_slides (id, title, title_es, description, description_es, image_url, active, display_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      id,
+      body.title,
+      body.title_es || null,
+      body.description || null,
+      body.description_es || null,
+      body.image_url,
+      body.active === false ? 0 : 1,
+      Number(body.display_order) || 0,
+    ).run();
+  } catch (err) {
+    return json({ error: String(err) }, 400);
+  }
+  return json({ ok: true, id }, 201);
+}
+
+async function updateSlideshowSlide(id, request, env, actor) {
+  const body = await request.json();
+  const sets = [];
+  const binds = [];
+  for (const f of SLIDESHOW_FIELDS) {
+    if (body[f] === undefined) continue;
+    let val = body[f];
+    if (f === 'active') val = val ? 1 : 0;
+    if (f === 'display_order') val = Number(val) || 0;
+    sets.push(`${f} = ?`);
+    binds.push(val);
+  }
+  if (!sets.length) return json({ error: 'Nothing to update' }, 400);
+  sets.push("updated_at = datetime('now')");
+  binds.push(id);
+  const r = await env.DB.prepare(`UPDATE slideshow_slides SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+async function deleteSlideshowSlide(id, env) {
+  const r = await env.DB.prepare(
+    `DELETE FROM slideshow_slides WHERE id = ?`
   ).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
