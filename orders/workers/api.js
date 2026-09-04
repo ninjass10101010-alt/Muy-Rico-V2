@@ -3381,13 +3381,14 @@ function buildQuoteDocumentHtml(quote, items, lang) {
   }).join('\n');
 
   let priceBlock;
+  let payButton = '';
   if (quote.quoted_price == null) {
     priceBlock = `<p style="color:#8a6d3b;font-size:14px;margin:16px 0 0;">${isEn
       ? 'Price pending — we will confirm your quote shortly.'
       : 'Precio por confirmar — te enviaremos tu cotización en breve.'}</p>`;
   } else {
     const totalCents = Number(quote.quoted_price);
-    const depositCents = Math.ceil(totalCents * 0.5);
+    const depositCents = depositCentsFor(totalCents);
     const balanceCents = totalCents - depositCents;
     priceBlock = `
       <table style="width:100%;border-collapse:collapse;margin-top:16px;background:#faf7f2;border-radius:8px;">
@@ -3404,11 +3405,15 @@ function buildQuoteDocumentHtml(quote, items, lang) {
           <td style="padding:8px 14px 12px;text-align:right;color:#4a423d;font-size:13px;">$${(balanceCents / 100).toFixed(2)}</td>
         </tr>
       </table>`;
+    if (quote.public_token) {
+      payButton = `
+  <a href="${buildPayUrl(quote.id, quote.public_token)}" style="display:block;background:#2d7a46;color:#fff;text-align:center;padding:14px;border-radius:8px;font-size:16px;font-weight:600;text-decoration:none;margin:16px 0 4px;">${isEn ? `Pay 50% Deposit — $${(depositCents / 100).toFixed(2)}` : `Pagar depósito (50%) — $${(depositCents / 100).toFixed(2)}`}</a>`;
+    }
   }
 
   const proceedLine = isEn
-    ? 'To move forward, reply to this email or call us and we will set up your deposit.'
-    : 'Para proceder, responde a este correo o llámanos y con gusto apartamos tu fecha.';
+    ? 'Pay your deposit online above to secure your date — or reply to this email / call us and we will set it up for you.'
+    : 'Paga tu depósito en línea arriba para apartar tu fecha — o responde a este correo / llámanos y con gusto te ayudamos.';
   const disclaimer = isEn
     ? 'Baked in a home kitchen not inspected by the health department (Michigan Cottage Law). May contain or come into contact with common allergens.'
     : 'Horneado en una cocina doméstica no inspeccionada por el departamento de salud (Ley Cottage de Michigan). Puede contener alérgenos o haber tenido contacto con ellos.';
@@ -3430,6 +3435,7 @@ function buildQuoteDocumentHtml(quote, items, lang) {
     <tbody>${rows || ''}</tbody>
   </table>
   ${priceBlock}
+  ${payButton}
   <p style="font-size:14px;margin:20px 0 0;">${proceedLine}</p>
   <p style="color:#706561;font-size:11px;margin:16px 0 0;">${disclaimer}</p>
   <hr style="border: none; border-top: 1px solid #e8dbc4; margin: 24px 0;">
