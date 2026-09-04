@@ -943,38 +943,78 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
 .cta-band {
   background: var(--forest);
   color: var(--cream);
-  text-align: center;
-  padding: clamp(4rem, 8vw, 6rem) var(--gutter);
+  padding: var(--section-pad) var(--gutter);
   position: relative;
   overflow: hidden;
 }
-.cta-band .engraving { opacity: 0.16; }
-.cta-band-eyebrow {
-  justify-content: center;
-  color: rgba(250, 246, 236, 0.72);
+.cta-band .engraving { opacity: 0.14; }
+.cta-band-leaf { left: auto; }
+.cta-band-inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--shell-max);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(2.5rem, 6vw, 5rem);
 }
+.cta-band-copy {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(250, 246, 236, 0.22);
+  border-radius: var(--r-widget);
+  padding: clamp(1.75rem, 3.5vw, 3rem);
+}
+.cta-band-eyebrow { color: rgba(250, 246, 236, 0.72); }
 .cta-band-eyebrow::before, .cta-band-eyebrow::after { background: rgba(250, 246, 236, 0.35); }
 .cta-band-title {
   font-family: var(--font-serif);
-  font-size: clamp(2.2rem, 4.6vw, 3.6rem);
+  font-size: clamp(2.1rem, 4.2vw, 3.3rem);
   font-weight: 500;
-  line-height: 1.1;
-  margin: 1.2rem auto 0;
-  max-width: 700px;
+  line-height: 1.12;
+  margin-top: 1.2rem;
+  text-wrap: balance;
 }
 .cta-band-title .es-italic { font-style: italic; color: #E8D9BE; }
 .cta-band-sub {
   font-size: 0.98rem;
   color: rgba(250, 246, 236, 0.75);
-  max-width: 460px;
-  margin: 1.2rem auto 2.2rem;
+  max-width: 46ch;
+  margin: 1.1rem 0 2rem;
   line-height: 1.7;
 }
 .cta-band .btn-forest { background: var(--cream); color: var(--forest); }
 .cta-band .btn-forest:hover { background: #fff; }
 .cta-band .btn-ghost { color: var(--cream); border-color: rgba(250, 246, 236, 0.4); }
 .cta-band .btn-ghost:hover { border-color: var(--cream); background: rgba(250, 246, 236, 0.08); }
-.cta-band-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.cta-band-ctas { display: flex; gap: 1rem; flex-wrap: wrap; }
+.cta-band-photo {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 1.5rem;
+}
+.cta-band-photo .frame {
+  background: transparent;
+  border-color: rgba(250, 246, 236, 0.22);
+}
+.cta-band-photo .frame-img {
+  object-position: center 42%;
+}
+.cta-band-photo-caption {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.92rem;
+  color: rgba(250, 246, 236, 0.66);
+  padding-top: 0.7rem;
+  text-align: center;
+  line-height: 1.4;
+}
+
+@media (max-width: 860px) {
+  .cta-band-inner { grid-template-columns: 1fr; }
+  .cta-band-photo { max-width: 480px; margin: 0 auto; }
+}
 
 /* Legacy dark order CTA section → CTA band styles */
 .order-section {
