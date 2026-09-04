@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Depósito — Muy Rico Bakery</title>
+<link rel="icon" href="/qr_muy_rico.png">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 32px 16px; color: #2c2523; }
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 32px 28px; max-width: 460px; width: 100%; }
+  .logo { display: block; margin: 0 auto 16px; max-width: 140px; }
+  h1 { font-size: 22px; margin: 0 0 4px; text-align: center; }
+  .sub { text-align: center; color: #706561; font-size: 14px; margin: 0 0 20px; }
+  .lang { text-align: center; margin-bottom: 16px; font-size: 12px; }
+  .lang button { border: 0; border-radius: 4px; padding: 4px 12px; margin: 0 2px; font-size: 12px; font-weight: 600; cursor: pointer; background: #e3dcd2; color: #4a423d; }
+  .lang button.on { background: #1e4636; color: #fff; }
+  table.items { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  table.items td { padding: 8px; border-bottom: 1px solid #f0e9dc; font-size: 14px; }
+  table.items td:last-child { text-align: center; white-space: nowrap; color: #706561; }
+  table.totals { width: 100%; border-collapse: collapse; background: #faf7f2; border-radius: 8px; margin: 16px 0 20px; }
+  table.totals td { padding: 10px 14px; font-size: 14px; color: #4a423d; }
+  table.totals td:last-child { text-align: right; }
+  table.totals tr.hi td { font-weight: 700; color: #2c2523; font-size: 15px; }
+  .btn-pay { display: block; width: 100%; border: 0; border-radius: 8px; padding: 14px; font-size: 16px; font-weight: 700; background: #2d7a46; color: #fff; cursor: pointer; margin-bottom: 14px; }
+  .btn-pay:disabled { opacity: .6; cursor: default; }
+  .divider { text-align: center; color: #8a8078; font-size: 12px; margin: 4px 0 12px; text-transform: uppercase; letter-spacing: .05em; }
+  #paypal-area { min-height: 44px; }
+  .msg { text-align: center; padding: 8px 0 0; }
+  .msg.ok h1 { color: #2d7a46; }
+  .msg.err h1 { color: #c0392b; }
+  .muted { color: #706561; font-size: 13px; line-height: 1.5; }
+  .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid #e3dcd2; border-top-color: #2d7a46; border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -3px; margin-right: 6px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .foot { text-align: center; color: #706561; font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <img class="logo" src="/muy_rico_logo_transparent.webp" alt="Muy Rico Bakery">
+  <div class="lang" id="langBar" style="display:none">
+    <button id="btnEn" type="button">EN</button>
+    <button id="btnEs" type="button">ES</button>
+  </div>
+  <div id="app"><p class="msg muted"><span class="spin"></span><span id="loadingTxt">Cargando…</span></p></div>
+  <div class="foot">Muy Rico Bakery · Holland, MI</div>
+</div>
+
+<script>
+'use strict';
+
+const WORKER = 'https://muy-rico-checkout.bexgarcia0208.workers.dev';
+const params = new URLSearchParams(location.search);
+const QUOTE_ID = params.get('quote') || '';
+const TOKEN = params.get('t') || '';
+const PAID_FLAG = params.get('paid') === 'stripe';
+
+const STR = {
+  en: {
+    loading: 'Loading…', hi: (n) => `Hi ${n},`, quoteHash: (id) => `Quote #${id}`,
+    total: 'Total', deposit: 'Deposit due now (50%)', balance: 'Balance at pickup',
+    payCard: (amt) => `Pay ${amt} by Card`, or: 'or', confirming: 'Confirming your payment…',
+    confirmLong: 'Still confirming — you will receive a confirmation email shortly.',
+    successT: 'Deposit received!', successB: 'Your date is secured. We just emailed your confirmation — see you soon!',
+    alreadyT: 'Deposit already received', alreadyB: 'Thank you! This quote is already paid — no further action needed.',
+    invalidT: 'Link not available', invalidB: 'This payment link is invalid or no longer active. Please contact us and we will help you.',
+    errPay: 'Payment could not be completed. Please try again or contact us.',
+  },
+  es: {
+    loading: 'Cargando…', hi: (n) => `Hola ${n},`, quoteHash: (id) => `Cotización #${id}`,
+    total: 'Total', deposit: 'Depósito a pagar ahora (50%)', balance: 'Restante al recoger',
+    payCard: (amt) => `Pagar ${amt} con tarjeta`, or: 'o', confirming: 'Confirmando tu pago…',
+    confirmLong: 'Seguimos confirmando — recibirás un correo de confirmación en breve.',
+    successT: '¡Depósito recibido!', successB: 'Tu fecha quedó apartada. Acabamos de enviarte la confirmación — ¡hasta pronto!',
+    alreadyT: 'Depósito ya recibido', alreadyB: '¡Gracias! Esta cotización ya fue pagada — no necesitas hacer nada más.',
+    invalidT: 'Enlace no disponible', invalidB: 'Este enlace de pago no es válido o ya no está activo. Contáctanos y con gusto te ayudamos.',
+    errPay: 'No se pudo completar el pago. Intenta de nuevo o contáctanos.',
+  },
+};
+let lang = 'es';
+let quote = null; // payable payload
+const t = () => STR[lang];
+const money = (c) => '$' + (Number(c) / 100).toFixed(2);
+
+function setLang(l) { lang = l; document.documentElement.lang = l; render(); paintLangButtons(); }
+function paintLangButtons() {
+  const bar = document.getElementById('langBar');
+  bar.style.display = '';
+  document.getElementById('btnEn').className = lang === 'en' ? 'on' : '';
+  document.getElementById('btnEs').className = lang === 'es' ? 'on' : '';
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = String(s ?? ''); return d.innerHTML; }
+
+function render() {
+  const app = document.getElementById('app');
+  const s = t();
+  if (state === 'loading') {
+    app.innerHTML = `<p class="msg muted"><span class="spin"></span>${esc(s.loading)}</p>`;
+  } else if (state === 'invalid') {
+    app.innerHTML = `<div class="msg err"><h1>${esc(s.invalidT)}</h1><p class="muted">${esc(s.invalidB)}</p></div>`;
+  } else if (state === 'already') {
+    app.innerHTML = `<div class="msg ok"><h1>${esc(s.alreadyT)}</h1><p class="muted">${esc(s.alreadyB)}</p></div>`;
+  } else if (state === 'confirming') {
+    app.innerHTML = `<p class="msg muted"><span class="spin"></span>${esc(s.confirming)}</p>`;
+  } else if (state === 'confirm-timeout') {
+    app.innerHTML = `<div class="msg ok"><h1>✓</h1><p class="muted">${esc(s.confirmLong)}</p></div>`;
+  } else if (state === 'success') {
+    app.innerHTML = `<div class="msg ok"><h1>${esc(s.successT)}</h1><p class="muted">${esc(s.successB)}</p></div>`;
+  } else if (state === 'pay-error') {
+    app.innerHTML = `<div class="msg err"><p class="muted">${esc(s.errPay)}</p></div>` + payBody();
+    wirePayButtons();
+  } else if (state === 'payable') {
+    app.innerHTML = payBody();
+    wirePayButtons();
+  }
+}
+
+function payBody() {
+  const s = t();
+  const itemsRows = (quote.items || []).map(i =>
+    `<tr><td>${esc(i.name)}</td><td>×${esc(i.qty)}</td></tr>`).join('');
+  return `
+    <h1>${esc(s.quoteHash(quote.id))}</h1>
+    <p class="sub">${esc(s.hi(quote.customer_name))}</p>
+    ${itemsRows ? `<table class="items">${itemsRows}</table>` : ''}
+    <table class="totals">
+      <tr><td>${esc(s.total)}</td><td>${money(quote.total_cents)}</td></tr>
+      <tr class="hi"><td>${esc(s.deposit)}</td><td>${money(quote.deposit_cents)}</td></tr>
+      <tr><td>${esc(s.balance)}</td><td>${money(quote.balance_cents)}</td></tr>
+    </table>
+    <button class="btn-pay" id="btnCard">${esc(s.payCard(money(quote.deposit_cents)))}</button>
+    <div class="divider">${esc(s.or)}</div>
+    <div id="paypal-area"></div>`;
+}
+
+let state = 'loading';
+
+async function loadQuote() {
+  const res = await fetch(`${WORKER}/quote/${encodeURIComponent(QUOTE_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
+  if (!res.ok) { state = 'invalid'; render(); return; }
+  quote = await res.json();
+  setLangSilently(quote.language === 'en' ? 'en' : 'es');
+  if (quote.deposit_paid || quote.status === 'converted') { state = 'already'; }
+  else if (quote.status === 'archived') { state = 'invalid'; }
+  else if (PAID_FLAG) { state = 'confirming'; pollForPaid(); }
+  else { state = 'payable'; }
+  render();
+}
+function setLangSilently(l) { lang = l; document.documentElement.lang = l; }
+
+async function pollForPaid() {
+  for (let i = 0; i < 12; i++) {
+    await new Promise(r => setTimeout(r, 2500));
+    try {
+      const res = await fetch(`${WORKER}/quote/${encodeURIComponent(QUOTE_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
+      if (res.ok) {
+        const q = await res.json();
+        if (q.deposit_paid) { state = 'success'; render(); return; }
+      }
+    } catch { /* keep polling */ }
+  }
+  state = 'confirm-timeout'; render();
+}
+
+function wirePayButtons() {
+  document.getElementById('btnCard').addEventListener('click', payByCard);
+  renderPayPal();
+}
+
+async function payByCard() {
+  const btn = document.getElementById('btnCard');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${WORKER}/quote-deposit/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: Number(QUOTE_ID), token: TOKEN, origin: location.origin }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed');
+    window.location = data.url;
+  } catch (e) {
+    console.error(e);
+    state = 'pay-error'; render();
+  }
+}
+
+let paypalScriptReady = null; // cached script-load promise (SDK may only be injected once)
+async function renderPayPal() {
+  try {
+    if (!window.paypal) {
+      if (!paypalScriptReady) {
+        paypalScriptReady = (async () => {
+          const cfg = await (await fetch(`${WORKER}/paypal-client-id`)).json();
+          if (!cfg.clientId) throw new Error('no paypal client id');
+          await loadScript(`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(cfg.clientId)}&currency=USD&intent=capture`);
+        })();
+      }
+      await paypalScriptReady;
+    }
+    window.paypal.Buttons({
+      createOrder: (_data, actions) => actions.order.create({
+        purchase_units: [{
+          amount: { value: money(quote.deposit_cents) },
+          custom_id: `q${quote.id}:${TOKEN}`,
+        }],
+      }),
+      onApprove: async (data) => {
+        try {
+          state = 'confirming'; render();
+          const res = await fetch(`${WORKER}/quote-deposit/paypal-capture`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: quote.id, token: TOKEN, paypalOrderId: data.orderID }),
+          });
+          if (!res.ok) throw new Error('capture failed');
+          state = 'success'; render();
+        } catch (e) {
+          console.error(e);
+          state = 'pay-error'; render();
+        }
+      },
+      onError: (err) => { console.error(err); state = 'pay-error'; render(); },
+    }).render('#paypal-area');
+  } catch (e) {
+    console.error('paypal render failed', e);
+  }
+}
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src; el.onload = resolve; el.onerror = reject;
+    document.head.appendChild(el);
+  });
+}
+
+document.getElementById('btnEn').addEventListener('click', () => setLang('en'));
+document.getElementById('btnEs').addEventListener('click', () => setLang('es'));
+
+if (!QUOTE_ID || !TOKEN) { state = 'invalid'; }
+render();
+if (state !== 'invalid') loadQuote();
+paintLangButtons();
+</script>
+</body>
+</html>
