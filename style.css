@@ -1011,6 +1011,57 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   line-height: 1.4;
 }
 
+/* CTA band slideshow (progressive enhancement over the static photo) */
+.cta-band-slides .slide-well {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--r-widget) - 8px);
+  overflow: hidden;
+}
+.cta-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.cta-slide.is-active { opacity: 1; }
+.cta-band-dots {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 0.85rem 0 0;
+}
+.cta-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(250, 246, 236, 0.35);
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+.cta-dot:hover { background: rgba(250, 246, 236, 0.6); }
+.cta-dot.is-active { background: var(--cream); transform: scale(1.25); }
+.cta-slide-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+.cta-slide-desc {
+  display: block;
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-size: 0.78rem;
+  color: rgba(250, 246, 236, 0.55);
+  line-height: 1.5;
+  margin-top: 0.15rem;
+}
+
 @media (max-width: 860px) {
   .cta-band-inner { grid-template-columns: 1fr; }
   .cta-band-photo { max-width: 480px; margin: 0 auto; }
