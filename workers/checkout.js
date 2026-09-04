@@ -358,11 +358,14 @@ async function handlePayPalWebhook(request, env) {
     }
     const quoteRef = parseQuoteCustomId(orderId);
     if (quoteRef) {
+      // Only CAPTURE.COMPLETED moves money for quotes. CHECKOUT.ORDER.APPROVED carries
+      // the ORDER id as resource.id while the capture uses the CAPTURE id — treating both
+      // as paid would trigger false duplicate alerts (or record an uncaptured approval).
+      if (event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+        return json({ received: true });
+      }
       const qSubMethod = await extractPayPalWebhookSubMethod(event, env);
-      const qAmountCents = Math.round(parseFloat(
-        resource.amount?.value ||
-        resource.purchase_units?.[0]?.amount?.value || "0"
-      ) * 100);
+      const qAmountCents = Math.round(parseFloat(resource.amount?.value || "0") * 100);
       const ok = await markQuoteDepositPaid(env, {
         id: quoteRef.id, token: quoteRef.token, method: "paypal",
         subMethod: qSubMethod, ref: resource.id || String(orderId), amountCents: qAmountCents,
@@ -597,7 +600,8 @@ async function handleQuoteDepositCheckout(request, env) {
   const { quote, err } = await loadPayableQuote(env, id, token);
   if (err) return err;
 
-  const base = origin || "https://muy-rico.com";
+  const ALLOWED_ORIGINS = ["https://muy-rico.com", "https://www.muy-rico.com", "https://muyrico.bexgarcia0208.workers.dev"];
+  const base = ALLOWED_ORIGINS.includes(origin) ? origin : "https://muy-rico.com";
   const pageUrl = `${base}/pay-quote.html?quote=${id}&t=${encodeURIComponent(token)}`;
   const params = new URLSearchParams();
   params.append("line_items[0][price_data][currency]", "usd");

@@ -3242,7 +3242,7 @@ async function notifyDuplicateDeposit(env, id, ref, why) {
   const msg = `⚠️ Duplicate deposit payment on Quote #${id} (ref ${ref} — ${why}) — refund needed`;
   console.warn(msg);
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
-    notifyTelegram(env, msg);
+    return notifyTelegram(env, msg);
   }
 }
 
@@ -3275,6 +3275,17 @@ async function quoteDepositPaid(id, request, env, ctx) {
   // Idempotency: a replay with the same ref is a no-op ack
   if (quote.deposit_ref) {
     if (quote.deposit_ref === ref) {
+      // Crash-heal: deposit recorded but the conversion never ran → complete it now
+      if (quote.converted_order_id == null
+          && quote.status !== 'converted' && quote.status !== 'archived'
+          && quote.quoted_price != null && isDepositSufficient(amountCents, quote.quoted_price)) {
+        const healed = await convertQuoteToOrder(env, id, quote, {
+          depositCents: amountCents, method, subMethod, actor: 'online-deposit',
+        });
+        ctx.waitUntil(notifyQuoteConverted(env, id, quote.customer_name, healed.orderId, amountCents, quote.quoted_price, method));
+        ctx.waitUntil(sendDepositConfirmationEmail(env, quote, healed.orderId, amountCents));
+        return json({ ok: true, healed: true, order_id: healed.orderId }, 200);
+      }
       return json({ ok: true, already: true, order_id: quote.converted_order_id }, 200);
     }
     // Different ref → a real second payment: alert owner, never double-convert
@@ -3294,13 +3305,37 @@ async function quoteDepositPaid(id, request, env, ctx) {
 
   if (quote.quoted_price == null) return json({ error: 'Quote not priced' }, 422);
   if (!isDepositSufficient(amountCents, quote.quoted_price)) {
-    return json({ error: 'Deposit amount below 50% minimum' }, 400);
+    // Provider-signed but below the 50% minimum (e.g. price raised after the checkout
+    // session was created). The money moved: record it + alert instead of returning 400
+    // (a 400 would retry forever and still never surface the payment anywhere).
+    await env.DB.prepare(`
+      UPDATE cake_quotes SET deposit_paid_cents = ?, deposit_paid_at = datetime('now'),
+        deposit_method = ?, deposit_ref = ?, updated_at = datetime('now') WHERE id = ?
+    `).bind(amountCents, method, ref, id).run();
+    ctx.waitUntil(notifyDuplicateDeposit(env, id, ref, `below 50% minimum ($${(amountCents / 100).toFixed(2)} paid) — reconcile or refund`));
+    return json({ ok: true, duplicate: true, reason: 'insufficient_amount' }, 200);
   }
 
-  await env.DB.prepare(`
+  // Atomic claim: only the first writer wins (guards against concurrent first payments)
+  const claim = await env.DB.prepare(`
     UPDATE cake_quotes SET deposit_paid_cents = ?, deposit_paid_at = datetime('now'),
-      deposit_method = ?, deposit_ref = ?, updated_at = datetime('now') WHERE id = ?
+      deposit_method = ?, deposit_ref = ?, updated_at = datetime('now')
+    WHERE id = ? AND deposit_ref IS NULL AND status NOT IN ('converted','archived')
   `).bind(amountCents, method, ref, id).run();
+  if (claim.meta.changes === 0) {
+    const again = await env.DB.prepare(
+      'SELECT deposit_ref, converted_order_id, status FROM cake_quotes WHERE id = ?'
+    ).bind(id).first();
+    if (again && again.deposit_ref === ref) {
+      return json({ ok: true, already: true, order_id: again.converted_order_id }, 200);
+    }
+    if (again && (again.status === 'converted' || again.status === 'archived')) {
+      ctx.waitUntil(notifyDuplicateDeposit(env, id, ref, `quote already ${again.status}`));
+      return json({ ok: true, duplicate: true, reason: 'already_converted' }, 200);
+    }
+    ctx.waitUntil(notifyDuplicateDeposit(env, id, ref, 'concurrent payment'));
+    return json({ ok: true, duplicate: true }, 200);
+  }
 
   const { orderId } = await convertQuoteToOrder(env, id, quote, {
     depositCents: amountCents, method, subMethod, actor: 'online-deposit',
