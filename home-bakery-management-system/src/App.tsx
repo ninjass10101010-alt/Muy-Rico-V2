@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
 import Gallery from "./pages/Gallery";
+import Slideshow from "./pages/Slideshow";
 import Homepage from "./pages/Homepage";
 import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
@@ -25,6 +26,7 @@ export type Page =
   | "quotes"
   | "products"
   | "gallery"
+  | "slideshow"
   | "homepage"
   | "inventory"
   | "customers"
@@ -132,6 +134,7 @@ function AdminApp() {
             />
           )}
           {page === "gallery" && <Gallery />}
+          {page === "slideshow" && <Slideshow />}
           {page === "homepage" && <Homepage />}
           {page === "inventory" && (
             <Inventory search={search} highlightId={inventoryHighlightId} onGoToCalendar={() => setPage("calendar")} />
