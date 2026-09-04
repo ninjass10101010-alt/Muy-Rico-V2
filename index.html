@@ -704,6 +704,8 @@
       }
       const dots = document.getElementById('cta-band-dots');
       if (dots) dots.remove();
+      if (ctaTimer) clearInterval(ctaTimer);
+      ctaTimer = null;
       ctaSlides = [];
       ctaIndex = 0;
       ctaStaticBackup = null;
@@ -713,6 +715,8 @@
       const frame = document.getElementById('cta-band-frame');
       const cap = document.getElementById('cta-band-caption');
       if (!frame || !cap || !slides.length) return;
+      frame.setAttribute('aria-roledescription', 'carousel');
+      frame.setAttribute('aria-label', 'Muy Rico photos');
 
       if (!ctaStaticBackup) {
         ctaStaticBackup = {

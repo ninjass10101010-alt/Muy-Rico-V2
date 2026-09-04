@@ -107,4 +107,18 @@ test.describe('CTA band slideshow', () => {
       expect(overflow).toBeLessThanOrEqual(0);
     }
   });
+
+  test('slide well is positioned and clipped inside the frame', async ({ page }) => {
+    await mockSlideshow(page, MOCK_SLIDES);
+    await openBand(page);
+    const well = await page.evaluate(() => {
+      const el = document.querySelector('#cta-band-frame .slide-well');
+      if (!el) return null;
+      const s = getComputedStyle(el);
+      return { position: s.position, overflow: s.overflow, radius: s.borderRadius };
+    });
+    expect(well).not.toBeNull();
+    expect(well!.position).toBe('relative');
+    expect(well!.overflow).toBe('hidden');
+  });
 });
