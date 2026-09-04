@@ -17,6 +17,16 @@ export default {
       if (path === "/create-checkout" && request.method === "POST") {
         return await handleCreateCheckout(request, env);
       }
+      const qpay = path.match(/^\/quote\/(\d+)\/payable$/);
+      if (qpay && request.method === "GET") {
+        return await handleQuoteDepositPayable(Number(qpay[1]), request, env);
+      }
+      if (path === "/quote-deposit/checkout" && request.method === "POST") {
+        return await handleQuoteDepositCheckout(request, env);
+      }
+      if (path === "/quote-deposit/paypal-capture" && request.method === "POST") {
+        return await handleQuoteDepositPayPalCapture(request, env);
+      }
       if (path === "/paypal-client-id" && request.method === "GET") {
         return json({ clientId: env.PAYPAL_CLIENT_ID || "" });
       }
@@ -138,6 +148,18 @@ async function handleStripeWebhook(request, env) {
   // Only reconcile completed checkout sessions
   if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
     const obj = event.data && event.data.object ? event.data.object : {};
+    const meta = obj.metadata || {};
+
+    // Quote deposits: only checkout sessions carry deposit metadata
+    if (event.type === "checkout.session.completed" && meta.kind === "quote_deposit") {
+      const subMethod = await extractStripeSubMethod(event, obj, env);
+      const ok = await markQuoteDepositPaid(env, {
+        id: Number(meta.quote_id), token: meta.token, method: "stripe",
+        subMethod, ref: obj.id, amountCents: obj.amount_total,
+      });
+      return ok ? json({ received: true }) : json({ error: "deposit-paid failed" }, 500);
+    }
+
     const orderId = event.type === "checkout.session.completed"
       ? (obj.client_reference_id || (obj.metadata && obj.metadata.order_id))
       : (obj.metadata && obj.metadata.order_id);
@@ -334,6 +356,19 @@ async function handlePayPalWebhook(request, env) {
       console.warn("paypal event without order id — ignored");
       return json({ received: true });
     }
+    const quoteRef = parseQuoteCustomId(orderId);
+    if (quoteRef) {
+      const qSubMethod = await extractPayPalWebhookSubMethod(event, env);
+      const qAmountCents = Math.round(parseFloat(
+        resource.amount?.value ||
+        resource.purchase_units?.[0]?.amount?.value || "0"
+      ) * 100);
+      const ok = await markQuoteDepositPaid(env, {
+        id: quoteRef.id, token: quoteRef.token, method: "paypal",
+        subMethod: qSubMethod, ref: resource.id || String(orderId), amountCents: qAmountCents,
+      });
+      return ok ? json({ received: true }) : json({ error: "deposit-paid failed" }, 500);
+    }
     const subMethod = await extractPayPalWebhookSubMethod(event, env);
     const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod);
     if (!ok) return json({ error: "mark-paid failed" }, 500);
@@ -513,4 +548,155 @@ function cancelPage() {
   return new Response(html, {
     headers: { "Content-Type": "text/html;charset=utf-8", "Access-Control-Allow-Origin": "*" },
   });
+}
+
+// ─── Quote deposits (see docs/superpowers/specs/2026-09-03-quote-deposit-payment-design.md) ───
+// NOTE: kept in sync with orders/workers/quote-deposit-lib.js (workers can't share code).
+
+function encodeQuoteCustomId(quoteId, token) {
+  return `q${quoteId}:${token}`;
+}
+
+function parseQuoteCustomId(s) {
+  const m = typeof s === "string" ? s.match(/^q(\d+):([0-9a-f]{32})$/) : null;
+  return m ? { id: Number(m[1]), token: m[2] } : null;
+}
+
+function fetchQuotePayable(env, id, token) {
+  return ordersApiFetch(env, "/api/quotes/" + encodeURIComponent(id) +
+    "/payable-deposit?t=" + encodeURIComponent(token));
+}
+
+async function handleQuoteDepositPayable(id, request, env) {
+  const token = new URL(request.url).searchParams.get("t") || "";
+  if (!token) return json({ error: "Missing token" }, 403);
+  const res = await fetchQuotePayable(env, id, token);
+  return new Response(await res.text(), {
+    status: res.status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
+}
+
+// Load the payable quote for payment creation; returns { quote } or { err: Response }.
+async function loadPayableQuote(env, id, token) {
+  const res = await fetchQuotePayable(env, id, token);
+  if (!res.ok) return { err: json({ error: "Quote not payable" }, res.status) };
+  const quote = await res.json();
+  if (quote.deposit_paid || quote.status === "converted" || quote.status === "archived") {
+    return { err: json({ error: "Deposit already paid" }, 409) };
+  }
+  return { quote };
+}
+
+async function handleQuoteDepositCheckout(request, env) {
+  const { id, token, origin } = await request.json();
+  if (!id || !token) return json({ error: "id and token required" }, 400);
+  const key = env.STRIPE_SECRET_KEY;
+  if (!key) return json({ error: "STRIPE_SECRET_KEY not set" }, 500);
+
+  const { quote, err } = await loadPayableQuote(env, id, token);
+  if (err) return err;
+
+  const base = origin || "https://muy-rico.com";
+  const pageUrl = `${base}/pay-quote.html?quote=${id}&t=${encodeURIComponent(token)}`;
+  const params = new URLSearchParams();
+  params.append("line_items[0][price_data][currency]", "usd");
+  params.append("line_items[0][price_data][product_data][name]", `Muy Rico — Quote #${id} Deposit (50%)`);
+  params.append("line_items[0][price_data][unit_amount]", String(quote.deposit_cents));
+  params.append("line_items[0][quantity]", "1");
+  params.append("mode", "payment");
+  params.append("client_reference_id", encodeQuoteCustomId(id, token));
+  params.append("metadata[kind]", "quote_deposit");
+  params.append("metadata[quote_id]", String(id));
+  params.append("metadata[token]", token);
+  params.append("success_url", pageUrl + "&paid=stripe");
+  params.append("cancel_url", pageUrl);
+
+  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + key,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+  const session = await res.json();
+  if (session.error) return json({ error: session.error.message }, 400);
+  return json({ url: session.url });
+}
+
+async function handleQuoteDepositPayPalCapture(request, env) {
+  const { id, token, paypalOrderId } = await request.json();
+  if (!id || !token || !paypalOrderId) return json({ error: "id, token and paypalOrderId required" }, 400);
+
+  const { quote, err } = await loadPayableQuote(env, id, token);
+  if (err) return err;
+
+  const auth = await paypalAuth(env);
+  if (!auth) return json({ error: "paypal auth failed" }, 500);
+
+  // Verify amount + linkage against D1 BEFORE capturing any funds
+  const orderRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId), {
+    headers: { Authorization: "Bearer " + auth },
+  });
+  const paypalOrder = await orderRes.json();
+  if (!orderRes.ok) {
+    console.error("paypal order lookup failed", JSON.stringify(paypalOrder));
+    return json({ error: "Could not verify PayPal order" }, 400);
+  }
+  const ppCents = Math.round(parseFloat(paypalOrder.purchase_units?.[0]?.amount?.value || "0") * 100);
+  if (ppCents !== quote.deposit_cents) {
+    console.error(`quote deposit amount mismatch: D1=${quote.deposit_cents} paypal=${ppCents} quote=${id}`);
+    return json({ error: "Amount mismatch" }, 400);
+  }
+  const ppCustomId = paypalOrder.purchase_units?.[0]?.custom_id || "";
+  if (ppCustomId !== encodeQuoteCustomId(id, token)) {
+    console.error(`quote deposit custom_id mismatch: ${ppCustomId}`);
+    return json({ error: "Quote mismatch" }, 400);
+  }
+
+  const captureRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId) + "/capture", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + auth, "Content-Type": "application/json" },
+  });
+  const captureData = await captureRes.json();
+  if (!captureRes.ok || captureData.status !== "COMPLETED") {
+    console.error("paypal quote deposit capture failed", JSON.stringify(captureData));
+    return json({ error: captureData.message || "Capture failed" }, 400);
+  }
+
+  const capture = captureData.purchase_units?.[0]?.payments?.captures?.[0] || {};
+  const captureId = capture.id || paypalOrderId;
+  const amountCents = Math.round(parseFloat(capture.amount?.value || "0") * 100) || quote.deposit_cents;
+  const ok = await markQuoteDepositPaid(env, {
+    id, token, method: "paypal",
+    subMethod: extractPayPalSubMethod(captureData),
+    ref: captureId, amountCents,
+  });
+  if (!ok) return json({ error: "deposit-paid failed" }, 500);
+  return json({ ok: true });
+}
+
+// Same semantics as markOrderPaidViaApi: 404/409 are final (don't retry), other
+// failures return false so the webhook 500s and Stripe/PayPal retry.
+async function markQuoteDepositPaid(env, { id, token, method, subMethod, ref, amountCents }) {
+  try {
+    const res = await ordersApiFetch(env, "/api/quotes/" + encodeURIComponent(id) + "/deposit-paid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, method, sub_method: subMethod, ref, amount_cents: amountCents }),
+    });
+    if (res.status === 404 || res.status === 409) {
+      console.error("deposit-paid final status", res.status, "for quote", id);
+      return true;
+    }
+    if (!res.ok) {
+      console.error("deposit-paid failed", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("deposit-paid network error", e);
+    return false;
+  }
 }
