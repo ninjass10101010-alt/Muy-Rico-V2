@@ -279,3 +279,15 @@ No new secrets; no Stripe/PayPal dashboard changes.
 ## Explicitly deferred
 
 - Refunding duplicates automatically, balance payment links, deposit percentage configurability, link expiry/revocation, per-send opt-out toggle.
+
+---
+
+## Addendum (2026-09-04): pay-in-full option
+
+Owner request: customers may choose **Pay in full** at the deposit page, in addition to the default 50% deposit.
+
+- **Pay page:** radio choice above the payment buttons — "Deposit due now (50%) — $X" (default) vs "Pay in full — $Y". Card button label and PayPal order amount follow the selection.
+- **Checkout worker:** `POST /quote-deposit/checkout` and `POST /quote-deposit/paypal-capture` accept `mode: 'deposit' | 'full'` (default `deposit`; anything else → 400). Stripe `unit_amount` / verified PayPal amount = `mode === 'full' ? quote.total_cents : quote.deposit_cents` — always server-computed from D1. Stripe line name becomes `Muy Rico — Quote #N Full Payment` when mode=full; `metadata[mode]` recorded.
+- **Webhook:** Stripe `amount_total` is authoritative; `isDepositSufficient` already accepts any amount ≥ 50%, and `convertQuoteToOrder` marks `payment_status='paid'` when ≥ full price. No orders-API handler change needed.
+- **Confirmation email:** when the payment covers the full price, the first row label becomes Amount paid / Monto pagado and the balance row reads Paid in full — nothing due at pickup / Pagado por completo — nada pendiente al recoger (never negative).
+- Default remains **deposit**; paying in full is opt-in.
