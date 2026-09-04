@@ -202,7 +202,7 @@ async function renderPayPal() {
     window.paypal.Buttons({
       createOrder: (_data, actions) => actions.order.create({
         purchase_units: [{
-          amount: { value: money(quote.deposit_cents) },
+          amount: { value: (quote.deposit_cents / 100).toFixed(2) },
           custom_id: `q${quote.id}:${TOKEN}`,
         }],
       }),
