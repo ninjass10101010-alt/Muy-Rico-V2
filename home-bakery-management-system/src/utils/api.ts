@@ -306,6 +306,61 @@ export async function deleteGalleryPhoto(id: string): Promise<{ ok: boolean }> {
   });
 }
 
+// ─── Homepage slideshow ────────────────────────────────────────────────────
+
+export interface ApiSlideshowSlide {
+  id: string;
+  title: string;
+  title_es?: string | null;
+  description?: string | null;
+  description_es?: string | null;
+  image_url: string;
+  active: boolean;
+  display_order: number;
+}
+
+export interface SlideshowSlideCreate {
+  title: string;
+  title_es?: string | null;
+  description?: string | null;
+  description_es?: string | null;
+  image_url: string;
+  display_order?: number;
+  active?: boolean;
+}
+
+export type SlideshowSlideUpdate = Partial<SlideshowSlideCreate>;
+
+export async function fetchSlideshowAdmin(): Promise<ApiSlideshowSlide[]> {
+  const data = await apiFetch<{ slides: ApiSlideshowSlide[] }>("/api/slideshow/all");
+  return data.slides;
+}
+
+export async function createSlideshowSlide(
+  p: SlideshowSlideCreate
+): Promise<{ ok: boolean; id: string }> {
+  return apiFetch("/api/slideshow", {
+    method: "POST",
+    body: JSON.stringify(p),
+  });
+}
+
+export async function updateSlideshowSlide(
+  id: string,
+  patch: SlideshowSlideUpdate
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/slideshow/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteSlideshowSlide(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/slideshow/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 // ─── Inventory ─────────────────────────────────────────────────────────────
 
 export interface ApiInventoryItem {
