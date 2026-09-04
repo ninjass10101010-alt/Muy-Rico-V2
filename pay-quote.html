@@ -25,6 +25,9 @@
   .btn-pay { display: block; width: 100%; border: 0; border-radius: 8px; padding: 14px; font-size: 16px; font-weight: 700; background: #2d7a46; color: #fff; cursor: pointer; margin-bottom: 14px; }
   .btn-pay:disabled { opacity: .6; cursor: default; }
   .divider { text-align: center; color: #8a8078; font-size: 12px; margin: 4px 0 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .mode { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1.5px solid #e3dcd2; border-radius: 8px; margin-bottom: 8px; font-size: 14px; cursor: pointer; color: #4a423d; }
+  .mode input { accent-color: #2d7a46; margin: 0; }
+  .mode input:checked + span { font-weight: 700; color: #2c2523; }
   #paypal-area { min-height: 44px; }
   .msg { text-align: center; padding: 8px 0 0; }
   .msg.ok h1 { color: #2d7a46; }
@@ -65,6 +68,7 @@ const STR = {
     alreadyT: 'Deposit already received', alreadyB: 'Thank you! This quote is already paid — no further action needed.',
     invalidT: 'Link not available', invalidB: 'This payment link is invalid or no longer active. Please contact us and we will help you.',
     errPay: 'Payment could not be completed. Please try again or contact us.',
+    fullLabel: (amt) => `Pay in full — ${amt}`,
   },
   es: {
     loading: 'Cargando…', hi: (n) => `Hola ${n},`, quoteHash: (id) => `Cotización #${id}`,
@@ -75,6 +79,7 @@ const STR = {
     alreadyT: 'Depósito ya recibido', alreadyB: '¡Gracias! Esta cotización ya fue pagada — no necesitas hacer nada más.',
     invalidT: 'Enlace no disponible', invalidB: 'Este enlace de pago no es válido o ya no está activo. Contáctanos y con gusto te ayudamos.',
     errPay: 'No se pudo completar el pago. Intenta de nuevo o contáctanos.',
+    fullLabel: (amt) => `Pago completo — ${amt}`,
   },
 };
 let lang = 'es';
@@ -129,12 +134,18 @@ function payBody() {
       <tr class="hi"><td>${esc(s.deposit)}</td><td>${money(quote.deposit_cents)}</td></tr>
       <tr><td>${esc(s.balance)}</td><td>${money(quote.balance_cents)}</td></tr>
     </table>
-    <button class="btn-pay" id="btnCard">${esc(s.payCard(money(quote.deposit_cents)))}</button>
+    <div class="mode-group">
+      <label class="mode"><input type="radio" name="paymode" value="deposit" ${payMode === 'deposit' ? 'checked' : ''}><span>${esc(s.deposit)} · ${money(quote.deposit_cents)}</span></label>
+      <label class="mode"><input type="radio" name="paymode" value="full" ${payMode === 'full' ? 'checked' : ''}><span>${esc(s.fullLabel(money(quote.total_cents)))}</span></label>
+    </div>
+    <button class="btn-pay" id="btnCard">${esc(s.payCard(money(chargeCents())))}</button>
     <div class="divider">${esc(s.or)}</div>
     <div id="paypal-area"></div>`;
 }
 
 let state = 'loading';
+let payMode = 'deposit';
+function chargeCents() { return payMode === 'full' ? quote.total_cents : quote.deposit_cents; }
 
 async function loadQuote() {
   const res = await fetch(`${WORKER}/quote/${encodeURIComponent(QUOTE_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
@@ -164,6 +175,13 @@ async function pollForPaid() {
 }
 
 function wirePayButtons() {
+  document.querySelectorAll('input[name="paymode"]').forEach((r) =>
+    r.addEventListener('change', (e) => {
+      payMode = e.target.value === 'full' ? 'full' : 'deposit';
+      const btn = document.getElementById('btnCard');
+      if (btn) btn.textContent = t().payCard(money(chargeCents()));
+    })
+  );
   document.getElementById('btnCard').addEventListener('click', payByCard);
   renderPayPal();
 }
@@ -175,7 +193,7 @@ async function payByCard() {
     const res = await fetch(`${WORKER}/quote-deposit/checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: Number(QUOTE_ID), token: TOKEN, origin: location.origin }),
+      body: JSON.stringify({ id: Number(QUOTE_ID), token: TOKEN, origin: location.origin, mode: payMode }),
     });
     const data = await res.json();
     if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed');
@@ -202,7 +220,7 @@ async function renderPayPal() {
     window.paypal.Buttons({
       createOrder: (_data, actions) => actions.order.create({
         purchase_units: [{
-          amount: { value: (quote.deposit_cents / 100).toFixed(2) },
+          amount: { value: (chargeCents() / 100).toFixed(2) },
           custom_id: `q${quote.id}:${TOKEN}`,
         }],
       }),
@@ -212,7 +230,7 @@ async function renderPayPal() {
           const res = await fetch(`${WORKER}/quote-deposit/paypal-capture`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: quote.id, token: TOKEN, paypalOrderId: data.orderID }),
+            body: JSON.stringify({ id: quote.id, token: TOKEN, paypalOrderId: data.orderID, mode: payMode }),
           });
           if (!res.ok) throw new Error('capture failed');
           state = 'success'; render();

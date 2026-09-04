@@ -3782,15 +3782,18 @@ async function sendDepositConfirmationEmail(env, quote, orderId, depositCents) {
   const isEn = lang === 'en';
   const name = escapeHtml(quote.customer_name || '');
   const deposit = `$${(depositCents / 100).toFixed(2)}`;
-  const balanceCents = quote.quoted_price != null ? quote.quoted_price - depositCents : null;
+  const balanceCents = quote.quoted_price != null ? Math.max(quote.quoted_price - depositCents, 0) : null;
+  const paidInFull = balanceCents === 0;
 
   const subject = isEn
     ? `Deposit received! Order #${orderId} confirmed — Muy Rico Bakery`
     : `¡Depósito recibido! Pedido #${orderId} confirmado — Muy Rico Bakery`;
 
   const rows = [
-    [isEn ? 'Deposit paid' : 'Depósito pagado', `<strong>${deposit}</strong>`],
-    balanceCents != null ? [isEn ? 'Balance due at pickup' : 'Restante al recoger', `$${(balanceCents / 100).toFixed(2)}`] : null,
+    [isEn ? (paidInFull ? 'Amount paid' : 'Deposit paid') : (paidInFull ? 'Monto pagado' : 'Depósito pagado'), `<strong>${deposit}</strong>`],
+    balanceCents != null && balanceCents > 0
+      ? [isEn ? 'Balance due at pickup' : 'Restante al recoger', `$${(balanceCents / 100).toFixed(2)}`]
+      : [isEn ? 'Paid in full' : 'Pagado por completo', isEn ? 'Nothing due at pickup' : 'Nada pendiente al recoger'],
     quote.desired_date ? [isEn ? 'Date' : 'Fecha', escapeHtml(quote.desired_date)] : null,
   ].filter(Boolean).map(([k, v]) =>
     `<tr><td style="padding:10px 14px;color:#4a423d;font-size:14px;">${k}</td><td style="padding:10px 14px;text-align:right;color:#2c2523;font-size:14px;">${v}</td></tr>`

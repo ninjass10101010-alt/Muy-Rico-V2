@@ -592,8 +592,11 @@ async function loadPayableQuote(env, id, token) {
 }
 
 async function handleQuoteDepositCheckout(request, env) {
-  const { id, token, origin } = await request.json();
+  const { id, token, origin, mode } = await request.json();
   if (!id || !token) return json({ error: "id and token required" }, 400);
+  if (mode !== undefined && mode !== "deposit" && mode !== "full") {
+    return json({ error: "Invalid mode" }, 400);
+  }
   const key = env.STRIPE_SECRET_KEY;
   if (!key) return json({ error: "STRIPE_SECRET_KEY not set" }, 500);
 
@@ -605,14 +608,17 @@ async function handleQuoteDepositCheckout(request, env) {
   const pageUrl = `${base}/pay-quote.html?quote=${id}&t=${encodeURIComponent(token)}`;
   const params = new URLSearchParams();
   params.append("line_items[0][price_data][currency]", "usd");
-  params.append("line_items[0][price_data][product_data][name]", `Muy Rico — Quote #${id} Deposit (50%)`);
-  params.append("line_items[0][price_data][unit_amount]", String(quote.deposit_cents));
+  const chargeCents = mode === "full" ? quote.total_cents : quote.deposit_cents;
+  params.append("line_items[0][price_data][product_data][name]",
+    mode === "full" ? `Muy Rico — Quote #${id} Full Payment` : `Muy Rico — Quote #${id} Deposit (50%)`);
+  params.append("line_items[0][price_data][unit_amount]", String(chargeCents));
   params.append("line_items[0][quantity]", "1");
   params.append("mode", "payment");
   params.append("client_reference_id", encodeQuoteCustomId(id, token));
   params.append("metadata[kind]", "quote_deposit");
   params.append("metadata[quote_id]", String(id));
   params.append("metadata[token]", token);
+  params.append("metadata[mode]", mode === "full" ? "full" : "deposit");
   params.append("success_url", pageUrl + "&paid=stripe");
   params.append("cancel_url", pageUrl);
 
@@ -630,8 +636,11 @@ async function handleQuoteDepositCheckout(request, env) {
 }
 
 async function handleQuoteDepositPayPalCapture(request, env) {
-  const { id, token, paypalOrderId } = await request.json();
+  const { id, token, paypalOrderId, mode } = await request.json();
   if (!id || !token || !paypalOrderId) return json({ error: "id, token and paypalOrderId required" }, 400);
+  if (mode !== undefined && mode !== "deposit" && mode !== "full") {
+    return json({ error: "Invalid mode" }, 400);
+  }
 
   const { quote, err } = await loadPayableQuote(env, id, token);
   if (err) return err;
@@ -649,8 +658,9 @@ async function handleQuoteDepositPayPalCapture(request, env) {
     return json({ error: "Could not verify PayPal order" }, 400);
   }
   const ppCents = Math.round(parseFloat(paypalOrder.purchase_units?.[0]?.amount?.value || "0") * 100);
-  if (ppCents !== quote.deposit_cents) {
-    console.error(`quote deposit amount mismatch: D1=${quote.deposit_cents} paypal=${ppCents} quote=${id}`);
+  const expectedCents = mode === "full" ? quote.total_cents : quote.deposit_cents;
+  if (ppCents !== expectedCents) {
+    console.error(`quote deposit amount mismatch: expected=${expectedCents} paypal=${ppCents} quote=${id} mode=${mode === "full" ? "full" : "deposit"}`);
     return json({ error: "Amount mismatch" }, 400);
   }
   const ppCustomId = paypalOrder.purchase_units?.[0]?.custom_id || "";
