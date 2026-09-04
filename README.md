@@ -20,7 +20,7 @@ Live website for **Muy Rico**, a family-owned Mexican bakery in Holland, Michiga
 | `/` | `index.html` | Home — split editorial hero (dashboard-editable photo), "Del Horno" featured products, Our Story, testimonials (auto-shows when reviews are published), Visit (hours + Holland map), Cottage Food Law |
 | `/order` (public); `/order.html` (legacy) | `order.html` | Order page — product menu w/ photos, cart, Formspree submission, Stripe + PayPal/Venmo payments |
 | `/gallery.html` | `gallery.html` | Public photo albums grouped by product (from `/api/gallery`) |
-| `/admin/` | `admin/index.html` (built from `home-bakery-management-system/`) | Owner dashboard — orders, products, inventory, customers, payments, labels, **homepage editor**, settings |
+| `/admin/` | `admin/index.html` (built from `home-bakery-management-system/`) | Owner dashboard — orders, products, gallery, **slideshow**, inventory, customers, payments, labels, **homepage editor**, settings |
 | `/admin/order/` | `admin/index.html` (built) | Public React order page (preview-only; legacy `order.html` is the live customer flow) |
 
 ## 🖼️ Images
@@ -41,7 +41,9 @@ The landing page ships with full baked-in defaults, then hydrates from the API �
 - **Testimonials** (`testimonials` table): EN/ES quotes with publish toggle; section auto-appears when ≥1 is published
 - **"Del Horno" preview**: products flagged `featured` (checkbox in Menu & Products); falls back to first 4 products with photos
 - **Public endpoint**: `GET /api/site` (content map + published testimonials); admin: `PUT /api/site`, testimonial CRUD under `/api/testimonials`
+- **CTA band slideshow** (`slideshow_slides` table): EN/ES title + description per slide, R2 upload, publish toggle, reorder; public endpoint `GET /api/slideshow` (active only, cap 8). Empty list = static concha photo.
 - Migration: `orders/migrations/0017_site_content.sql`
+- Migration: `orders/migrations/0045_slideshow.sql`
 
 ## ⚡ Performance
 
