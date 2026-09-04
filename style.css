@@ -1009,7 +1009,9 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   padding-top: 0.7rem;
   text-align: center;
   line-height: 1.4;
+  transition: opacity 0.3s ease;
 }
+.cta-band-photo-caption.is-fading { opacity: 0; }
 
 /* CTA band slideshow (progressive enhancement over the static photo) */
 .cta-band-slides .slide-well {

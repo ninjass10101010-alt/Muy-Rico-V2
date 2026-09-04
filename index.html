@@ -492,6 +492,7 @@
       currentLang = lang;
       try { localStorage.setItem('lang', lang); } catch (e) {}
       applyLangToDOM(lang);
+      renderCtaCaption();
     }
 
     /* ---------------- Motion (shared system) ---------------- */
@@ -627,6 +628,163 @@
       } catch (e) { /* baked-in defaults remain */ }
     }
 
+    /* ---------------- CTA band slideshow ---------------- */
+    const CTA_SLIDE_MS = 5000;
+    const CTA_MAX_SLIDES = 8;
+    let ctaSlides = [];
+    let ctaIndex = 0;
+    let ctaTimer = null;
+    let ctaHover = false;
+    let ctaFocus = false;
+    let ctaStaticBackup = null;
+
+    function ctaCaptionHtml(slide) {
+      const es = currentLang === 'es';
+      const title = (es && slide.title_es) || slide.title || '';
+      const desc = (es && slide.description_es) || slide.description || '';
+      let html = `<span class="cta-slide-title">${escapeHtml(title)}</span>`;
+      if (desc) html += `<span class="cta-slide-desc">${escapeHtml(desc)}</span>`;
+      return html;
+    }
+
+    function renderCtaCaption() {
+      const cap = document.getElementById('cta-band-caption');
+      if (!cap || !ctaSlides.length) return;
+      cap.innerHTML = ctaCaptionHtml(ctaSlides[ctaIndex] || ctaSlides[0]);
+    }
+
+    function ctaGoTo(i, manual) {
+      if (!ctaSlides.length) return;
+      i = ((i % ctaSlides.length) + ctaSlides.length) % ctaSlides.length;
+      if (i === ctaIndex) { if (manual) restartCtaTimer(); return; }
+      const imgs = document.querySelectorAll('.cta-band-photo .cta-slide');
+      const dots = document.querySelectorAll('#cta-band-dots .cta-dot');
+      if (imgs[ctaIndex]) imgs[ctaIndex].classList.remove('is-active');
+      if (dots[ctaIndex]) {
+        dots[ctaIndex].classList.remove('is-active');
+        dots[ctaIndex].removeAttribute('aria-current');
+      }
+      ctaIndex = i;
+      if (imgs[ctaIndex]) imgs[ctaIndex].classList.add('is-active');
+      if (dots[ctaIndex]) {
+        dots[ctaIndex].classList.add('is-active');
+        dots[ctaIndex].setAttribute('aria-current', 'true');
+      }
+      const cap = document.getElementById('cta-band-caption');
+      if (cap && !prefersReduced) {
+        cap.classList.add('is-fading');
+        setTimeout(() => { renderCtaCaption(); cap.classList.remove('is-fading'); }, 300);
+      } else if (cap) {
+        renderCtaCaption();
+      }
+      if (manual) restartCtaTimer();
+    }
+
+    function ctaTick() {
+      if (ctaHover || ctaFocus || document.hidden) return;
+      ctaGoTo(ctaIndex + 1, false);
+    }
+
+    function restartCtaTimer() {
+      if (ctaTimer) clearInterval(ctaTimer);
+      ctaTimer = null;
+      if (prefersReduced) return;
+      ctaTimer = setInterval(ctaTick, CTA_SLIDE_MS);
+    }
+
+    function ctaRestoreStatic() {
+      if (!ctaStaticBackup) return;
+      const frame = document.getElementById('cta-band-frame');
+      const cap = document.getElementById('cta-band-caption');
+      if (frame) frame.innerHTML = ctaStaticBackup.frameHtml;
+      if (cap) {
+        cap.innerHTML = ctaStaticBackup.captionHtml;
+        cap.setAttribute('data-es', ctaStaticBackup.captionEs);
+        cap.setAttribute('data-en', ctaStaticBackup.captionEn);
+      }
+      const dots = document.getElementById('cta-band-dots');
+      if (dots) dots.remove();
+      ctaSlides = [];
+      ctaIndex = 0;
+      ctaStaticBackup = null;
+    }
+
+    function buildCtaSlideshow(slides) {
+      const frame = document.getElementById('cta-band-frame');
+      const cap = document.getElementById('cta-band-caption');
+      if (!frame || !cap || !slides.length) return;
+
+      if (!ctaStaticBackup) {
+        ctaStaticBackup = {
+          frameHtml: frame.innerHTML,
+          captionHtml: cap.innerHTML,
+          captionEs: cap.getAttribute('data-es') || '',
+          captionEn: cap.getAttribute('data-en') || '',
+        };
+      }
+
+      ctaSlides = slides.slice(0, CTA_MAX_SLIDES);
+      ctaIndex = 0;
+
+      frame.innerHTML = '<div class="slide-well">' +
+        ctaSlides.map((s, i) =>
+          `<img class="cta-slide${i === 0 ? ' is-active' : ''}" src="${escapeHtml(s.image_url)}" alt="${escapeHtml(s.title)}" loading="${i === 0 ? 'eager' : 'lazy'}"/>`
+        ).join('') +
+      '</div>';
+
+      let dots = document.getElementById('cta-band-dots');
+      if (!dots) {
+        dots = document.createElement('div');
+        dots.id = 'cta-band-dots';
+        dots.className = 'cta-band-dots';
+        dots.setAttribute('role', 'tablist');
+        dots.setAttribute('aria-label', 'Choose photo');
+        cap.parentNode.insertBefore(dots, cap);
+      }
+      dots.innerHTML = ctaSlides.map((s, i) =>
+        `<button type="button" class="cta-dot${i === 0 ? ' is-active' : ''}" role="tab" aria-label="Slide ${i + 1}: ${escapeHtml(s.title)}"${i === 0 ? ' aria-current="true"' : ''}></button>`
+      ).join('');
+      Array.from(dots.children).forEach((btn, i) => {
+        btn.addEventListener('click', () => ctaGoTo(i, true));
+      });
+
+      // Bilingual attrs must go: applyLangToDOM would overwrite dynamic caption text
+      cap.removeAttribute('data-es');
+      cap.removeAttribute('data-en');
+      cap.classList.remove('lang-fade');
+      renderCtaCaption();
+
+      // Broken images drop out of the rotation
+      frame.querySelectorAll('.cta-slide').forEach((img, i) => {
+        img.addEventListener('error', () => {
+          ctaSlides.splice(i, 1);
+          if (ctaSlides.length === 0) { ctaRestoreStatic(); return; }
+          buildCtaSlideshow(ctaSlides);
+        });
+      });
+
+      const fig = frame.closest('.cta-band-photo');
+      if (fig && !fig.dataset.ctaBound) {
+        fig.dataset.ctaBound = '1';
+        fig.addEventListener('mouseenter', () => { ctaHover = true; });
+        fig.addEventListener('mouseleave', () => { ctaHover = false; });
+        fig.addEventListener('focusin', () => { ctaFocus = true; });
+        fig.addEventListener('focusout', () => { ctaFocus = false; });
+      }
+
+      restartCtaTimer();
+    }
+
+    async function loadSlideshow() {
+      try {
+        const res = await fetch((ORDER_API || '') + '/api/slideshow');
+        if (!res.ok) return;
+        const data = await res.json();
+        const slides = (data.slides || []).filter(s => s.image_url);
+        if (slides.length) buildCtaSlideshow(slides);
+      } catch (e) { /* static default remains */ }
+    }
+
     /* ---------------- Init ---------------- */
     const saved = (() => { try { return localStorage.getItem('lang'); } catch (e) { return null; } })();
     currentLang = (saved === 'es' || saved === 'en') ? saved : 'en';
@@ -649,6 +807,7 @@
 
     loadSite();
     loadFeatured();
+    loadSlideshow();
   </script>
 </body>
 </html>
