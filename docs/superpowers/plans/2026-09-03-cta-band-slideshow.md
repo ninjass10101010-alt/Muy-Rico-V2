@@ -21,6 +21,7 @@
 - Never break: existing CTA hrefs/labels, `applyLangToDOM` mechanics, GSAP `.no-gsap` fallbacks, reduced-motion behavior.
 - Do NOT touch: `orders/workers/api.js` quote-deposit work in progress (uncommitted changes by others), `gallery`, `testimonials`, `motion.js`.
 - Local dev API base: the marketing site already uses `http://localhost:8787` when hostname is localhost (`ORDER_API` in index.html) — keep that.
+- ENVIRONMENT (from prior SDD runs): repo wrangler 4.100.0 `dev` HANGS. Use `npx -y wrangler@4.127.0` for ALL local D1 operations (`d1 execute --local`) and `wrangler dev` (port 8794, run from `orders/` with `--config wrangler.toml`; the root `wrangler.jsonc` interferes with config discovery). Never mix wrangler versions against the same local D1 state in one session. Remote `deploy` / `d1 execute --remote` via repo-local wrangler are fine.
 
 ---
 
@@ -39,7 +40,7 @@ Create `orders/migrations/0045_slideshow.sql` with exactly:
 ```sql
 -- Muy Rico — Homepage CTA band slideshow (owner-managed, independent of products)
 -- Run:
---   npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --local --file=orders/migrations/0045_slideshow.sql
+--   npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --file=orders/migrations/0045_slideshow.sql
 --   npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --remote --file=orders/migrations/0045_slideshow.sql
 
 CREATE TABLE IF NOT EXISTS slideshow_slides (
@@ -63,7 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_slideshow_order  ON slideshow_slides(display_orde
 
 Run:
 ```bash
-npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --local --file=orders/migrations/0045_slideshow.sql
+npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --file=orders/migrations/0045_slideshow.sql
 ```
 Expected: `Executed 3 queries in ...` (table + 2 indexes), no errors.
 
@@ -71,7 +72,7 @@ Expected: `Executed 3 queries in ...` (table + 2 indexes), no errors.
 
 Run:
 ```bash
-npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --local --command "SELECT name FROM sqlite_master WHERE type='table' AND name='slideshow_slides'"
+npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --command "SELECT name FROM sqlite_master WHERE type='table' AND name='slideshow_slides'"
 ```
 Expected: one result row with `slideshow_slides`.
 
@@ -237,38 +238,38 @@ Expected: no output (clean parse).
 
 Start the local worker (background):
 ```bash
-npx wrangler dev -c orders/wrangler.toml --port 8787
+npx -y wrangler@4.127.0 dev --config wrangler.toml --port 8794   # run from orders/
 ```
 Then in another shell (local dev bypasses Cloudflare Access via `isLocal`):
 
 ```bash
 # 1. Empty list
-curl -s http://localhost:8787/api/slideshow
+curl -s http://localhost:8794/api/slideshow
 # Expected: {"slides":[]}
 
 # 2. Create (requires title + image_url)
-curl -s -X POST http://localhost:8787/api/slideshow -H 'Content-Type: application/json' \
+curl -s -X POST http://localhost:8794/api/slideshow -H 'Content-Type: application/json' \
   -d '{"title":"Conchas","title_es":"Conchas","description":"Vanilla and chocolate","description_es":"Vainilla y chocolate","image_url":"https://example.com/a.webp"}'
 # Expected: {"ok":true,"id":"sld_..."}
 
 # 3. Create second, then verify ordering + public filter
-curl -s -X POST http://localhost:8787/api/slideshow -H 'Content-Type: application/json' \
+curl -s -X POST http://localhost:8794/api/slideshow -H 'Content-Type: application/json' \
   -d '{"title":"Bolillos","image_url":"https://example.com/b.webp","display_order":1}'
-curl -s http://localhost:8787/api/slideshow | python3 -m json.tool
+curl -s http://localhost:8794/api/slideshow | python3 -m json.tool
 # Expected: slides in display_order (Conchas first), both active
 
 # 4. Validation: missing title
-curl -s -X POST http://localhost:8787/api/slideshow -H 'Content-Type: application/json' -d '{"image_url":"x"}'
+curl -s -X POST http://localhost:8794/api/slideshow -H 'Content-Type: application/json' -d '{"image_url":"x"}'
 # Expected: {"error":"Missing required fields: title, image_url"} with status 400
 
 # 5. Patch (toggle inactive)
-ID=$(curl -s http://localhost:8787/api/slideshow/all | python3 -c "import sys,json;print(json.load(sys.stdin)['slides'][0]['id'])")
-curl -s -X PATCH http://localhost:8787/api/slideshow/$ID -H 'Content-Type: application/json' -d '{"active":false}'
-curl -s http://localhost:8787/api/slideshow
+ID=$(curl -s http://localhost:8794/api/slideshow/all | python3 -c "import sys,json;print(json.load(sys.stdin)['slides'][0]['id'])")
+curl -s -X PATCH http://localhost:8794/api/slideshow/$ID -H 'Content-Type: application/json' -d '{"active":false}'
+curl -s http://localhost:8794/api/slideshow
 # Expected: {"ok":true} then the public list no longer contains that slide
 
 # 6. Delete
-curl -s -X DELETE http://localhost:8787/api/slideshow/$ID
+curl -s -X DELETE http://localhost:8794/api/slideshow/$ID
 # Expected: {"ok":true}
 ```
 
@@ -825,7 +826,7 @@ Expected: build succeeds, no TypeScript errors. (A `function` declaration hoists
 
 - [ ] **Step 5: Manual smoke test against local worker**
 
-With the Task 2 worker still pattern in mind (restart `npx wrangler dev -c orders/wrangler.toml --port 8787` if stopped):
+With the Task 2 worker still pattern in mind (restart `npx -y wrangler@4.127.0 dev --config wrangler.toml --port 8794   # run from orders/` if stopped):
 
 Run:
 ```bash
@@ -1179,7 +1180,7 @@ Insert this complete block immediately BEFORE the `/* ---------------- Init ----
 
 - [ ] **Step 4: Verify with local worker + browser**
 
-1. Start the orders worker in the background: `npx wrangler dev -c orders/wrangler.toml --port 8787`.
+1. Start the orders worker in the background: `npx -y wrangler@4.127.0 dev --config wrangler.toml --port 8794   # run from orders/`.
 2. Insert two test rows (curl POSTs from Task 2 Step 5, with real reachable image URLs — use local paths like `http://localhost:8901/menu-conchas.webp` and `http://localhost:8901/menu-bolillos.webp`, which are same-origin to the site and always resolve).
 3. Start the static server if needed: `python3 -m http.server 8901`.
 4. Open `http://localhost:8901/index.html`, scroll to the band. Expected:
