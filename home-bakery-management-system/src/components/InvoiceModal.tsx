@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Modal from "./ui/Modal";
 import InvoiceItemComposer, { type DraftInvoiceItem } from "./InvoiceItemComposer";
 import { useStore } from "../context/StoreContext";
+import { fetchInvoice } from "../utils/api";
 import type { Invoice, PaymentOptions } from "../types";
 
 const OPTIONS: { value: PaymentOptions; label: string; hint: string }[] = [
@@ -144,6 +145,19 @@ export default function InvoiceModal({
       }
       onClose();
     } catch (e) {
+      if (editing && invoice) {
+        try {
+          const fresh = await fetchInvoice(invoice.id);
+          setItems(fresh.items.map((i) => ({
+            id: i.id,
+            description: i.description,
+            qty: i.qty,
+            unit_price_cents: i.unit_price_cents,
+          })));
+        } catch {
+          // keep the current drafts if the refresh also fails
+        }
+      }
       setError(String((e as Error).message || e));
     } finally {
       setSaving(false);
