@@ -27,6 +27,16 @@ export default {
       if (path === "/quote-deposit/paypal-capture" && request.method === "POST") {
         return await handleQuoteDepositPayPalCapture(request, env);
       }
+      const ipay = path.match(/^\/invoice\/(\d+)\/payable$/);
+      if (ipay && request.method === "GET") {
+        return await handleInvoicePayable(Number(ipay[1]), request, env);
+      }
+      if (path === "/invoice/checkout" && request.method === "POST") {
+        return await handleInvoiceCheckout(request, env);
+      }
+      if (path === "/invoice/paypal-capture" && request.method === "POST") {
+        return await handleInvoicePayPalCapture(request, env);
+      }
       if (path === "/paypal-client-id" && request.method === "GET") {
         return json({ clientId: env.PAYPAL_CLIENT_ID || "" });
       }
@@ -565,6 +575,21 @@ function parseQuoteCustomId(s) {
   return m ? { id: Number(m[1]), token: m[2] } : null;
 }
 
+function encodeInvoiceCustomId(invoiceId, token) {
+  return `i${invoiceId}:${token}`;
+}
+
+function parseInvoiceCustomId(s) {
+  const m = typeof s === "string" ? s.match(/^i(\d+):([0-9a-f]{32})$/) : null;
+  return m ? { id: Number(m[1]), token: m[2] } : null;
+}
+
+function allowedPayModes(paymentOptions) {
+  if (paymentOptions === "full") return ["full"];
+  if (paymentOptions === "deposit") return ["deposit"];
+  return ["deposit", "full"];
+}
+
 function fetchQuotePayable(env, id, token) {
   return ordersApiFetch(env, "/api/quotes/" + encodeURIComponent(id) +
     "/payable-deposit?t=" + encodeURIComponent(token));
@@ -578,6 +603,140 @@ async function handleQuoteDepositPayable(id, request, env) {
     status: res.status,
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
+}
+
+function fetchInvoicePayable(env, id, token) {
+  return ordersApiFetch(env, "/api/invoices/" + encodeURIComponent(id) +
+    "/payable?t=" + encodeURIComponent(token));
+}
+
+async function handleInvoicePayable(id, request, env) {
+  const token = new URL(request.url).searchParams.get("t") || "";
+  if (!token) return json({ error: "Missing token" }, 403);
+  const res = await fetchInvoicePayable(env, id, token);
+  return new Response(await res.text(), {
+    status: res.status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
+}
+
+// Load the payable invoice for payment creation; returns { invoice } or { err: Response }.
+async function loadPayableInvoice(env, id, token) {
+  const res = await fetchInvoicePayable(env, id, token);
+  if (!res.ok) return { err: json({ error: "Invoice not payable" }, res.status) };
+  const invoice = await res.json();
+  if (invoice.paid || invoice.status === "converted" || invoice.status === "void") {
+    return { err: json({ error: "Invoice already settled" }, 409) };
+  }
+  return { invoice };
+}
+
+async function handleInvoiceCheckout(request, env) {
+  const { id, token, origin, mode } = await request.json();
+  if (!id || !token) return json({ error: "id and token required" }, 400);
+  const key = env.STRIPE_SECRET_KEY;
+  if (!key) return json({ error: "STRIPE_SECRET_KEY not set" }, 500);
+
+  const { invoice, err } = await loadPayableInvoice(env, id, token);
+  if (err) return err;
+
+  const allowed = allowedPayModes(invoice.payment_options);
+  if (mode !== undefined && !allowed.includes(mode)) {
+    return json({ error: "Payment mode not allowed for this invoice" }, 400);
+  }
+  const chargeMode = mode || allowed[0];
+
+  const ALLOWED_ORIGINS = ["https://muy-rico.com", "https://www.muy-rico.com", "https://muyrico.bexgarcia0208.workers.dev"];
+  const base = ALLOWED_ORIGINS.includes(origin) ? origin : "https://muy-rico.com";
+  const pageUrl = `${base}/pay-invoice.html?inv=${id}&t=${encodeURIComponent(token)}`;
+  const chargeCents = chargeMode === "full" ? invoice.total_cents : invoice.deposit_cents;
+
+  const params = new URLSearchParams();
+  params.append("line_items[0][price_data][currency]", "usd");
+  params.append("line_items[0][price_data][product_data][name]",
+    chargeMode === "full"
+      ? `Muy Rico — ${invoice.number} Full Payment`
+      : `Muy Rico — ${invoice.number} Deposit (50%)`);
+  params.append("line_items[0][price_data][unit_amount]", String(chargeCents));
+  params.append("line_items[0][quantity]", "1");
+  params.append("mode", "payment");
+  params.append("client_reference_id", encodeInvoiceCustomId(id, token));
+  params.append("metadata[kind]", "invoice");
+  params.append("metadata[invoice_id]", String(id));
+  params.append("metadata[token]", token);
+  params.append("metadata[mode]", chargeMode);
+  params.append("success_url", pageUrl + "&paid=stripe");
+  params.append("cancel_url", pageUrl);
+
+  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + key,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+  const session = await res.json();
+  if (session.error) return json({ error: session.error.message }, 400);
+  return json({ url: session.url });
+}
+
+async function handleInvoicePayPalCapture(request, env) {
+  const { id, token, paypalOrderId, mode } = await request.json();
+  if (!id || !token || !paypalOrderId) return json({ error: "id, token and paypalOrderId required" }, 400);
+
+  const { invoice, err } = await loadPayableInvoice(env, id, token);
+  if (err) return err;
+
+  const allowed = allowedPayModes(invoice.payment_options);
+  if (mode !== undefined && !allowed.includes(mode)) {
+    return json({ error: "Payment mode not allowed for this invoice" }, 400);
+  }
+  const chargeMode = mode || allowed[0];
+
+  const auth = await paypalAuth(env);
+  if (!auth) return json({ error: "paypal auth failed" }, 500);
+
+  const orderRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId), {
+    headers: { Authorization: "Bearer " + auth },
+  });
+  const paypalOrder = await orderRes.json();
+  if (!orderRes.ok) {
+    console.error("paypal invoice order lookup failed", JSON.stringify(paypalOrder));
+    return json({ error: "Could not verify PayPal order" }, 400);
+  }
+  const ppCents = Math.round(parseFloat(paypalOrder.purchase_units?.[0]?.amount?.value || "0") * 100);
+  const expectedCents = chargeMode === "full" ? invoice.total_cents : invoice.deposit_cents;
+  if (ppCents !== expectedCents) {
+    console.error(`invoice amount mismatch: expected=${expectedCents} paypal=${ppCents} invoice=${id} mode=${chargeMode}`);
+    return json({ error: "Amount mismatch" }, 400);
+  }
+  const ppCustomId = paypalOrder.purchase_units?.[0]?.custom_id || "";
+  if (ppCustomId !== encodeInvoiceCustomId(id, token)) {
+    console.error(`invoice custom_id mismatch: ${ppCustomId}`);
+    return json({ error: "Invoice mismatch" }, 400);
+  }
+
+  const captureRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId) + "/capture", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + auth, "Content-Type": "application/json" },
+  });
+  const captureData = await captureRes.json();
+  if (!captureRes.ok || captureData.status !== "COMPLETED") {
+    console.error("paypal invoice capture failed", JSON.stringify(captureData));
+    return json({ error: captureData.message || "Capture failed" }, 400);
+  }
+
+  const capture = captureData.purchase_units?.[0]?.payments?.captures?.[0] || {};
+  const captureId = capture.id || paypalOrderId;
+  const amountCents = Math.round(parseFloat(capture.amount?.value || "0") * 100) || expectedCents;
+  const ok = await markInvoicePaid(env, {
+    id, token, method: "paypal",
+    subMethod: extractPayPalSubMethod(captureData),
+    ref: captureId, amountCents,
+  });
+  if (!ok) return json({ error: "invoice-paid failed" }, 500);
+  return json({ ok: true });
 }
 
 // Load the payable quote for payment creation; returns { quote } or { err: Response }.
@@ -711,6 +870,28 @@ async function markQuoteDepositPaid(env, { id, token, method, subMethod, ref, am
     return true;
   } catch (e) {
     console.error("deposit-paid network error", e);
+    return false;
+  }
+}
+
+async function markInvoicePaid(env, { id, token, method, subMethod, ref, amountCents }) {
+  try {
+    const res = await ordersApiFetch(env, "/api/invoices/" + encodeURIComponent(id) + "/paid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, method, sub_method: subMethod, ref, amount_cents: amountCents }),
+    });
+    if (res.status === 404 || res.status === 409) {
+      console.error("invoice-paid final status", res.status, "for invoice", id);
+      return true;
+    }
+    if (!res.ok) {
+      console.error("invoice-paid failed", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("invoice-paid network error", e);
     return false;
   }
 }
