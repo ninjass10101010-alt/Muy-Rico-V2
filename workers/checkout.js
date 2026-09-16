@@ -170,6 +170,16 @@ async function handleStripeWebhook(request, env) {
       return ok ? json({ received: true }) : json({ error: "deposit-paid failed" }, 500);
     }
 
+    // Invoice payments: checkout sessions carry invoice metadata
+    if (event.type === "checkout.session.completed" && meta.kind === "invoice") {
+      const subMethod = await extractStripeSubMethod(event, obj, env);
+      const ok = await markInvoicePaid(env, {
+        id: Number(meta.invoice_id), token: meta.token, method: "stripe",
+        subMethod, ref: obj.id, amountCents: obj.amount_total,
+      });
+      return ok ? json({ received: true }) : json({ error: "invoice-paid failed" }, 500);
+    }
+
     const orderId = event.type === "checkout.session.completed"
       ? (obj.client_reference_id || (obj.metadata && obj.metadata.order_id))
       : (obj.metadata && obj.metadata.order_id);
@@ -381,6 +391,20 @@ async function handlePayPalWebhook(request, env) {
         subMethod: qSubMethod, ref: resource.id || String(orderId), amountCents: qAmountCents,
       });
       return ok ? json({ received: true }) : json({ error: "deposit-paid failed" }, 500);
+    }
+    const invoiceRef = parseInvoiceCustomId(orderId);
+    if (invoiceRef) {
+      // Only CAPTURE.COMPLETED moves money (mirrors the quote branch).
+      if (event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+        return json({ received: true });
+      }
+      const iSubMethod = await extractPayPalWebhookSubMethod(event, env);
+      const iAmountCents = Math.round(parseFloat(resource.amount?.value || "0") * 100);
+      const ok = await markInvoicePaid(env, {
+        id: invoiceRef.id, token: invoiceRef.token, method: "paypal",
+        subMethod: iSubMethod, ref: resource.id || String(orderId), amountCents: iAmountCents,
+      });
+      return ok ? json({ received: true }) : json({ error: "invoice-paid failed" }, 500);
     }
     const subMethod = await extractPayPalWebhookSubMethod(event, env);
     const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod);
