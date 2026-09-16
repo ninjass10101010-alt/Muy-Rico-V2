@@ -69,6 +69,9 @@ import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel } from
 import {
   depositCentsFor, isDepositSufficient, buildPayUrl, generateQuoteToken,
 } from './quote-deposit-lib.js';
+import {
+  mintDeviceToken, resolveDeviceToken, listDevices, revokeDevice, revokeAllDevices,
+} from './device-token-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -85,6 +88,13 @@ export default {
     // The header is preferred; the cookie is a fallback when Access only guards /admin* but not /api/*.
     const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
     let actorEmail = isLocal ? 'local@dev' : (request.headers.get('cf-access-authenticated-user-email') || '');
+    if (!actorEmail && !isLocal) {
+      const bearer = (request.headers.get('Authorization') || '').trim();
+      if (bearer.toLowerCase().startsWith('bearer ')) {
+        const record = await resolveDeviceToken(env, bearer.slice(7).trim());
+        if (record) actorEmail = record.email;
+      }
+    }
     if (!actorEmail && !isLocal) {
       actorEmail = emailFromAccessCookie(request) || '';
     }
@@ -132,6 +142,14 @@ export default {
     }
 
     try {
+      // ─── Trusted-device auth (home-screen app) ────────────────────────────
+      if (path === '/api/auth/device-token' && method === 'POST') return await mintDeviceTokenHandler(request, env, actorEmail);
+      if (path === '/api/auth/device-token' && method === 'DELETE') return await revokeCurrentDeviceHandler(request, env);
+      if (path === '/api/auth/verify' && method === 'GET') return await verifyTokenHandler(request, env, actorEmail);
+      if (path === '/api/auth/devices' && method === 'GET') return await listDevicesHandler(env, actorEmail);
+      if (path.match(/^\/api\/auth\/devices\/\d+\/revoke$/) && method === 'POST') return await revokeDeviceHandler(request, env, actorEmail, path);
+      if (path === '/api/auth/revoke-all' && method === 'POST') return await revokeAllDevicesHandler(env, actorEmail);
+
       if (path === '/api/orders' && method === 'POST')  return await createOrder(request, env, ctx, actorName);
       if (path === '/api/orders' && method === 'GET')   return await listOrders(request, env, actorName);
       if (path === '/api/stats'  && method === 'GET')   return await getStats(env, actorName);
@@ -375,6 +393,62 @@ function emailFromAccessCookie(request) {
   } catch {
     return null;
   }
+}
+
+// ─── Trusted-device auth handlers (home-screen app) ──────────────────────────
+
+function describeUserAgent(ua) {
+  if (!ua) return 'Device';
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const m = /(Chrome|CriOS|Firefox|FxiOS|Safari|EdgiOS)/i.exec(ua);
+  return `${isIOS ? 'iPhone' : 'Device'} · ${m ? m[1] : 'Browser'}`;
+}
+
+async function mintDeviceTokenHandler(request, env, actorEmail) {
+  if (!actorEmail) return json({ error: 'Unauthorized' }, 401);
+  const body = await request.json().catch(() => ({}));
+  const label = typeof body.label === 'string' && body.label.trim()
+    ? body.label.trim().slice(0, 100)
+    : describeUserAgent(request.headers.get('User-Agent'));
+  const { token, expiresAt } = await mintDeviceToken(env, actorEmail, label);
+  return json({ token, expiresAt });
+}
+
+async function verifyTokenHandler(request, env, actorEmail) {
+  if (!actorEmail) return json({ error: 'Unauthorized' }, 401);
+  const bearer = (request.headers.get('Authorization') || '').trim();
+  if (bearer.toLowerCase().startsWith('bearer ')) {
+    const record = await resolveDeviceToken(env, bearer.slice(7).trim());
+    if (record) return json({ email: record.email, expiresAt: record.expiresAt });
+  }
+  return json({ email: actorEmail });
+}
+
+async function listDevicesHandler(env, actorEmail) {
+  if (!actorEmail) return json({ error: 'Unauthorized' }, 401);
+  return json({ devices: await listDevices(env, actorEmail) });
+}
+
+async function revokeDeviceHandler(request, env, actorEmail, path) {
+  if (!actorEmail) return json({ error: 'Unauthorized' }, 401);
+  const id = Number(path.match(/\/api\/auth\/devices\/(\d+)\/revoke/)[1]);
+  const ok = await revokeDevice(env, actorEmail, id);
+  return json({ ok });
+}
+
+async function revokeAllDevicesHandler(env, actorEmail) {
+  if (!actorEmail) return json({ error: 'Unauthorized' }, 401);
+  await revokeAllDevices(env, actorEmail);
+  return json({ ok: true });
+}
+
+async function revokeCurrentDeviceHandler(request, env) {
+  const bearer = (request.headers.get('Authorization') || '').trim();
+  const raw = bearer.toLowerCase().startsWith('bearer ') ? bearer.slice(7).trim() : '';
+  const record = await resolveDeviceToken(env, raw);
+  if (!record) return json({ error: 'Unauthorized' }, 401);
+  await revokeDevice(env, record.email, record.id);
+  return json({ ok: true });
 }
 
 function json(data, status = 200, extra = {}) {
