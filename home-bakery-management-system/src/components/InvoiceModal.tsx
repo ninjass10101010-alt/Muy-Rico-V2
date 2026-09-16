@@ -19,7 +19,14 @@ export default function InvoiceModal({
   onClose: () => void;
   invoice?: Invoice | null;
 }) {
-  const { customers, handleCreateInvoice, handleUpdateInvoice } = useStore();
+  const {
+    customers,
+    handleCreateInvoice,
+    handleUpdateInvoice,
+    handleAddInvoiceItem,
+    handleUpdateInvoiceItem,
+    handleDeleteInvoiceItem,
+  } = useStore();
   const editing = !!invoice;
 
   const [customerName, setCustomerName] = useState("");
@@ -45,7 +52,10 @@ export default function InvoiceModal({
       setPaymentOptions(invoice.paymentOptions);
       setNotes(invoice.notes || "");
       setItems(invoice.items.map((i) => ({
-        description: i.description, qty: i.qty, unit_price_cents: i.unit_price_cents,
+        id: i.id,
+        description: i.description,
+        qty: i.qty,
+        unit_price_cents: i.unit_price_cents,
       })));
     } else {
       setCustomerName(""); setEmail(""); setPhone(""); setLanguage("es");
@@ -87,6 +97,38 @@ export default function InvoiceModal({
           payment_options: paymentOptions,
           notes: notes.trim() || null,
         });
+
+        // Persist line-item changes (the metadata PATCH does not touch items).
+        const original = invoice.items;
+        const keptIds = new Set<number>();
+        for (const it of clean) {
+          const existing = it.id != null ? original.find((o) => o.id === it.id) : undefined;
+          if (existing) {
+            keptIds.add(existing.id);
+            if (
+              existing.description !== it.description ||
+              existing.qty !== it.qty ||
+              existing.unit_price_cents !== it.unit_price_cents
+            ) {
+              await handleUpdateInvoiceItem(invoice.id, existing.id, {
+                description: it.description,
+                qty: it.qty,
+                unit_price_cents: it.unit_price_cents,
+              });
+            }
+          } else {
+            await handleAddInvoiceItem(invoice.id, {
+              description: it.description,
+              qty: it.qty,
+              unit_price_cents: it.unit_price_cents,
+            });
+          }
+        }
+        for (const orig of original) {
+          if (!keptIds.has(orig.id)) {
+            await handleDeleteInvoiceItem(invoice.id, orig.id);
+          }
+        }
       } else {
         await handleCreateInvoice({
           customer_name: customerName.trim(),

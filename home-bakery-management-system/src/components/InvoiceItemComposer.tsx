@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "../utils/format";
 
 export interface DraftInvoiceItem {
+  id?: number;
   description: string;
   qty: number;
   unit_price_cents: number;
