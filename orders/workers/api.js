@@ -4061,7 +4061,7 @@ async function notifyInvoicePaid(env, id, number, customerName, orderId, paidCen
   const methodLabel = method.charAt(0).toUpperCase() + method.slice(1);
   const msg = `🧾 ${number} paid → Order #${orderId} (${customerName})\n💰 ${paid} of ${total} via ${methodLabel}`;
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
-    notifyTelegram(env, msg);
+    return notifyTelegram(env, msg);
   }
 }
 
@@ -4093,7 +4093,7 @@ async function sendInvoicePaidConfirmation(env, invoice, orderId, paidCents) {
     <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" style="max-width: 160px;">
   </div>
   <h2 style="margin:0 0 8px;font-size:20px;">${isEn ? 'Payment received' : 'Pago recibido'}</h2>
-  <p style="margin:0 0 12px;">${isEn ? `Thank you! We received your payment for ${number}.` : `¡Gracias! Recibimos tu pago de ${number}.`}</p>
+  <p style="margin:0 0 12px;">${isEn ? `Thank you! We received your payment for ${escapeHtml(number)}.` : `¡Gracias! Recibimos tu pago de ${escapeHtml(number)}.`}</p>
   <table style="width:100%;border-collapse:collapse;margin:12px 0;background:#faf7f2;border-radius:8px;">${rows}</table>
   <p style="color:#706561;font-size:11px;margin:16px 0 0;">${isEn
     ? 'Baked in a home kitchen not inspected by the health department (Michigan Cottage Law). May contain or come into contact with common allergens.'
