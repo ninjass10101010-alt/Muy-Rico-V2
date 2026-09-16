@@ -3750,6 +3750,209 @@ async function deleteInvoiceItem(id, itemId, env) {
   }
 }
 
+// ─── Invoice payable / paid / conversion ────────────────────────────────────
+
+async function getInvoicePayable(id, request, env) {
+  const url = new URL(request.url);
+  const token = url.searchParams.get('t') || '';
+  const raw = await loadInvoiceOr404(id, env);
+  if (!raw) return json({ error: 'Not found' }, 404);
+  if (!raw.public_token || token !== raw.public_token) {
+    return json({ error: 'Invalid token' }, 403);
+  }
+  if (raw.status === 'void') {
+    // A voided invoice is a dead link. A converted (paid) invoice still returns 200
+    // with paid:true so the pay page shows "already paid" rather than "invalid link";
+    // new payment creation is separately blocked in the checkout worker.
+    return json({ error: 'Invoice not payable' }, 409);
+  }
+  const items = await getInvoiceItems(env, id);
+  const totalCents = Number(raw.total_cents) || 0;
+  const depositCents = invoiceDepositCentsFor(totalCents);
+  return json({
+    ok: true,
+    id: raw.id,
+    number: raw.number,
+    customer_name: raw.customer_name,
+    total_cents: totalCents,
+    deposit_cents: depositCents,
+    balance_cents: totalCents - depositCents,
+    payment_options: raw.payment_options || 'both',
+    language: raw.language || 'es',
+    status: raw.status,
+    paid: raw.paid_at != null || raw.status === 'converted',
+    items: items.map((i) => ({
+      description: i.description, qty: i.qty, unit_price_cents: i.unit_price_cents,
+    })),
+  }, 200);
+}
+
+// Shared invoice → order conversion. `invoice` is an invoices row.
+async function convertInvoiceToOrder(env, id, invoice, { amountCents, method, subMethod = null, actor }) {
+  const paymentStatus = amountCents >= invoice.total_cents ? 'paid' : 'partial';
+
+  const invoiceItems = await getInvoiceItems(env, id);
+  const itemsJson = JSON.stringify(
+    invoiceItems.length
+      ? invoiceItems.map((i) => ({
+          name: i.description,
+          qty: i.qty,
+          price: i.unit_price_cents / 100,
+        }))
+      : [{ name: invoice.number, qty: 1, price: invoice.total_cents / 100 }]
+  );
+
+  const orderNotes = [
+    `From ${invoice.number}`,
+    invoice.notes || '',
+  ].filter(Boolean).join('\n');
+
+  const pickupDate = invoice.due_date || new Date().toISOString().slice(0, 10);
+
+  const orderResult = await env.DB.prepare(`
+    INSERT INTO orders
+      (customer_name, phone, email, pickup_date, items_json,
+       total_cents, payment_method, payment_status, status, notes,
+       created_by, source, language)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?)
+  `).bind(
+    invoice.customer_name,
+    invoice.phone,
+    invoice.email,
+    pickupDate,
+    itemsJson,
+    invoice.total_cents,
+    method,
+    paymentStatus,
+    orderNotes,
+    actor,
+    invoice.language || 'es',
+  ).run();
+
+  const orderId = orderResult.meta.last_row_id;
+
+  const payId = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await env.DB.prepare('UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1').bind(orderId).run();
+  await env.DB.prepare(`
+    INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+  `).bind(payId, orderId, invoice.customer_name, amountCents / 100, method, subMethod).run();
+
+  await env.DB.prepare(`
+    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
+  `).bind(orderId, actor).run();
+
+  await env.DB.prepare(`
+    UPDATE invoices SET status = 'converted', converted_order_id = ?, paid_cents = ?,
+      paid_at = datetime('now'), payment_method = ?, payment_sub_method = ?,
+      updated_at = datetime('now') WHERE id = ?
+  `).bind(orderId, amountCents, method, subMethod, id).run();
+
+  return { orderId, paymentStatus };
+}
+
+async function notifyDuplicateInvoicePayment(env, id, ref, why) {
+  const msg = `⚠️ Duplicate invoice payment on Invoice #${id} (ref ${ref} — ${why}) — refund needed`;
+  console.warn(msg);
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    return notifyTelegram(env, msg);
+  }
+}
+
+// Records a customer online payment, auto-converts the invoice, notifies owner + customer.
+async function invoicePaid(id, request, env, ctx) {
+  const provided = request.headers.get('X-Webhook-Secret') || '';
+  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+    return json({ error: 'Forbidden — invalid webhook secret' }, 401);
+  }
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const { token, method, ref } = body;
+  const subMethod = body.sub_method || null;
+  const amountCents = Number(body.amount_cents) || 0;
+
+  const invoice = await loadInvoiceOr404(id, env);
+  if (!invoice) return json({ error: 'Not found' }, 404);
+  if (!invoice.public_token || token !== invoice.public_token) {
+    return json({ error: 'Invalid token' }, 403);
+  }
+  if (!ALLOWED_PAYMENT.includes(method)) {
+    return json({ error: `Invalid method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
+  }
+  if (!ref) return json({ error: 'Missing ref' }, 400);
+
+  // Idempotency: a replay with the same ref is a no-op ack
+  if (invoice.payment_ref) {
+    if (invoice.payment_ref === ref) {
+      if (invoice.converted_order_id == null && invoice.status !== 'converted' && invoice.status !== 'void') {
+        const healed = await convertInvoiceToOrder(env, id, invoice, {
+          amountCents, method, subMethod, actor: 'online-payment',
+        });
+        ctx.waitUntil(notifyInvoicePaid(env, id, invoice.number, invoice.customer_name, healed.orderId, amountCents, invoice.total_cents, method));
+        ctx.waitUntil(sendInvoicePaidConfirmation(env, invoice, healed.orderId, amountCents));
+        return json({ ok: true, healed: true, order_id: healed.orderId }, 200);
+      }
+      return json({ ok: true, already: true, order_id: invoice.converted_order_id }, 200);
+    }
+    ctx.waitUntil(notifyDuplicateInvoicePayment(env, id, ref, 'second payment'));
+    return json({ ok: true, duplicate: true }, 200);
+  }
+
+  // Owner already converted/voided before this payment landed
+  if (invoice.status === 'converted' || invoice.status === 'void') {
+    await env.DB.prepare(`
+      UPDATE invoices SET paid_cents = ?, paid_at = datetime('now'),
+        payment_method = ?, payment_sub_method = ?, payment_ref = ?, updated_at = datetime('now') WHERE id = ?
+    `).bind(amountCents, method, subMethod, ref, id).run();
+    ctx.waitUntil(notifyDuplicateInvoicePayment(env, id, ref, `invoice already ${invoice.status}`));
+    return json({ ok: true, duplicate: true, reason: 'already_settled' }, 200);
+  }
+
+  // The amount must correspond to a mode the admin authorized
+  const mode = matchedPayMode(invoice.payment_options, invoice.total_cents, amountCents);
+  if (!mode) {
+    // Provider-signed but not an allowed amount (e.g. total edited after checkout was created).
+    // The money moved: record it + alert instead of returning 400 (a 400 would retry forever).
+    await env.DB.prepare(`
+      UPDATE invoices SET paid_cents = ?, paid_at = datetime('now'),
+        payment_method = ?, payment_sub_method = ?, payment_ref = ?, updated_at = datetime('now') WHERE id = ?
+    `).bind(amountCents, method, subMethod, ref, id).run();
+    ctx.waitUntil(notifyDuplicateInvoicePayment(env, id, ref, `amount $${(amountCents / 100).toFixed(2)} not an allowed mode — reconcile or refund`));
+    return json({ ok: true, duplicate: true, reason: 'unexpected_amount' }, 200);
+  }
+
+  // Atomic claim: only the first writer wins
+  const claim = await env.DB.prepare(`
+    UPDATE invoices SET paid_cents = ?, paid_at = datetime('now'),
+      payment_method = ?, payment_sub_method = ?, payment_ref = ?, updated_at = datetime('now')
+    WHERE id = ? AND payment_ref IS NULL AND status NOT IN ('converted','void')
+  `).bind(amountCents, method, subMethod, ref, id).run();
+  if (claim.meta.changes === 0) {
+    const again = await env.DB.prepare(
+      'SELECT payment_ref, converted_order_id, status FROM invoices WHERE id = ?'
+    ).bind(id).first();
+    if (again && again.payment_ref === ref) {
+      return json({ ok: true, already: true, order_id: again.converted_order_id }, 200);
+    }
+    if (again && (again.status === 'converted' || again.status === 'void')) {
+      ctx.waitUntil(notifyDuplicateInvoicePayment(env, id, ref, `invoice already ${again.status}`));
+      return json({ ok: true, duplicate: true, reason: 'already_settled' }, 200);
+    }
+    ctx.waitUntil(notifyDuplicateInvoicePayment(env, id, ref, 'concurrent payment'));
+    return json({ ok: true, duplicate: true }, 200);
+  }
+
+  const { orderId } = await convertInvoiceToOrder(env, id, invoice, {
+    amountCents, method, subMethod, actor: 'online-payment',
+  });
+
+  ctx.waitUntil(notifyInvoicePaid(env, id, invoice.number, invoice.customer_name, orderId, amountCents, invoice.total_cents, method));
+  ctx.waitUntil(sendInvoicePaidConfirmation(env, invoice, orderId, amountCents));
+
+  return json({ ok: true, order_id: orderId }, 200);
+}
+
 // ─── Quote deposit: public token-guarded read for the pay page ──────────────
 
 async function getQuoteDepositPayable(id, request, env) {
