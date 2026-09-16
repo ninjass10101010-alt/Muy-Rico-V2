@@ -3842,11 +3842,25 @@ async function convertInvoiceToOrder(env, id, invoice, { amountCents, method, su
     INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
   `).bind(orderId, actor).run();
 
-  await env.DB.prepare(`
+  // Claim the conversion atomically: only the first caller to reach here converts.
+  const claim = await env.DB.prepare(`
     UPDATE invoices SET status = 'converted', converted_order_id = ?, paid_cents = ?,
       paid_at = datetime('now'), payment_method = ?, payment_sub_method = ?,
-      updated_at = datetime('now') WHERE id = ?
+      updated_at = datetime('now')
+    WHERE id = ? AND converted_order_id IS NULL AND status NOT IN ('converted','void')
   `).bind(orderId, amountCents, method, subMethod, id).run();
+
+  if (claim.meta.changes === 0) {
+    // Lost the race: another caller already converted this invoice. Roll back the
+    // order/payment/event this call created, then return the winner's order id.
+    await env.DB.prepare('DELETE FROM payments WHERE order_id = ?').bind(orderId).run();
+    await env.DB.prepare('DELETE FROM order_events WHERE order_id = ?').bind(orderId).run();
+    await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderId).run();
+    const winner = await env.DB.prepare(
+      'SELECT converted_order_id FROM invoices WHERE id = ?'
+    ).bind(id).first();
+    return { orderId: winner ? winner.converted_order_id : null, paymentStatus: null, already: true };
+  }
 
   return { orderId, paymentStatus };
 }
@@ -3885,10 +3899,15 @@ async function invoicePaid(id, request, env, ctx) {
   // Idempotency: a replay with the same ref is a no-op ack
   if (invoice.payment_ref) {
     if (invoice.payment_ref === ref) {
-      if (invoice.converted_order_id == null && invoice.status !== 'converted' && invoice.status !== 'void') {
+      if (invoice.converted_order_id == null
+          && invoice.status !== 'converted' && invoice.status !== 'void'
+          && matchedPayMode(invoice.payment_options, invoice.total_cents, amountCents)) {
         const healed = await convertInvoiceToOrder(env, id, invoice, {
           amountCents, method, subMethod, actor: 'online-payment',
         });
+        if (healed.already) {
+          return json({ ok: true, already: true, order_id: healed.orderId }, 200);
+        }
         ctx.waitUntil(notifyInvoicePaid(env, id, invoice.number, invoice.customer_name, healed.orderId, amountCents, invoice.total_cents, method));
         ctx.waitUntil(sendInvoicePaidConfirmation(env, invoice, healed.orderId, amountCents));
         return json({ ok: true, healed: true, order_id: healed.orderId }, 200);
@@ -3943,14 +3962,17 @@ async function invoicePaid(id, request, env, ctx) {
     return json({ ok: true, duplicate: true }, 200);
   }
 
-  const { orderId } = await convertInvoiceToOrder(env, id, invoice, {
+  const converted = await convertInvoiceToOrder(env, id, invoice, {
     amountCents, method, subMethod, actor: 'online-payment',
   });
+  if (converted.already) {
+    return json({ ok: true, already: true, order_id: converted.orderId }, 200);
+  }
 
-  ctx.waitUntil(notifyInvoicePaid(env, id, invoice.number, invoice.customer_name, orderId, amountCents, invoice.total_cents, method));
-  ctx.waitUntil(sendInvoicePaidConfirmation(env, invoice, orderId, amountCents));
+  ctx.waitUntil(notifyInvoicePaid(env, id, invoice.number, invoice.customer_name, converted.orderId, amountCents, invoice.total_cents, method));
+  ctx.waitUntil(sendInvoicePaidConfirmation(env, invoice, converted.orderId, amountCents));
 
-  return json({ ok: true, order_id: orderId }, 200);
+  return json({ ok: true, order_id: converted.orderId }, 200);
 }
 
 // ─── Quote deposit: public token-guarded read for the pay page ──────────────
