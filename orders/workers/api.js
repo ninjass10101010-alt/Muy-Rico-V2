@@ -3990,6 +3990,139 @@ async function invoicePaid(id, request, env, ctx) {
   return json({ ok: true, order_id: converted.orderId }, 200);
 }
 
+// ─── Invoice email + notifications ──────────────────────────────────────────
+
+async function sendInvoiceEmail(env, invoice, items) {
+  const email = invoice.email;
+  const lang = invoice.language || 'es';
+  if (!email || !env.RESEND_API_KEY) return;
+  const isEn = lang === 'en';
+  const meta = invoiceEmailMeta(invoice, isEn);
+  const html = buildInvoiceDocumentHtml(invoice, items, isEn);
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + env.RESEND_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || 'orders@muy-rico.com',
+        to: email,
+        subject: meta.subject,
+        html,
+      }),
+    });
+  } catch (e) {
+    console.error('sendInvoiceEmail failed:', e);
+  }
+}
+
+// Shared send path used by createInvoice(?send), emailInvoice, and POST /send.
+async function sendInvoiceCore(id, env) {
+  const invoice = await loadInvoiceOr404(id, env);
+  if (!invoice) return { error: json({ error: 'Not found' }, 404) };
+  if (invoice.status === 'converted' || invoice.status === 'void') {
+    return { error: json({ error: `Invoice is ${invoice.status}; cannot email` }, 400) };
+  }
+  const items = await getInvoiceItems(env, id);
+  await sendInvoiceEmail(env, invoice, items);
+  let status = invoice.status;
+  if (invoice.status === 'draft') {
+    await env.DB.prepare(
+      "UPDATE invoices SET status = 'sent', updated_at = datetime('now') WHERE id = ?"
+    ).bind(id).run();
+    status = 'sent';
+  }
+  return { ok: true, status };
+}
+
+async function emailInvoice(id, env, ctx) {
+  const r = await sendInvoiceCore(id, env);
+  if (r.error) return r.error;
+  return json({ ok: true, status: r.status }, 200);
+}
+
+async function voidInvoice(id, env) {
+  const invoice = await loadInvoiceOr404(id, env);
+  if (!invoice) return json({ error: 'Not found' }, 404);
+  if (invoice.status === 'converted') {
+    return json({ error: 'Invoice already paid/converted' }, 400);
+  }
+  await env.DB.prepare(
+    "UPDATE invoices SET status = 'void', updated_at = datetime('now') WHERE id = ?"
+  ).bind(id).run();
+  return json({ ok: true }, 200);
+}
+
+async function notifyInvoicePaid(env, id, number, customerName, orderId, paidCents, totalCents, method) {
+  const paid = '$' + (paidCents / 100).toFixed(2);
+  const total = '$' + (totalCents / 100).toFixed(2);
+  const methodLabel = method.charAt(0).toUpperCase() + method.slice(1);
+  const msg = `🧾 ${number} paid → Order #${orderId} (${customerName})\n💰 ${paid} of ${total} via ${methodLabel}`;
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    notifyTelegram(env, msg);
+  }
+}
+
+async function sendInvoicePaidConfirmation(env, invoice, orderId, paidCents) {
+  const email = invoice.email;
+  const lang = invoice.language || 'es';
+  if (!email || !env.RESEND_API_KEY) return;
+  const isEn = lang === 'en';
+  const number = invoice.number || `INV-${invoice.id}`;
+  const paid = `$${(paidCents / 100).toFixed(2)}`;
+  const balanceCents = Math.max((Number(invoice.total_cents) || 0) - paidCents, 0);
+  const paidInFull = balanceCents === 0;
+
+  const subject = isEn
+    ? `Payment received for ${number} — Muy Rico Bakery`
+    : `Pago recibido para ${number} — Muy Rico Bakery`;
+
+  const rows = [
+    [isEn ? (paidInFull ? 'Amount paid' : 'Deposit paid') : (paidInFull ? 'Monto pagado' : 'Depósito pagado'), `<strong>${paid}</strong>`],
+    balanceCents > 0
+      ? [isEn ? 'Balance due at pickup' : 'Restante al recoger', `$${(balanceCents / 100).toFixed(2)}`]
+      : [isEn ? 'Paid in full' : 'Pagado por completo', isEn ? 'Nothing due at pickup' : 'Nada pendiente al recoger'],
+  ].map(([k, v]) =>
+    `<tr><td style="padding:10px 14px;color:#4a423d;font-size:14px;">${k}</td><td style="padding:10px 14px;text-align:right;color:#2c2523;font-size:14px;">${v}</td></tr>`
+  ).join('');
+
+  const html = `<div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; color: #2c2523; line-height: 1.6;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <img src="https://muy-rico.com/muy_rico_logo_email.png" alt="Muy Rico Bakery" style="max-width: 160px;">
+  </div>
+  <h2 style="margin:0 0 8px;font-size:20px;">${isEn ? 'Payment received' : 'Pago recibido'}</h2>
+  <p style="margin:0 0 12px;">${isEn ? `Thank you! We received your payment for ${number}.` : `¡Gracias! Recibimos tu pago de ${number}.`}</p>
+  <table style="width:100%;border-collapse:collapse;margin:12px 0;background:#faf7f2;border-radius:8px;">${rows}</table>
+  <p style="color:#706561;font-size:11px;margin:16px 0 0;">${isEn
+    ? 'Baked in a home kitchen not inspected by the health department (Michigan Cottage Law). May contain or come into contact with common allergens.'
+    : 'Horneado en una cocina doméstica no inspeccionada por el departamento de salud (Ley Cottage de Michigan). Puede contener alérgenos o haber tenido contacto con ellos.'}</p>
+  <hr style="border: none; border-top: 1px solid #e8dbc4; margin: 24px 0;">
+  <p style="color: #706561; font-size: 12px; text-align: center; margin: 0;">
+    Muy Rico Bakery · Holland, MI<br>${isEn ? 'Family · Tradition · Flavor' : 'Familia · Tradición · Sabor'}
+  </p>
+</div>`;
+
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + env.RESEND_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || 'orders@muy-rico.com',
+        to: email,
+        subject,
+        html,
+      }),
+    });
+  } catch (e) {
+    console.error('sendInvoicePaidConfirmation failed:', e);
+  }
+}
+
 // ─── Quote deposit: public token-guarded read for the pay page ──────────────
 
 async function getQuoteDepositPayable(id, request, env) {
@@ -4641,6 +4774,37 @@ async function getQuoteDocumentHtml(id, env, url) {
 
   const html = buildQuoteDocumentHtml(row, items, lang);
   const togglePath = url?.pathname || `/api/quotes/${id}/html`;
+  const autoPrint = !url?.searchParams?.has('lang');
+
+  const toggleBar = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; padding: 8px 12px; text-align: center; border-bottom: 1px solid #e3dcd2;">
+  <span style="color: #8a8078; font-size: 12px; margin-right: 8px;">Language / Idioma:</span>
+  <a href="${togglePath}?lang=en" style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 4px; ${lang === 'en' ? 'background:#1e4636;color:#fff;' : 'background:#e3dcd2;color:#4a423d;'} margin: 0 2px;">EN</a>
+  <a href="${togglePath}?lang=es" style="display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 4px; ${lang !== 'en' ? 'background:#1e4636;color:#fff;' : 'background:#e3dcd2;color:#4a423d;'} margin: 0 2px;">ES</a>
+</div>`;
+
+  const printable = toggleBar + html + (autoPrint ? '\n<script>window.print();</script>' : '');
+  return new Response(printable, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', ...CORS },
+  });
+}
+
+// ─── Printable invoice document ─────────────────────────────────────────────
+
+async function getInvoiceDocumentHtml(id, env, url) {
+  const raw = await loadInvoiceOr404(id, env);
+  if (!raw) return json({ error: 'Not found' }, 404);
+  const invoice = rowToInvoice(raw);
+  const items = await getInvoiceItems(env, id);
+
+  let lang = raw.language === 'en' ? 'en' : 'es';
+  const langParam = url?.searchParams?.get('lang');
+  if (langParam === 'en') lang = 'en';
+  else if (langParam === 'es') lang = 'es';
+
+  const html = buildInvoiceDocumentHtml(invoice, items, lang === 'en');
+  const togglePath = url?.pathname || `/api/invoices/${id}/html`;
   const autoPrint = !url?.searchParams?.has('lang');
 
   const toggleBar = `
