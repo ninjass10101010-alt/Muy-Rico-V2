@@ -8,6 +8,7 @@ const TITLES: Record<Page, { title: string; subtitle: string }> = {
   orders: { title: "Orders", subtitle: "Track website & in-person orders" },
   calendar: { title: "Calendar", subtitle: "Upcoming orders, reminders & prep" },
   quotes: { title: "Cake Quotes", subtitle: "Custom cake quote requests" },
+  invoices: { title: "Invoices", subtitle: "Send & track customer invoices" },
   products: { title: "Menu & Products", subtitle: "Manage what you sell" },
   gallery: { title: "Gallery", subtitle: "Portfolio photos & customer showcases" },
   slideshow: { title: "Slideshow", subtitle: "Homepage carousel photos" },

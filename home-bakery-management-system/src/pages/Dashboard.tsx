@@ -6,6 +6,7 @@ import {
   TrendingUp,
   ArrowUpRight,
   MessageSquareQuote,
+  FileText,
   Wallet,
   CalendarClock,
   CheckCircle2,
@@ -35,7 +36,7 @@ import type { Page } from "../App";
 import muyRicoLogo from "../assets/muy_rico_logo_transparent.webp";
 
 export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
-  const { orders, inventory, payments, products, loading, quotes } = useStore();
+  const { orders, inventory, payments, products, loading, quotes, invoices } = useStore();
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -56,6 +57,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
     const lowStockCritical = lowStock.filter((i) => i.quantity <= 0).length;
     const avgOrder = orders.length ? orders.reduce((s, o) => s + o.total, 0) / orders.length : 0;
     const pendingQuotes = quotes.filter((q) => q.status === "new").length;
+    const outstandingInvoices = invoices.filter((i) => i.status === "sent").length;
     const active = orders.filter((o) => o.status !== "completed" && o.status !== "cancelled");
     const awaitingPayment = active.filter((o) => o.paymentStatus === "unpaid" || o.paymentStatus === "partial");
     const owedTotal = awaitingPayment.reduce((sum, o) => {
@@ -78,12 +80,13 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
       lowStockCritical,
       avgOrder,
       pendingQuotes,
+      outstandingInvoices,
       awaitingPayment: awaitingPayment.length,
       owedTotal,
       dueToday,
       due48h,
     };
-  }, [orders, inventory, payments, quotes]);
+  }, [orders, inventory, payments, quotes, invoices]);
 
   const paymentBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
@@ -250,6 +253,7 @@ export default function Dashboard({ setPage }: { setPage: (p: Page) => void }) {
         <MiniStat icon={TrendingUp} tone="text-coral" label="Avg order" value={formatCurrency(stats.avgOrder)} onClick={() => setPage("orders")} />
         <MiniStat icon={PackageX} tone="text-hibiscus" label={`Low stock${stats.lowStockCritical ? ` · ${stats.lowStockCritical} critical` : ""}`} value={String(stats.lowStock.length)} onClick={() => setPage("inventory")} />
         <MiniStat icon={MessageSquareQuote} tone="text-coral" label="Quotes pending" value={String(stats.pendingQuotes)} onClick={() => setPage("quotes")} />
+        <MiniStat icon={FileText} tone="text-coral" label="Invoices outstanding" value={String(stats.outstandingInvoices)} onClick={() => setPage("invoices")} />
       </div>
 
       {/* Charts row */}

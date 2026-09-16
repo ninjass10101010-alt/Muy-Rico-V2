@@ -19,6 +19,7 @@ import LabelStudio from "./pages/LabelStudio";
 import Settings from "./pages/Settings";
 import PublicOrder from "./pages/PublicOrder";
 import Quotes from "./pages/Quotes";
+import Invoices from "./pages/Invoices";
 import CalendarView from "./pages/CalendarView";
 
 export type Page =
@@ -26,6 +27,7 @@ export type Page =
   | "orders"
   | "calendar"
   | "quotes"
+  | "invoices"
   | "products"
   | "gallery"
   | "slideshow"
@@ -139,6 +141,7 @@ function AdminApp() {
             />
           )}
           {page === "quotes" && <Quotes search={search} setPage={setPage} />}
+          {page === "invoices" && <Invoices search={search} />}
           {page === "products" && (
             <Products
               search={search}

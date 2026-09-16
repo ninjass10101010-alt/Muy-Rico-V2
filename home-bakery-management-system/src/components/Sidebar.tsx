@@ -13,6 +13,7 @@ import {
   Tag,
   Settings,
   MessageSquareQuote,
+  FileText,
 } from "lucide-react";
 import { cn } from "../utils/cn";
 import type { Page } from "../App";
@@ -25,6 +26,7 @@ const NAV: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "orders", label: "Orders", icon: ClipboardList },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "quotes", label: "Cake Quotes", icon: MessageSquareQuote },
+  { id: "invoices", label: "Invoices", icon: FileText },
   { id: "products", label: "Menu & Products", icon: Cookie },
   { id: "gallery", label: "Gallery", icon: Images },
   { id: "slideshow", label: "Slideshow", icon: GalleryHorizontal },
