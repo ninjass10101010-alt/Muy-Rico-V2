@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Modal from "./ui/Modal";
 import InvoiceItemComposer, { type DraftInvoiceItem } from "./InvoiceItemComposer";
 import { useStore } from "../context/StoreContext";
 import { fetchInvoice } from "../utils/api";
-import type { Invoice, PaymentOptions } from "../types";
+import type { Invoice, InvoiceItem, PaymentOptions } from "../types";
 
 const OPTIONS: { value: PaymentOptions; label: string; hint: string }[] = [
   { value: "full", label: "Full only", hint: "Customer pays the whole amount now" },
@@ -38,6 +38,7 @@ export default function InvoiceModal({
   const [paymentOptions, setPaymentOptions] = useState<PaymentOptions>("both");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<DraftInvoiceItem[]>([{ description: "", qty: 1, unit_price_cents: 0 }]);
+  const baselineRef = useRef<InvoiceItem[]>([]);
   const [sendNow, setSendNow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -58,10 +59,12 @@ export default function InvoiceModal({
         qty: i.qty,
         unit_price_cents: i.unit_price_cents,
       })));
+      baselineRef.current = invoice.items;
     } else {
       setCustomerName(""); setEmail(""); setPhone(""); setLanguage("es");
       setDueDate(""); setPaymentOptions("both"); setNotes("");
       setItems([{ description: "", qty: 1, unit_price_cents: 0 }]);
+      baselineRef.current = [];
       setSendNow(false);
     }
     setError("");
@@ -100,18 +103,18 @@ export default function InvoiceModal({
         });
 
         // Persist line-item changes (the metadata PATCH does not touch items).
-        const original = invoice.items;
+        const baseline = baselineRef.current;
         const keptIds = new Set<number>();
         for (const it of clean) {
-          const existing = it.id != null ? original.find((o) => o.id === it.id) : undefined;
-          if (existing) {
-            keptIds.add(existing.id);
-            if (
-              existing.description !== it.description ||
-              existing.qty !== it.qty ||
-              existing.unit_price_cents !== it.unit_price_cents
-            ) {
-              await handleUpdateInvoiceItem(invoice.id, existing.id, {
+          if (it.id != null) {
+            keptIds.add(it.id);
+            const prev = baseline.find((o) => o.id === it.id);
+            const changed = !prev
+              || prev.description !== it.description
+              || prev.qty !== it.qty
+              || prev.unit_price_cents !== it.unit_price_cents;
+            if (changed) {
+              await handleUpdateInvoiceItem(invoice.id, it.id, {
                 description: it.description,
                 qty: it.qty,
                 unit_price_cents: it.unit_price_cents,
@@ -125,9 +128,9 @@ export default function InvoiceModal({
             });
           }
         }
-        for (const orig of original) {
-          if (!keptIds.has(orig.id)) {
-            await handleDeleteInvoiceItem(invoice.id, orig.id);
+        for (const prev of baseline) {
+          if (!keptIds.has(prev.id)) {
+            await handleDeleteInvoiceItem(invoice.id, prev.id);
           }
         }
       } else {
@@ -154,6 +157,7 @@ export default function InvoiceModal({
             qty: i.qty,
             unit_price_cents: i.unit_price_cents,
           })));
+          baselineRef.current = fresh.items;
         } catch {
           // keep the current drafts if the refresh also fails
         }
