@@ -28,7 +28,7 @@ describe('buildInvoiceDocumentHtml', () => {
     const html = buildInvoiceDocumentHtml(baseInvoice, items, false);
     expect(html).toContain('INV-1007');
     expect(html).toContain('Maria Lopez');
-    expect(html).toContain('Tres leches 10"');
+    expect(html).toContain('Tres leches 10&quot;');
     expect(html).toContain('Docena de conchas');
   });
 
