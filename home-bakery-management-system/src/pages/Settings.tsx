@@ -1,11 +1,12 @@
 import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from "react";
 import { CheckCircle2, RefreshCcw, Save, Bell, CreditCard, AlertCircle } from "lucide-react";
 import { useStore } from "../context/StoreContext";
+import { useAuth } from "../context/AuthContext";
 import type { BusinessProfile, PaymentMethod } from "../types";
 import { DEFAULT_REMINDER_CONFIG } from "../types";
 import { saveReminderConfigToLocal } from "../utils/reminders";
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
-import { backfillAllOrderLabels } from "../utils/api";
+import { backfillAllOrderLabels, fetchDevices, revokeDeviceApi, type DeviceInfo } from "../utils/api";
 
 const METHOD_ICONS: Record<PaymentMethod, string> = {
   stripe: "💳",
@@ -27,6 +28,7 @@ function clampInt(raw: string, min: number, max: number, fallback: number): numb
 
 export default function Settings() {
   const { profile, handleUpdateProfile, resetAllData } = useStore();
+  const { signOut } = useAuth();
   const [draft, setDraft] = useState<BusinessProfile>(profile);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -35,6 +37,9 @@ export default function Settings() {
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<"loading" | "connected" | "not_configured" | "error">("loading");
   const [resetting, setResetting] = useState(false);
+  const [devices, setDevices] = useState<DeviceInfo[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [revokingId, setRevokingId] = useState<number | null>(null);
   const savedTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -62,6 +67,28 @@ export default function Settings() {
       if (savedTimeoutRef.current) window.clearTimeout(savedTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDevicesLoading(true);
+    fetchDevices()
+      .then((rows) => { if (!cancelled) setDevices(rows); })
+      .catch(() => { if (!cancelled) setDevices([]); })
+      .finally(() => { if (!cancelled) setDevicesLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function revokeDeviceRow(id: number) {
+    setRevokingId(id);
+    try {
+      await revokeDeviceApi(id);
+      setDevices((rows) => rows.filter((d) => d.id !== id));
+    } catch {
+      /* keep list as-is */
+    } finally {
+      setRevokingId(null);
+    }
+  }
 
   async function save() {
     if (saving) return;
@@ -306,6 +333,44 @@ export default function Settings() {
               Check again
             </button>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-sand-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-3 font-serif text-sm font-semibold text-cocoa">Trusted devices</h3>
+          <p className="mb-3 text-xs leading-relaxed text-cocoa-muted">
+            Devices that stay signed in to the dashboard (e.g. your home-screen app). Revoke any device to require a fresh sign-in.
+          </p>
+          {devicesLoading ? (
+            <p className="text-xs text-cocoa-muted">Loading…</p>
+          ) : devices.length === 0 ? (
+            <p className="text-xs text-cocoa-muted">No trusted devices.</p>
+          ) : (
+            <ul className="divide-y divide-sand-200">
+              {devices.map((d) => (
+                <li key={d.id} className="flex items-center justify-between py-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-cocoa">{d.label || "Device"}</p>
+                    <p className="text-xs text-cocoa-muted">
+                      Last used {new Date(d.last_used_at).toLocaleDateString()} · expires {new Date(d.expires_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => revokeDeviceRow(d.id)}
+                    disabled={revokingId === d.id}
+                    className="rounded-md border border-hibiscus/40 px-2.5 py-1 text-xs font-medium text-hibiscus disabled:opacity-50"
+                  >
+                    Revoke
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            onClick={signOut}
+            className="mt-3 rounded-lg border border-sand-200 bg-white px-3 py-1.5 text-xs font-medium text-cocoa hover:bg-sand-50"
+          >
+            Sign out of all devices
+          </button>
         </div>
 
         <button

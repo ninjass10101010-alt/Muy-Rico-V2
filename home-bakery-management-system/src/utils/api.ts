@@ -1,7 +1,20 @@
 import type { BusinessProfile, FlavorGroup, PackSize, PaymentMethod, RecipeLine } from "../types";
+import { getDeviceToken, clearDeviceToken } from "./tokenStore";
 
 const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE = isDev ? "http://localhost:8787" : "";
+
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn;
+}
+
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const token = await getDeviceToken();
+  const headers = { ...extra };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
 
 interface ApiOrderCreate {
   customer_name: string;
@@ -56,15 +69,19 @@ export interface StatsResponse {
   paid: number;
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  const headers = await authHeaders(
+    (options?.headers as Record<string, string>) || {}
+  );
+  if (!headers["Content-Type"] && !(options?.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    await clearDeviceToken();
+    if (onUnauthorized) onUnauthorized();
+  }
   if (!res.ok) {
     let errorMsg = `API error ${res.status}`;
     let errBody: any = null;
@@ -241,7 +258,7 @@ export async function deleteProduct(id: string): Promise<{ ok: boolean }> {
 export async function uploadImage(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: form });
+  const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: form, headers: await authHeaders() });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Upload failed');
@@ -1094,7 +1111,7 @@ export async function convertQuote(
 export async function uploadQuoteImage(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(`${API_BASE}/api/quotes/upload-image`, { method: 'POST', body: form });
+  const res = await fetch(`${API_BASE}/api/quotes/upload-image`, { method: 'POST', body: form, headers: await authHeaders() });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Upload failed');
@@ -1149,4 +1166,31 @@ export async function updateQuoteItem(
 
 export async function deleteQuoteItem(id: number, itemId: number): Promise<{ ok: boolean }> {
   return apiFetch(`/api/quotes/${id}/items/${itemId}`, { method: "DELETE" });
+}
+
+// ─── Trusted devices (home-screen app auth) ────────────────────────────────
+
+export interface DeviceInfo {
+  id: number;
+  label: string | null;
+  created_at: string;
+  last_used_at: string;
+  expires_at: string;
+}
+
+export async function mintDeviceTokenApi(label?: string): Promise<{ token: string; expiresAt: string }> {
+  return apiFetch("/api/auth/device-token", { method: "POST", body: JSON.stringify({ label }) });
+}
+
+export async function fetchDevices(): Promise<DeviceInfo[]> {
+  const data = await apiFetch<{ devices: DeviceInfo[] }>("/api/auth/devices");
+  return data.devices;
+}
+
+export async function revokeDeviceApi(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/auth/devices/${id}/revoke`, { method: "POST" });
+}
+
+export async function signOutCurrentDeviceApi(): Promise<{ ok: boolean }> {
+  return apiFetch("/api/auth/device-token", { method: "DELETE" });
 }

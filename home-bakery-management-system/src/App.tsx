@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { StoreProvider } from "./context/StoreContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import OrderModal from "./components/OrderModal";
+import LoginScreen from "./components/LoginScreen";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Products from "./pages/Products";
@@ -36,6 +38,7 @@ export type Page =
   | "settings";
 
 function AdminApp() {
+  const { status } = useAuth();
   const [page, setPage] = useState<Page>("dashboard");
   const [returnTo, setReturnTo] = useState<Page>("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -72,6 +75,15 @@ function AdminApp() {
   };
 
   // Full-screen studio: renders without the admin chrome (Sidebar/Topbar).
+  if (status === "checking") {
+    return (
+      <div className="flex h-screen items-center justify-center bg-sand-50">
+        <div className="animate-pulse text-cocoa/60">Loading…</div>
+      </div>
+    );
+  }
+  if (status === "unauthenticated") return <LoginScreen />;
+
   if (page === "labels") {
     return (
       <LabelStudio
@@ -161,8 +173,10 @@ function AppRouter() {
 
 export default function App() {
   return (
-    <StoreProvider>
-      <AppRouter />
-    </StoreProvider>
+    <AuthProvider>
+      <StoreProvider>
+        <AppRouter />
+      </StoreProvider>
+    </AuthProvider>
   );
 }

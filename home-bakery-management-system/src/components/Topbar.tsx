@@ -1,5 +1,6 @@
-import { Menu, Plus, Search } from "lucide-react";
+import { LogOut, Menu, Plus, Search } from "lucide-react";
 import type { Page } from "../App";
+import { useAuth } from "../context/AuthContext";
 import ReminderBell from "./ReminderBell";
 
 const TITLES: Record<Page, { title: string; subtitle: string }> = {
@@ -37,6 +38,7 @@ export default function Topbar({
   setSearch?: (v: string) => void;
 }) {
   const meta = TITLES[page];
+  const { signOut } = useAuth();
   return (
     <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-sand-200 bg-sand-50/90 px-4 py-4 backdrop-blur-sm sm:px-6">
       <div className="flex items-center gap-3">
@@ -64,6 +66,14 @@ export default function Topbar({
           </div>
         )}
         <ReminderBell onOpenCalendar={onOpenCalendar} onOpenDate={onOpenDate} />
+        <button
+          onClick={signOut}
+          className="rounded-lg p-2 text-cocoa-muted hover:bg-sand-100"
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <LogOut size={18} />
+        </button>
         <button
           onClick={onNewOrder}
           className="btn-primary px-3.5 py-2.5 sm:px-4"
