@@ -82,4 +82,23 @@ describe("buildInvoicePdf", () => {
     const doc = await PDFDocument.load(bytes);
     expect(doc.getPageCount()).toBe(1);
   });
+
+  it("paginates a large invoice across multiple Letter pages", async () => {
+    const { buildInvoicePdf } = await import("./invoicePdf");
+    const many: InvoiceItem[] = Array.from({ length: 40 }, (_, i) => ({
+      id: i + 1,
+      description: `Custom item number ${i + 1} with a fairly long description`,
+      qty: 1,
+      unit_price_cents: 1000,
+      sort_order: i,
+    }));
+    const bytes = await buildInvoicePdf({ ...invoice, items: many, totalCents: 40000 }, many);
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBeGreaterThan(1);
+    for (let i = 0; i < doc.getPageCount(); i++) {
+      const { width, height } = doc.getPage(i).getSize();
+      expect(Math.round(width)).toBe(612);
+      expect(Math.round(height)).toBe(792);
+    }
+  });
 });

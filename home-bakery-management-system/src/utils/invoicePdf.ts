@@ -78,16 +78,35 @@ function wrap(text: string, font: PDFFont, size: number, maxW: number): string[]
 export async function buildInvoicePdf(invoice: Invoice, items: InvoiceItem[]): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const { cormorant, quicksand, helvBold } = await getFonts(doc);
-  const page = doc.addPage([PAGE_W, PAGE_H]);
 
-  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: CREAM });
+  const colDesc = MARGIN;
+  const colQty = PAGE_W - MARGIN - 210;
+  const colUnit = PAGE_W - MARGIN - 110;
+  const colAmt = PAGE_W - MARGIN;
+  const FOOTER_Y = MARGIN + 26;
+  const FLOOR = FOOTER_Y + 30;
 
+  const drawFrame = (pg: PDFPage) => {
+    pg.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: CREAM });
+    pg.drawLine({ start: { x: MARGIN, y: FOOTER_Y + 14 }, end: { x: PAGE_W - MARGIN, y: FOOTER_Y + 14 }, thickness: 0.5, color: RULE });
+    drawText(pg, "Muy Rico Bakery · Holland, MI", MARGIN, FOOTER_Y, quicksand, 9, MUTED);
+    drawRight(pg, "muy-rico.com", PAGE_W - MARGIN, FOOTER_Y, quicksand, 9, MUTED);
+  };
+
+  const drawTableHeader = (pg: PDFPage, atY: number) => {
+    drawText(pg, "DESCRIPTION", colDesc, atY, quicksand, 8, MUTED);
+    drawText(pg, "QTY", colQty, atY, quicksand, 8, MUTED);
+    drawRight(pg, "UNIT", colUnit, atY, quicksand, 8, MUTED);
+    drawRight(pg, "AMOUNT", colAmt, atY, quicksand, 8, MUTED);
+  };
+
+  let page = doc.addPage([PAGE_W, PAGE_H]);
+  drawFrame(page);
   let y = PAGE_H - MARGIN;
 
   // Wordmark
   drawText(page, "Muy Rico", MARGIN, y - 6, cormorant, 30, FOREST);
   drawText(page, "AUTHENTIC MEXICAN BAKERY · HOLLAND, MI", MARGIN, y - 22, quicksand, 8, MUTED);
-
   drawRight(page, "INVOICE", PAGE_W - MARGIN, y - 6, helvBold, 16, FOREST);
   drawRight(page, invoice.number, PAGE_W - MARGIN, y - 24, quicksand, 10, MUTED);
   if (invoice.issueDate) drawRight(page, `Issued: ${invoice.issueDate}`, PAGE_W - MARGIN, y - 38, quicksand, 9, MUTED);
@@ -105,22 +124,33 @@ export async function buildInvoicePdf(invoice: Invoice, items: InvoiceItem[]): P
 
   // Items table
   y -= 74;
-  const colDesc = MARGIN;
-  const colQty = PAGE_W - MARGIN - 210;
-  const colUnit = PAGE_W - MARGIN - 110;
-  const colAmt = PAGE_W - MARGIN;
-  drawText(page, "DESCRIPTION", colDesc, y, quicksand, 8, MUTED);
-  drawText(page, "QTY", colQty, y, quicksand, 8, MUTED);
-  drawRight(page, "UNIT", colUnit, y, quicksand, 8, MUTED);
-  drawRight(page, "AMOUNT", colAmt, y, quicksand, 8, MUTED);
+  drawTableHeader(page, y);
   y -= 6;
   page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 1, color: FOREST });
   y -= 18;
+
+  // Continue the items table on a fresh page (keeps the header + footer).
+  const startContinuation = () => {
+    page = doc.addPage([PAGE_W, PAGE_H]);
+    drawFrame(page);
+    y = PAGE_H - MARGIN;
+    drawTableHeader(page, y);
+    y -= 6;
+    page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 1, color: FOREST });
+    y -= 18;
+  };
+
+  const startTotalsPage = () => {
+    page = doc.addPage([PAGE_W, PAGE_H]);
+    drawFrame(page);
+    y = PAGE_H - MARGIN;
+  };
 
   for (const it of items) {
     const qty = Number(it.qty) || 1;
     const unit = Number(it.unit_price_cents) || 0;
     const lines = wrap(it.description || "", quicksand, 10, colQty - colDesc - 12);
+    if (y - (14 * lines.length + 26) < FLOOR) startContinuation();
     drawText(page, lines[0] || "", colDesc, y, quicksand, 10, INK);
     drawText(page, String(qty), colQty, y, quicksand, 10, MUTED);
     drawRight(page, money(unit), colUnit, y, quicksand, 10, MUTED);
@@ -141,6 +171,8 @@ export async function buildInvoicePdf(invoice: Invoice, items: InvoiceItem[]): P
   const depositCents = Math.ceil(totalCents * 0.5);
   const showDeposit = invoice.paymentOptions !== "full";
 
+  if (y - (showDeposit && totalCents > 0 ? 44 : 16) < FLOOR) startTotalsPage();
+
   drawRight(page, "Total", colUnit, y, helvBold, 12, INK);
   drawRight(page, money(totalCents), colAmt, y, helvBold, 12, FOREST);
   if (showDeposit && totalCents > 0) {
@@ -154,18 +186,14 @@ export async function buildInvoicePdf(invoice: Invoice, items: InvoiceItem[]): P
 
   // Notes
   if (invoice.notes) {
+    const noteLines = wrap(invoice.notes, quicksand, 10, PAGE_W - MARGIN * 2);
+    if (y - (30 + 13 * noteLines.length) < FLOOR) startTotalsPage();
     y -= 30;
-    for (const line of wrap(invoice.notes, quicksand, 10, PAGE_W - MARGIN * 2)) {
+    for (const line of noteLines) {
       drawText(page, line, MARGIN, y, quicksand, 10, MUTED);
       y -= 13;
     }
   }
-
-  // Footer
-  const footerY = MARGIN + 26;
-  page.drawLine({ start: { x: MARGIN, y: footerY + 14 }, end: { x: PAGE_W - MARGIN, y: footerY + 14 }, thickness: 0.5, color: RULE });
-  drawText(page, "Muy Rico Bakery · Holland, MI", MARGIN, footerY, quicksand, 9, MUTED);
-  drawRight(page, "muy-rico.com", PAGE_W - MARGIN, footerY, quicksand, 9, MUTED);
 
   return await doc.save();
 }
