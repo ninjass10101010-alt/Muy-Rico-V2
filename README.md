@@ -21,6 +21,7 @@ Live website for **Muy Rico**, a family-owned Mexican bakery in Holland, Michiga
 | `/order` (public); `/order.html` (legacy) | `order.html` | Order page — product menu w/ photos, cart, Formspree submission, Stripe + PayPal/Venmo payments |
 | `/gallery.html` | `gallery.html` | Public photo albums grouped by product (from `/api/gallery`) |
 | `/admin/` | `admin/index.html` (built from `home-bakery-management-system/`) | Owner dashboard — orders, products, gallery, **slideshow**, inventory, customers, payments, labels, **homepage editor**, settings |
+| `/app/` | `app/index.html` (same built bundle) | **Home-screen app** — installable PWA shell (ungated); authenticates with a trusted-device token |
 | `/admin/order/` | `admin/index.html` (built) | Public React order page (preview-only; legacy `order.html` is the live customer flow) |
 
 ## 🖼️ Images
@@ -100,6 +101,16 @@ This repo deploys to **Cloudflare** as three components:
 - **Domain:** `muy-rico.com` (or `muy-rico.pages.dev`), **Path:** `/admin*`
 - **Identity provider:** One-time PIN
 - Allowlist emails: `jeffery.garcia1@icloud.com`, `bexgarcia0208@gmail.com`
+- The `/app*` route is intentionally **not** in the Access policy — it's the home-screen
+  app shell (no data without a token).
+
+### 5. Trusted-device tokens (home-screen app)
+- Table: `device_tokens` (migration `0046_device_tokens.sql`) stores SHA-256 digests only.
+- One Access-authenticated OTP mints a 90-day rolling token (`POST /api/auth/device-token`);
+  the SPA stores it in `localStorage` + IndexedDB and sends it as `Authorization: Bearer`.
+- The API resolves identity in order: Access header → Access cookie → Bearer token.
+- Manage devices in Settings → Trusted devices (`GET /api/auth/devices`, revoke endpoints).
+- iPhone setup: open `https://muy-rico.com/app/`, sign in once (OTP), then Share → Add to Home Screen.
 
 ## ⚖️ Legal
 
