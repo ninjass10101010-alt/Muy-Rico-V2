@@ -3853,9 +3853,13 @@ async function convertInvoiceToOrder(env, id, invoice, { amountCents, method, su
   if (claim.meta.changes === 0) {
     // Lost the race: another caller already converted this invoice. Roll back the
     // order/payment/event this call created, then return the winner's order id.
-    await env.DB.prepare('DELETE FROM payments WHERE order_id = ?').bind(orderId).run();
-    await env.DB.prepare('DELETE FROM order_events WHERE order_id = ?').bind(orderId).run();
-    await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderId).run();
+    try {
+      await env.DB.prepare('DELETE FROM payments WHERE order_id = ?').bind(orderId).run();
+      await env.DB.prepare('DELETE FROM order_events WHERE order_id = ?').bind(orderId).run();
+      await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderId).run();
+    } catch (e) {
+      console.error('convertInvoiceToOrder orphan rollback failed', e);
+    }
     const winner = await env.DB.prepare(
       'SELECT converted_order_id FROM invoices WHERE id = ?'
     ).bind(id).first();
@@ -3871,6 +3875,22 @@ async function notifyDuplicateInvoicePayment(env, id, ref, why) {
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
     return notifyTelegram(env, msg);
   }
+}
+
+// Shared heal/convert path: converts at most once (via convertInvoiceToOrder's
+// atomic claim), notifies once, and returns the response. Used by the same-ref
+// idempotency branch and the payment_ref claim-loser branch so a losing caller
+// still returns the winner's order id.
+async function healInvoiceConversion(env, id, invoice, { amountCents, method, subMethod, ctx }) {
+  const converted = await convertInvoiceToOrder(env, id, invoice, {
+    amountCents, method, subMethod, actor: 'online-payment',
+  });
+  if (converted.already) {
+    return json({ ok: true, already: true, order_id: converted.orderId }, 200);
+  }
+  ctx.waitUntil(notifyInvoicePaid(env, id, invoice.number, invoice.customer_name, converted.orderId, amountCents, invoice.total_cents, method));
+  ctx.waitUntil(sendInvoicePaidConfirmation(env, invoice, converted.orderId, amountCents));
+  return json({ ok: true, healed: true, order_id: converted.orderId }, 200);
 }
 
 // Records a customer online payment, auto-converts the invoice, notifies owner + customer.
@@ -3902,15 +3922,7 @@ async function invoicePaid(id, request, env, ctx) {
       if (invoice.converted_order_id == null
           && invoice.status !== 'converted' && invoice.status !== 'void'
           && matchedPayMode(invoice.payment_options, invoice.total_cents, amountCents)) {
-        const healed = await convertInvoiceToOrder(env, id, invoice, {
-          amountCents, method, subMethod, actor: 'online-payment',
-        });
-        if (healed.already) {
-          return json({ ok: true, already: true, order_id: healed.orderId }, 200);
-        }
-        ctx.waitUntil(notifyInvoicePaid(env, id, invoice.number, invoice.customer_name, healed.orderId, amountCents, invoice.total_cents, method));
-        ctx.waitUntil(sendInvoicePaidConfirmation(env, invoice, healed.orderId, amountCents));
-        return json({ ok: true, healed: true, order_id: healed.orderId }, 200);
+        return await healInvoiceConversion(env, id, invoice, { amountCents, method, subMethod, ctx });
       }
       return json({ ok: true, already: true, order_id: invoice.converted_order_id }, 200);
     }
@@ -3948,9 +3960,12 @@ async function invoicePaid(id, request, env, ctx) {
     WHERE id = ? AND payment_ref IS NULL AND status NOT IN ('converted','void')
   `).bind(amountCents, method, subMethod, ref, id).run();
   if (claim.meta.changes === 0) {
-    const again = await env.DB.prepare(
-      'SELECT payment_ref, converted_order_id, status FROM invoices WHERE id = ?'
-    ).bind(id).first();
+    const again = await loadInvoiceOr404(id, env);
+    if (again && again.payment_ref === ref
+        && again.converted_order_id == null
+        && again.status !== 'converted' && again.status !== 'void') {
+      return await healInvoiceConversion(env, id, again, { amountCents, method, subMethod, ctx });
+    }
     if (again && again.payment_ref === ref) {
       return json({ ok: true, already: true, order_id: again.converted_order_id }, 200);
     }
