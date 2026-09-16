@@ -13,6 +13,7 @@ import type {
   FlavorGroup,
   IngredientGroup,
   InventoryItem,
+  Invoice,
   LabelTemplate,
   Order,
   OrderSource,
@@ -24,7 +25,7 @@ import type {
 } from "../types";
 import { newId } from "../utils/format";
 import { mapProfileRow } from "../utils/profile";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type OrderItemPatch } from "../utils/api";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, fetchInvoices, createInvoice as apiCreateInvoice, updateInvoice as apiUpdateInvoice, deleteInvoice as apiDeleteInvoice, voidInvoice as apiVoidInvoice, sendInvoice as apiSendInvoice, addInvoiceItem as apiAddInvoiceItem, updateInvoiceItem as apiUpdateInvoiceItem, deleteInvoiceItem as apiDeleteInvoiceItem, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type OrderItemPatch } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -81,6 +82,16 @@ interface StoreContextValue {
   handleAddQuoteItem: (id: number, item: Parameters<typeof apiAddQuoteItem>[1]) => Promise<{ ok: boolean; item: ApiQuoteItem }>;
   handleUpdateQuoteItem: (id: number, itemId: number, patch: Parameters<typeof apiUpdateQuoteItem>[2]) => Promise<{ ok: boolean; item: ApiQuoteItem }>;
   handleDeleteQuoteItem: (id: number, itemId: number) => Promise<{ ok: boolean }>;
+  invoices: Invoice[];
+  refreshInvoices: () => Promise<void>;
+  handleCreateInvoice: (payload: Parameters<typeof apiCreateInvoice>[0]) => Promise<{ id: number; number: string }>;
+  handleUpdateInvoice: (id: number, patch: Parameters<typeof apiUpdateInvoice>[1]) => Promise<void>;
+  handleDeleteInvoice: (id: number) => Promise<void>;
+  handleVoidInvoice: (id: number) => Promise<void>;
+  handleSendInvoice: (id: number) => Promise<{ ok: boolean; status: string }>;
+  handleAddInvoiceItem: (id: number, item: Parameters<typeof apiAddInvoiceItem>[1]) => Promise<void>;
+  handleUpdateInvoiceItem: (id: number, itemId: number, patch: Parameters<typeof apiUpdateInvoiceItem>[2]) => Promise<void>;
+  handleDeleteInvoiceItem: (id: number, itemId: number) => Promise<void>;
   handleMergeCustomers: (survivingId: string, mergedId: string) => Promise<void>;
   handleRelinkOrder: (orderId: number, customerId: string | null) => Promise<void>;
 }
@@ -98,6 +109,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [profile, setProfile] = useState<BusinessProfile>(seedProfile);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshOrders = useCallback(async (): Promise<Order[]> => {
@@ -388,6 +400,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ─── Invoices ─────────────────────────────────────────────────────────────
+
+  const refreshInvoices = useCallback(async () => {
+    try {
+      setInvoices(await fetchInvoices());
+    } catch (err) {
+      console.warn("Failed to fetch invoices from API:", err);
+      setInvoices([]);
+    }
+  }, []);
+
+  const handleCreateInvoice = useCallback(async (payload: Parameters<typeof apiCreateInvoice>[0]) => {
+    const result = await apiCreateInvoice(payload);
+    await refreshInvoices();
+    return { id: result.id, number: result.number };
+  }, [refreshInvoices]);
+
+  const handleUpdateInvoice = useCallback(async (id: number, patch: Parameters<typeof apiUpdateInvoice>[1]) => {
+    await apiUpdateInvoice(id, patch);
+    await refreshInvoices();
+  }, [refreshInvoices]);
+
+  const handleDeleteInvoice = useCallback(async (id: number) => {
+    await apiDeleteInvoice(id);
+    await refreshInvoices();
+  }, [refreshInvoices]);
+
+  const handleVoidInvoice = useCallback(async (id: number) => {
+    await apiVoidInvoice(id);
+    await refreshInvoices();
+  }, [refreshInvoices]);
+
+  const handleSendInvoice = useCallback(async (id: number) => {
+    const r = await apiSendInvoice(id);
+    await refreshInvoices();
+    return r;
+  }, [refreshInvoices]);
+
+  const handleAddInvoiceItem = useCallback(async (id: number, item: Parameters<typeof apiAddInvoiceItem>[1]) => {
+    await apiAddInvoiceItem(id, item);
+    await refreshInvoices();
+  }, [refreshInvoices]);
+
+  const handleUpdateInvoiceItem = useCallback(async (id: number, itemId: number, patch: Parameters<typeof apiUpdateInvoiceItem>[2]) => {
+    await apiUpdateInvoiceItem(id, itemId, patch);
+    await refreshInvoices();
+  }, [refreshInvoices]);
+
+  const handleDeleteInvoiceItem = useCallback(async (id: number, itemId: number) => {
+    await apiDeleteInvoiceItem(id, itemId);
+    await refreshInvoices();
+  }, [refreshInvoices]);
+
   // ─── Label templates ──────────────────────────────────────────────────────
 
   function apiToLabelTemplate(row: ApiLabelTemplate): LabelTemplate {
@@ -493,8 +558,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refreshProfile(),
       refreshQuotes(),
       refreshGroups(),
+      refreshInvoices(),
     ]);
-  }, [refreshOrders, refreshProducts, refreshInventory, refreshCustomers, refreshPayments, refreshReceipts, refreshLabelTemplates, refreshProfile, refreshQuotes, refreshGroups]);
+  }, [refreshOrders, refreshProducts, refreshInventory, refreshCustomers, refreshPayments, refreshReceipts, refreshLabelTemplates, refreshProfile, refreshQuotes, refreshGroups, refreshInvoices]);
 
   useEffect(() => {
     let cancelled = false;
@@ -798,10 +864,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       handleAddQuoteItem,
       handleUpdateQuoteItem,
       handleDeleteQuoteItem,
+      invoices,
+      refreshInvoices,
+      handleCreateInvoice,
+      handleUpdateInvoice,
+      handleDeleteInvoice,
+      handleVoidInvoice,
+      handleSendInvoice,
+      handleAddInvoiceItem,
+      handleUpdateInvoiceItem,
+      handleDeleteInvoiceItem,
       handleMergeCustomers,
       handleRelinkOrder,
     }),
-    [products, inventory, customers, orders, payments, receipts, labelTemplates, refreshLabelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, apiDeductInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, groups, refreshGroups, handleCreateGroup, handleUpdateGroup, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt, quotes, refreshQuotes, handleUpdateQuote, handleConvertQuote, handleDeleteQuote, handleCreateQuote, handleEmailQuote, handleAddQuoteItem, handleUpdateQuoteItem, handleDeleteQuoteItem, handleMergeCustomers, handleRelinkOrder],
+    [products, inventory, customers, orders, payments, receipts, labelTemplates, refreshLabelTemplates, profile, loading, refreshOrders, refreshProducts, refreshInventory, apiDeductInventory, handleApiCreateOrder, handleApiUpdateOrder, handleApiCancelOrder, handleApiDeleteOrder, handleApiCreateProduct, handleApiUpdateProduct, handleApiDeleteProduct, handleApiCreateInventoryItem, handleApiUpdateInventoryItem, handleApiDeleteInventoryItem, groups, refreshGroups, handleCreateGroup, handleUpdateGroup, handleCreateCustomer, handleUpdateCustomer, handleDeleteCustomer, handleCreateLabel, handleUpdateLabel, handleDeleteLabel, handleUpdateProfile, refreshReceipts, resendReceipt, generateReceipt, quotes, refreshQuotes, handleUpdateQuote, handleConvertQuote, handleDeleteQuote, handleCreateQuote, handleEmailQuote, handleAddQuoteItem, handleUpdateQuoteItem, handleDeleteQuoteItem, invoices, refreshInvoices, handleCreateInvoice, handleUpdateInvoice, handleDeleteInvoice, handleVoidInvoice, handleSendInvoice, handleAddInvoiceItem, handleUpdateInvoiceItem, handleDeleteInvoiceItem, handleMergeCustomers, handleRelinkOrder],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

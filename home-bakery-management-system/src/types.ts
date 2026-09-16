@@ -322,6 +322,45 @@ export interface Quote {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Invoices ────────────────────────────────────────────────────────────────
+
+export type InvoiceStatus = "draft" | "sent" | "converted" | "void";
+export type PaymentOptions = "full" | "deposit" | "both";
+
+export interface InvoiceItem {
+  id: number;
+  description: string;
+  qty: number;
+  unit_price_cents: number;
+  sort_order: number;
+}
+
+export interface Invoice {
+  id: number;
+  number: string;
+  status: InvoiceStatus;
+  customerName: string;
+  email: string;
+  phone: string | null;
+  language: "es" | "en";
+  customerId: string | null;
+  issueDate: string;
+  dueDate: string | null;
+  paymentOptions: PaymentOptions;
+  totalCents: number;
+  notes: string | null;
+  adminNotes: string | null;
+  publicToken: string;
+  paidCents: number;
+  paidAt: string | null;
+  paymentMethod: string | null;
+  convertedOrderId: number | null;
+  items: InvoiceItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Reminders / calendar config ─────────────────────────────────────────────
 
 export interface ReminderConfig {

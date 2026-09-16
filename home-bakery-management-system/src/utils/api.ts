@@ -1,4 +1,4 @@
-import type { BusinessProfile, FlavorGroup, PackSize, PaymentMethod, RecipeLine } from "../types";
+import type { BusinessProfile, FlavorGroup, PackSize, PaymentMethod, RecipeLine, Invoice, PaymentOptions } from "../types";
 import { getDeviceToken, clearDeviceToken } from "./tokenStore";
 
 const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -1193,4 +1193,198 @@ export async function revokeDeviceApi(id: number): Promise<{ ok: boolean }> {
 
 export async function signOutCurrentDeviceApi(): Promise<{ ok: boolean }> {
   return apiFetch("/api/auth/device-token", { method: "DELETE" });
+}
+
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+
+interface ApiInvoiceItem {
+  id: number;
+  description: string;
+  qty: number;
+  unit_price_cents: number;
+  sort_order: number;
+}
+
+interface ApiInvoice {
+  id: number;
+  number: string;
+  status: string;
+  customer_name: string;
+  email: string;
+  phone: string | null;
+  language: string;
+  customer_id: string | null;
+  issue_date: string;
+  due_date: string | null;
+  payment_options: string;
+  total_cents: number;
+  notes: string | null;
+  admin_notes: string | null;
+  public_token: string;
+  paid_cents: number;
+  paid_at: string | null;
+  payment_method: string | null;
+  converted_order_id: number | null;
+  items: ApiInvoiceItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+function mapInvoice(r: ApiInvoice): Invoice {
+  return {
+    id: r.id,
+    number: r.number,
+    status: r.status as Invoice["status"],
+    customerName: r.customer_name,
+    email: r.email,
+    phone: r.phone,
+    language: (r.language === "en" ? "en" : "es") as Invoice["language"],
+    customerId: r.customer_id,
+    issueDate: r.issue_date,
+    dueDate: r.due_date,
+    paymentOptions: (["full", "deposit", "both"].includes(r.payment_options)
+      ? r.payment_options : "both") as PaymentOptions,
+    totalCents: r.total_cents,
+    notes: r.notes,
+    adminNotes: r.admin_notes,
+    publicToken: r.public_token,
+    paidCents: r.paid_cents,
+    paidAt: r.paid_at,
+    paymentMethod: r.payment_method,
+    convertedOrderId: r.converted_order_id,
+    items: (r.items || []).map((i) => ({
+      id: i.id,
+      description: i.description,
+      qty: i.qty,
+      unit_price_cents: i.unit_price_cents,
+      sort_order: i.sort_order,
+    })),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export interface InvoiceItemInput {
+  description: string;
+  qty: number;
+  unit_price_cents: number;
+}
+
+export interface CreateInvoicePayload {
+  customer_name: string;
+  email: string;
+  phone?: string | null;
+  language: "es" | "en";
+  customer_id?: string | null;
+  due_date?: string | null;
+  payment_options: PaymentOptions;
+  notes?: string | null;
+  admin_notes?: string | null;
+  items: InvoiceItemInput[];
+  send?: boolean;
+}
+
+export async function fetchInvoices(): Promise<Invoice[]> {
+  const data = await apiFetch<{ invoices: ApiInvoice[] }>("/api/invoices");
+  return data.invoices.map(mapInvoice);
+}
+
+export async function fetchInvoice(id: number): Promise<Invoice> {
+  const data = await apiFetch<{ invoice: ApiInvoice }>(`/api/invoices/${id}`);
+  return mapInvoice(data.invoice);
+}
+
+export async function createInvoice(
+  payload: CreateInvoicePayload
+): Promise<{ ok: boolean; id: number; number: string; sent: boolean }> {
+  return apiFetch("/api/invoices", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateInvoice(
+  id: number,
+  patch: Partial<{
+    customer_name: string; email: string; phone: string | null;
+    language: "es" | "en"; due_date: string | null; customer_id: string | null;
+    payment_options: PaymentOptions; notes: string | null; admin_notes: string | null;
+  }>
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/invoices/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export async function deleteInvoice(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
+}
+
+export async function voidInvoice(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/invoices/${id}/void`, { method: "POST" });
+}
+
+export async function sendInvoice(id: number): Promise<{ ok: boolean; status: string }> {
+  return apiFetch(`/api/invoices/${id}/send`, { method: "POST" });
+}
+
+export async function addInvoiceItem(
+  id: number, item: InvoiceItemInput
+): Promise<{ ok: boolean; item: ApiInvoiceItem; total_cents: number }> {
+  return apiFetch(`/api/invoices/${id}/items`, { method: "POST", body: JSON.stringify(item) });
+}
+
+export async function updateInvoiceItem(
+  id: number, itemId: number, patch: Partial<InvoiceItemInput>
+): Promise<{ ok: boolean; total_cents: number }> {
+  return apiFetch(`/api/invoices/${id}/items/${itemId}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export async function deleteInvoiceItem(
+  id: number, itemId: number
+): Promise<{ ok: boolean; total_cents: number }> {
+  return apiFetch(`/api/invoices/${id}/items/${itemId}`, { method: "DELETE" });
+}
+
+export function invoiceHtmlUrl(id: number, lang?: "en" | "es"): string {
+  const base = `${API_BASE}/api/invoices/${id}/html`;
+  return lang ? `${base}?lang=${lang}` : base;
+}
+
+export function invoicePayUrl(invoice: Invoice): string {
+  return `https://muy-rico.com/pay-invoice.html?inv=${invoice.id}&t=${encodeURIComponent(invoice.publicToken)}`;
+}
+
+export async function downloadInvoiceHtml(id: number, lang?: "en" | "es"): Promise<void> {
+  const url = invoiceHtmlUrl(id, lang);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("fetch failed");
+    const html = await res.text();
+    const blob = new Blob([html], { type: "text/html" });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `invoice-${id}${lang ? `-${lang}` : ""}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch {
+    window.open(url, "_blank", "noopener");
+  }
+}
+
+export async function shareInvoice(invoice: Invoice): Promise<"shared" | "copied" | "failed"> {
+  const url = invoicePayUrl(invoice);
+  const text = invoice.language === "es"
+    ? `Tu factura ${invoice.number}. Paga en línea:`
+    : `Your invoice ${invoice.number}. Pay online:`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: `Muy Rico — ${invoice.number}`, text, url });
+      return "shared";
+    } catch { return "failed"; }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    return "copied";
+  } catch {
+    return "failed";
+  }
 }
