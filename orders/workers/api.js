@@ -70,6 +70,11 @@ import {
   depositCentsFor, isDepositSufficient, buildPayUrl, generateQuoteToken,
 } from './quote-deposit-lib.js';
 import {
+  depositCentsFor as invoiceDepositCentsFor, matchedPayMode,
+  invoiceNumberFor, computeTotalCents, generateInvoiceToken,
+} from './invoice-lib.js';
+import { buildInvoiceDocumentHtml, invoiceEmailMeta } from './invoice-html.js';
+import {
   mintDeviceToken, resolveDeviceToken, listDevices, revokeDevice, revokeAllDevices,
 } from './device-token-lib.js';
 
@@ -132,8 +137,13 @@ export default {
     // Quote deposit write: public route, authenticated by X-Webhook-Secret inside the handler
     const isPublicQuoteDepositPaid =
       path.match(/^\/api\/quotes\/\d+\/deposit-paid$/) && method === 'POST';
+    // Invoice payable read + payment write: public routes, token- or shared-secret-guarded inside the handler
+    const isPublicInvoicePayable =
+      path.match(/^\/api\/invoices\/\d+\/payable$/) && method === 'GET';
+    const isPublicInvoicePaid =
+      path.match(/^\/api\/invoices\/\d+\/paid$/) && method === 'POST';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSlideshowGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSlideshowGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid && !isPublicInvoicePayable && !isPublicInvoicePaid) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -338,6 +348,39 @@ export default {
 
       const qcm = path.match(/^\/api\/quotes\/(\d+)\/convert$/);
       if (qcm && method === 'POST') return await convertQuote(Number(qcm[1]), request, env, ctx, actorName);
+
+      if (path === '/api/invoices' && method === 'POST') return await createInvoice(request, env, ctx, actorName);
+      if (path === '/api/invoices' && method === 'GET')  return await listInvoices(request, env);
+
+      const ivhm = path.match(/^\/api\/invoices\/(\d+)\/html$/);
+      if (ivhm && method === 'GET') return await getInvoiceDocumentHtml(Number(ivhm[1]), env, url);
+
+      const ivsend = path.match(/^\/api\/invoices\/(\d+)\/send$/);
+      if (ivsend && method === 'POST') return await emailInvoice(Number(ivsend[1]), env, ctx);
+
+      const ivvoid = path.match(/^\/api\/invoices\/(\d+)\/void$/);
+      if (ivvoid && method === 'POST') return await voidInvoice(Number(ivvoid[1]), env);
+
+      const ivpay = path.match(/^\/api\/invoices\/(\d+)\/payable$/);
+      if (ivpay && method === 'GET') return await getInvoicePayable(Number(ivpay[1]), request, env);
+
+      const ivpaid = path.match(/^\/api\/invoices\/(\d+)\/paid$/);
+      if (ivpaid && method === 'POST') return await invoicePaid(Number(ivpaid[1]), request, env, ctx);
+
+      const ivim = path.match(/^\/api\/invoices\/(\d+)\/items$/);
+      if (ivim && method === 'POST') return await addInvoiceItem(Number(ivim[1]), request, env);
+
+      const iviim = path.match(/^\/api\/invoices\/(\d+)\/items\/(\d+)$/);
+      if (iviim && method === 'PATCH') return await updateInvoiceItem(Number(iviim[1]), Number(iviim[2]), request, env);
+      if (iviim && method === 'DELETE') return await deleteInvoiceItem(Number(iviim[1]), Number(iviim[2]), env);
+
+      const ivm = path.match(/^\/api\/invoices\/(\d+)$/);
+      if (ivm) {
+        const id = Number(ivm[1]);
+        if (method === 'GET')    return await getInvoice(id, env);
+        if (method === 'PATCH')  return await updateInvoice(id, request, env);
+        if (method === 'DELETE') return await deleteInvoice(id, env);
+      }
 
       if (path === '/api/receipts' && method === 'GET') return await listReceipts(request, env);
       const rm = path.match(/^\/api\/receipts\/([^/]+)$/);
@@ -2916,6 +2959,78 @@ async function updateProfile(request, env, actor) {
 
 // ─── Cake Quotes ────────────────────────────────────────────────────────────
 
+const INVOICE_FIELDS = [
+  'id', 'number', 'status', 'customer_name', 'email', 'phone', 'language', 'customer_id',
+  'issue_date', 'due_date', 'payment_options', 'total_cents', 'notes', 'admin_notes',
+  'public_token', 'paid_cents', 'paid_at', 'payment_method', 'payment_sub_method', 'payment_ref',
+  'converted_order_id', 'created_at', 'updated_at', 'created_by',
+];
+
+function rowToInvoice(r) {
+  return {
+    id: r.id,
+    number: r.number,
+    status: r.status,
+    customer_name: r.customer_name,
+    email: r.email,
+    phone: r.phone,
+    language: r.language || 'es',
+    customer_id: r.customer_id,
+    issue_date: r.issue_date,
+    due_date: r.due_date,
+    payment_options: r.payment_options || 'both',
+    total_cents: r.total_cents,
+    notes: r.notes,
+    admin_notes: r.admin_notes,
+    public_token: r.public_token,
+    paid_cents: r.paid_cents,
+    paid_at: r.paid_at,
+    payment_method: r.payment_method,
+    payment_sub_method: r.payment_sub_method,
+    payment_ref: r.payment_ref,
+    converted_order_id: r.converted_order_id,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    created_by: r.created_by,
+    items: [],
+  };
+}
+
+async function loadInvoiceOr404(id, env) {
+  return env.DB.prepare(
+    `SELECT ${INVOICE_FIELDS.join(', ')} FROM invoices WHERE id = ?`
+  ).bind(id).first();
+}
+
+async function getInvoiceItems(env, invoiceId) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, invoice_id, description, qty, unit_price_cents, sort_order FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order ASC, id ASC'
+  ).bind(invoiceId).all();
+  return (results || []).map((r) => ({
+    id: r.id,
+    description: r.description,
+    qty: r.qty,
+    unit_price_cents: r.unit_price_cents,
+    sort_order: r.sort_order,
+  }));
+}
+
+async function recomputeInvoiceTotal(env, invoiceId) {
+  const items = await getInvoiceItems(env, invoiceId);
+  const total = computeTotalCents(items);
+  await env.DB.prepare(
+    "UPDATE invoices SET total_cents = ?, updated_at = datetime('now') WHERE id = ?"
+  ).bind(total, invoiceId).run();
+  return total;
+}
+
+function assertInvoiceEditable(invoice) {
+  if (invoice.status === 'converted' || invoice.status === 'void') {
+    return json({ error: `Invoice is ${invoice.status}; it cannot be changed` }, 400);
+  }
+  return null;
+}
+
 const QUOTE_FIELDS = [
   'id', 'status', 'customer_name', 'email', 'phone', 'language',
   'occasion', 'serving_size', 'cake_flavor', 'filling', 'frosting',
@@ -3379,6 +3494,260 @@ async function deleteQuote(id, env) {
   const r = await env.DB.prepare('DELETE FROM cake_quotes WHERE id = ?').bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
   return json({ ok: true }, 200);
+}
+
+// ─── Invoices ────────────────────────────────────────────────────────────────
+
+async function createInvoice(request, env, ctx, actor) {
+  try {
+    const body = await request.json();
+    const customerName = String(body.customer_name || '').trim();
+    const email = String(body.email || '').trim();
+    if (!customerName || !email) {
+      return json({ error: 'Missing required fields: customer_name, email' }, 400);
+    }
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+      return json({ error: 'At least one item is required' }, 400);
+    }
+
+    const items = [];
+    for (const it of body.items) {
+      const description = String((it && it.description) || '').trim();
+      const qty = Number(it && it.qty);
+      const unit = Number(it && it.unit_price_cents);
+      if (!description) return json({ error: 'Each item requires a description' }, 400);
+      if (!Number.isInteger(qty) || qty <= 0) return json({ error: 'Item qty must be a positive integer' }, 400);
+      if (!Number.isFinite(unit) || unit < 0) return json({ error: 'Item unit_price_cents must be >= 0' }, 400);
+      items.push({ description, qty, unit_price_cents: Math.round(unit) });
+    }
+
+    const lang = body.language === 'en' ? 'en' : 'es';
+    const paymentOptions = ['full', 'deposit', 'both'].includes(body.payment_options)
+      ? body.payment_options : 'both';
+    const total = computeTotalCents(items);
+    const token = generateInvoiceToken();
+    const phone = body.phone != null ? String(body.phone) : null;
+    const customerId = body.customer_id != null ? String(body.customer_id) : null;
+    const dueDate = body.due_date != null ? String(body.due_date) : null;
+    const notes = body.notes != null ? String(body.notes) : null;
+    const adminNotes = body.admin_notes != null ? String(body.admin_notes) : null;
+
+    const result = await env.DB.prepare(`
+      INSERT INTO invoices
+        (number, status, customer_name, email, phone, language, customer_id,
+         due_date, payment_options, total_cents, notes, admin_notes, public_token, created_by)
+      VALUES ('tmp-' || lower(hex(randomblob(8))), 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      customerName, email, phone, lang, customerId,
+      dueDate, paymentOptions, total, notes, adminNotes, token, actor || 'unknown',
+    ).run();
+
+    const id = result.meta.last_row_id;
+    const number = invoiceNumberFor(id);
+    // `number` is NOT NULL + UNIQUE, so the INSERT above uses a unique random
+    // placeholder ('tmp-<hex>') and we set the real INV-<id+1000> here. A crash
+    // between the two leaves a visible 'tmp-' number, never a constraint error.
+    await env.DB.prepare('UPDATE invoices SET number = ? WHERE id = ?').bind(number, id).run();
+
+    for (let i = 0; i < items.length; i++) {
+      await env.DB.prepare(`
+        INSERT INTO invoice_items (invoice_id, description, qty, unit_price_cents, sort_order)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(id, items[i].description, items[i].qty, items[i].unit_price_cents, i).run();
+    }
+
+    let sent = false;
+    if (body.send === true) {
+      const r = await sendInvoiceCore(id, env);
+      sent = !r.error;
+      if (r.error) console.error('createInvoice: auto-send failed for', id);
+    }
+
+    return json({ ok: true, id, number, sent }, 201);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function listInvoices(request, env) {
+  const url = new URL(request.url);
+  const status = url.searchParams.get('status');
+  const q = url.searchParams.get('q');
+  const where = [];
+  const binds = [];
+  if (status) { where.push('status = ?'); binds.push(status); }
+  if (q) {
+    where.push('(number LIKE ? OR customer_name LIKE ? OR email LIKE ?)');
+    const like = `%${q}%`;
+    binds.push(like, like, like);
+  }
+  const sql = `SELECT ${INVOICE_FIELDS.join(', ')} FROM invoices`
+    + (where.length ? ` WHERE ${where.join(' AND ')}` : '')
+    + ' ORDER BY created_at DESC';
+  const { results } = await env.DB.prepare(sql).bind(...binds).all();
+  const invoices = (results || []).map(rowToInvoice);
+
+  if (invoices.length) {
+    const placeholders = invoices.map(() => '?').join(',');
+    const { results: itemRows } = await env.DB.prepare(
+      `SELECT id, invoice_id, description, qty, unit_price_cents, sort_order FROM invoice_items WHERE invoice_id IN (${placeholders}) ORDER BY sort_order ASC, id ASC`
+    ).bind(...invoices.map((i) => i.id)).all();
+    const byInvoice = {};
+    for (const r of itemRows || []) {
+      (byInvoice[r.invoice_id] ||= []).push({
+        id: r.id, description: r.description, qty: r.qty,
+        unit_price_cents: r.unit_price_cents, sort_order: r.sort_order,
+      });
+    }
+    for (const inv of invoices) inv.items = byInvoice[inv.id] || [];
+  }
+
+  return json({ invoices }, 200);
+}
+
+async function getInvoice(id, env) {
+  const raw = await loadInvoiceOr404(id, env);
+  if (!raw) return json({ error: 'Not found' }, 404);
+  const invoice = rowToInvoice(raw);
+  invoice.items = await getInvoiceItems(env, id);
+  return json({ invoice }, 200);
+}
+
+async function updateInvoice(id, request, env) {
+  try {
+    const invoice = await loadInvoiceOr404(id, env);
+    if (!invoice) return json({ error: 'Not found' }, 404);
+    const guard = assertInvoiceEditable(invoice);
+    if (guard) return guard;
+
+    const body = await request.json();
+    const sets = [];
+    const binds = [];
+    const textCols = {
+      customer_name: 'customer_name', email: 'email', phone: 'phone',
+      notes: 'notes', admin_notes: 'admin_notes', due_date: 'due_date',
+      customer_id: 'customer_id',
+    };
+    for (const [key, col] of Object.entries(textCols)) {
+      if (body[key] !== undefined) {
+        sets.push(`${col} = ?`);
+        binds.push(body[key] === null ? null : String(body[key]));
+      }
+    }
+    if (body.language !== undefined) {
+      sets.push('language = ?');
+      binds.push(body.language === 'en' ? 'en' : 'es');
+    }
+    if (body.payment_options !== undefined) {
+      if (!['full', 'deposit', 'both'].includes(body.payment_options)) {
+        return json({ error: 'Invalid payment_options' }, 400);
+      }
+      sets.push('payment_options = ?');
+      binds.push(body.payment_options);
+    }
+    if (sets.length === 0) return json({ error: 'Nothing to update' }, 400);
+
+    sets.push("updated_at = datetime('now')");
+    await env.DB.prepare(`UPDATE invoices SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, id).run();
+    return json({ ok: true }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function deleteInvoice(id, env) {
+  const invoice = await loadInvoiceOr404(id, env);
+  if (!invoice) return json({ error: 'Not found' }, 404);
+  if (invoice.status !== 'draft') {
+    return json({ error: 'Only draft invoices can be deleted' }, 400);
+  }
+  await env.DB.prepare('DELETE FROM invoices WHERE id = ?').bind(id).run();
+  return json({ ok: true }, 200);
+}
+
+async function addInvoiceItem(id, request, env) {
+  try {
+    const invoice = await loadInvoiceOr404(id, env);
+    if (!invoice) return json({ error: 'Not found' }, 404);
+    const guard = assertInvoiceEditable(invoice);
+    if (guard) return guard;
+    const body = await request.json();
+    const description = String(body.description || '').trim();
+    const qty = Number(body.qty);
+    const unit = Number(body.unit_price_cents);
+    if (!description) return json({ error: 'Item requires a description' }, 400);
+    if (!Number.isInteger(qty) || qty <= 0) return json({ error: 'Item qty must be a positive integer' }, 400);
+    if (!Number.isFinite(unit) || unit < 0) return json({ error: 'Item unit_price_cents must be >= 0' }, 400);
+
+    const result = await env.DB.prepare(`
+      INSERT INTO invoice_items (invoice_id, description, qty, unit_price_cents, sort_order)
+      VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM invoice_items WHERE invoice_id = ?))
+    `).bind(id, description, qty, Math.round(unit), id).run();
+    const total_cents = await recomputeInvoiceTotal(env, id);
+    return json({
+      ok: true, total_cents,
+      item: { id: result.meta.last_row_id, description, qty, unit_price_cents: Math.round(unit) },
+    }, 201);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function updateInvoiceItem(id, itemId, request, env) {
+  try {
+    const invoice = await loadInvoiceOr404(id, env);
+    if (!invoice) return json({ error: 'Not found' }, 404);
+    const guard = assertInvoiceEditable(invoice);
+    if (guard) return guard;
+    const existing = await env.DB.prepare(
+      'SELECT * FROM invoice_items WHERE id = ? AND invoice_id = ?'
+    ).bind(itemId, id).first();
+    if (!existing) return json({ error: 'Not found' }, 404);
+
+    const body = await request.json();
+    const sets = [];
+    const binds = [];
+    if (body.description !== undefined) {
+      const description = String(body.description).trim();
+      if (!description) return json({ error: 'Item requires a description' }, 400);
+      sets.push('description = ?'); binds.push(description);
+    }
+    if (body.qty !== undefined) {
+      const qty = Number(body.qty);
+      if (!Number.isInteger(qty) || qty <= 0) return json({ error: 'Item qty must be a positive integer' }, 400);
+      sets.push('qty = ?'); binds.push(qty);
+    }
+    if (body.unit_price_cents !== undefined) {
+      const unit = Number(body.unit_price_cents);
+      if (!Number.isFinite(unit) || unit < 0) return json({ error: 'Item unit_price_cents must be >= 0' }, 400);
+      sets.push('unit_price_cents = ?'); binds.push(Math.round(unit));
+    }
+    if (sets.length === 0) return json({ error: 'Nothing to update' }, 400);
+
+    await env.DB.prepare(`UPDATE invoice_items SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, itemId).run();
+    const total_cents = await recomputeInvoiceTotal(env, id);
+    return json({ ok: true, total_cents }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+}
+
+async function deleteInvoiceItem(id, itemId, env) {
+  try {
+    const invoice = await loadInvoiceOr404(id, env);
+    if (!invoice) return json({ error: 'Not found' }, 404);
+    const guard = assertInvoiceEditable(invoice);
+    if (guard) return guard;
+    const existing = await env.DB.prepare(
+      'SELECT id FROM invoice_items WHERE id = ? AND invoice_id = ?'
+    ).bind(itemId, id).first();
+    if (!existing) return json({ error: 'Not found' }, 404);
+    await env.DB.prepare('DELETE FROM invoice_items WHERE id = ?').bind(itemId).run();
+    const total_cents = await recomputeInvoiceTotal(env, id);
+    return json({ ok: true, total_cents }, 200);
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
 }
 
 // ─── Quote deposit: public token-guarded read for the pay page ──────────────
