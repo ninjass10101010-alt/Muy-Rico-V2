@@ -49,6 +49,7 @@ export default function Invoices({ search }: { search: string }) {
   };
 
   const doSend = async (inv: Invoice) => {
+    if (busy === inv.id) return;
     setBusy(inv.id);
     try {
       const r = await handleSendInvoice(inv.id);
@@ -174,18 +175,21 @@ export default function Invoices({ search }: { search: string }) {
                   <td className="px-4 py-3 text-xs text-cocoa/50">{formatDate(inv.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button title="Share pay link" onClick={() => doShare(inv)} className="rounded-lg p-2 text-cocoa/60 hover:bg-sand-100 hover:text-coral">
-                        <Share2 size={15} />
-                      </button>
-                      <button title="Download PDF" onClick={() => doPdf(inv)} className="rounded-lg p-2 text-cocoa/60 hover:bg-sand-100 hover:text-coral">
+                      {inv.status !== "void" && (
+                        <button title="Share pay link" aria-label="Share pay link" onClick={() => doShare(inv)} className="rounded-lg p-2 text-cocoa/60 hover:bg-sand-100 hover:text-coral">
+                          <Share2 size={15} />
+                        </button>
+                      )}
+                      <button title="Download PDF" aria-label="Download PDF" onClick={() => doPdf(inv)} className="rounded-lg p-2 text-cocoa/60 hover:bg-sand-100 hover:text-coral">
                         <Download size={15} />
                       </button>
-                      <button title="Print / download HTML" onClick={() => downloadInvoiceHtml(inv.id, inv.language)} className="rounded-lg p-2 text-cocoa/60 hover:bg-sand-100 hover:text-coral">
+                      <button title="Print / download HTML" aria-label="Print or download HTML" onClick={() => downloadInvoiceHtml(inv.id, inv.language)} className="rounded-lg p-2 text-cocoa/60 hover:bg-sand-100 hover:text-coral">
                         <Printer size={15} />
                       </button>
                       {(inv.status === "draft" || inv.status === "sent") && (
                         <button
-                          title="Email invoice"
+                          title={inv.status === "sent" ? "Resend invoice email" : "Email invoice"}
+                          aria-label={inv.status === "sent" ? "Resend invoice email" : "Email invoice"}
                           disabled={busy === inv.id}
                           onClick={() => doSend(inv)}
                           className="rounded-lg p-2 text-cocoa/60 hover:bg-sand-100 hover:text-coral disabled:opacity-40"
@@ -194,7 +198,7 @@ export default function Invoices({ search }: { search: string }) {
                         </button>
                       )}
                       {inv.status !== "converted" && inv.status !== "void" && (
-                        <button title="Void" onClick={() => doVoid(inv)} className="rounded-lg p-2 text-cocoa/60 hover:bg-red-50 hover:text-red-600">
+                        <button title="Void" aria-label="Void invoice" onClick={() => doVoid(inv)} className="rounded-lg p-2 text-cocoa/60 hover:bg-red-50 hover:text-red-600">
                           <Ban size={15} />
                         </button>
                       )}

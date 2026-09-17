@@ -18,12 +18,14 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, products, payments, customers, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiCancelOrder, apiDeleteOrder, handleRelinkOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt } = useStore();
+  const { orders, products, payments, customers, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiDeleteOrder, handleRelinkOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
   const [payFor, setPayFor] = useState<Order | null>(null);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
+  const [payBusy, setPayBusy] = useState(false);
+  const [payError, setPayError] = useState("");
   const [markPayFor, setMarkPayFor] = useState<Order | null>(null);
   const [markPayMethod, setMarkPayMethod] = useState<PaymentMethod>("cash");
   const [editPayFor, setEditPayFor] = useState<Order | null>(null);
@@ -101,20 +103,30 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [receiptMsg, setReceiptMsg] = useState("");
 
   async function confirmPayment() {
-    if (!payFor) return;
-    const updated: Order = { ...payFor, paymentStatus: "paid", paymentMethod: payMethod };
-    await apiUpdateOrder(Number(payFor.id), { payment_status: "paid", payment_method: payMethod });
-    await recordPayment(updated);
-    setPayFor(null);
-    setReceiptMsg("");
+    if (!payFor || payBusy) return;
+    setPayBusy(true);
+    setPayError("");
+    const orderId = Number(payFor.id);
     try {
-      await generateReceipt(Number(payFor.id));
-      setReceiptMsg("Receipt created successfully.");
+      const updated: Order = { ...payFor, paymentStatus: "paid", paymentMethod: payMethod };
+      await apiUpdateOrder(orderId, { payment_status: "paid", payment_method: payMethod });
+      await recordPayment(updated);
+      setPayFor(null);
+      setReceiptMsg("");
+      try {
+        await generateReceipt(orderId);
+        setReceiptMsg("Receipt created successfully.");
+      } catch (err) {
+        console.error("Receipt generation failed:", err);
+        setReceiptMsg("Receipt generation failed. Check console for details.");
+      }
+      await refreshOrders();
     } catch (err) {
-      console.error("Receipt generation failed:", err);
-      setReceiptMsg("Receipt generation failed. Check console for details.");
+      console.error("Failed to record payment:", err);
+      setPayError("Could not record the payment. Check your connection and try again.");
+    } finally {
+      setPayBusy(false);
     }
-    await refreshOrders();
   }
 
   const enabledMethods = (Object.keys(profile.acceptedMethods) as PaymentMethod[]).filter(
@@ -261,6 +273,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                             e.stopPropagation();
                             setPayFor(o);
                             setPayMethod(o.paymentMethod || "cash");
+                            setPayError("");
                           }}
                           className="rounded-lg p-1.5 text-mid-green hover:bg-mid-green-light/10"
                           title="Record payment"
@@ -715,10 +728,14 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             </select>
             <button
               onClick={confirmPayment}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+              disabled={payBusy}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md disabled:opacity-60"
             >
-              <CheckCircle2 size={16} /> Mark as Paid
+              <CheckCircle2 size={16} /> {payBusy ? "Recording…" : "Mark as Paid"}
             </button>
+            {payError && (
+              <p className="rounded-xl bg-hibiscus-light/10 p-3 text-sm text-hibiscus">{payError}</p>
+            )}
           </div>
         )}
       </Modal>

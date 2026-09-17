@@ -35,7 +35,7 @@ export default function FontCompliancePanel({ label, effW, onFix }: Props) {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AlertTriangle size={14} className="shrink-0 text-yellow-600" />
             <span className="truncate font-medium text-yellow-800">
-              {ELEMENT_LABELS[el.field] || el.field}
+              {ELEMENT_LABELS[el.field ?? ""] || el.field || "Text"}
             </span>
             <span className="shrink-0 text-yellow-600">
               {pt.toFixed(1)}pt / {floor}pt min

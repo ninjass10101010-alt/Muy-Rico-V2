@@ -395,3 +395,38 @@ export interface BusinessProfile {
   stripeConnected: boolean;
   reminders: ReminderConfig;
 }
+
+export interface Receipt {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  email: string | null;
+  itemsJson: string;
+  totalCents: number;
+  paymentMethod: string;
+  paymentSubMethod: string | null;
+  orderStatus: string;
+  status: "sent" | "printed" | "failed";
+  messageId: string | null;
+  sentAt: string;
+  createdAt: string;
+}
+
+export type ComplianceSeverity = "error" | "warning";
+
+export interface ComplianceIssue {
+  id: string;
+  requirement: string;
+  severity: ComplianceSeverity;
+  fieldName: string;
+  current?: string;
+  fix?: string;
+  elementId?: string;
+}
+
+export interface ComplianceResult {
+  score: number;
+  issues: ComplianceIssue[];
+  isCompliant: boolean;
+}

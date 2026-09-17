@@ -66,13 +66,16 @@ export default function PublicOrder() {
     setSubmitting(true);
 
     try {
+      const totalCents = Math.round(total * 100);
       const result = await apiCreateOrder({
         customer_name: name.trim(),
         phone: phone.trim() || null,
         pickup_date: pickupDate,
         pickup_time: pickupTime || null,
         items_json: cart.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
-        total_cents: Math.round(total * 100),
+        total_cents: totalCents,
+        subtotal_cents: totalCents,
+        discount_cents: 0,
         payment_method: paymentMethod,
         payment_status: "unpaid",
         notes: notes.trim() || null,

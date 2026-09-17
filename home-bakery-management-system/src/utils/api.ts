@@ -202,6 +202,7 @@ export interface ApiProduct {
   auto_generate_label?: number | boolean;
   featured?: number | boolean;
   show_online?: number | boolean;
+  flavor_deduction_map?: Record<string, Record<string, string[]>> | null;
   created_at?: string;
   updated_at?: string | null;
 }
@@ -457,7 +458,8 @@ export async function lookupInventoryByCode(
   code: string
 ): Promise<{ item: ApiInventoryItem } | { error: string; status?: number }> {
   const q = encodeURIComponent(code.trim());
-  const url = `${API_BASE}/api/inventory/lookup?code=${q}`;
+  // apiFetch prepends API_BASE itself — pass a relative path.
+  const url = `/api/inventory/lookup?code=${q}`;
   try {
     const data = await apiFetch<{ item: ApiInventoryItem }>(url);
     return { item: data.item };
@@ -473,7 +475,7 @@ export async function adjustInventoryQuantity(
 ): Promise<{ ok: boolean; quantity: number } | { error: string }> {
   try {
     const data = await apiFetch<{ ok: boolean; quantity: number }>(
-      `${API_BASE}/api/inventory/${encodeURIComponent(id)}/adjust`,
+      `/api/inventory/${encodeURIComponent(id)}/adjust`,
       { method: "POST", body: JSON.stringify({ delta }) }
     );
     return { ok: true, quantity: Number(data.quantity) };
@@ -734,7 +736,7 @@ export interface ApiReceipt {
   paymentMethod: string;
   paymentSubMethod: string | null;
   orderStatus: string;
-  status: "sent" | "failed";
+  status: "sent" | "printed" | "failed";
   messageId: string | null;
   sentAt: string;
   createdAt: string;
@@ -1178,8 +1180,11 @@ export interface DeviceInfo {
   expires_at: string;
 }
 
-export async function mintDeviceTokenApi(label?: string): Promise<{ token: string; expiresAt: string }> {
-  return apiFetch("/api/auth/device-token", { method: "POST", body: JSON.stringify({ label }) });
+export async function mintDeviceTokenApi(
+  label?: string,
+  opts?: { signal?: AbortSignal }
+): Promise<{ token: string; expiresAt: string }> {
+  return apiFetch("/api/auth/device-token", { method: "POST", body: JSON.stringify({ label }), signal: opts?.signal });
 }
 
 export async function fetchDevices(): Promise<DeviceInfo[]> {
@@ -1197,7 +1202,7 @@ export async function signOutCurrentDeviceApi(): Promise<{ ok: boolean }> {
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────
 
-interface ApiInvoiceItem {
+export interface ApiInvoiceItem {
   id: number;
   description: string;
   qty: number;

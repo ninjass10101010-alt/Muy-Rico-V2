@@ -15,6 +15,14 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// A hung mint would otherwise leave the login screen spinning forever.
+const MINT_TIMEOUT_MS = 15000;
+function mintWithTimeout() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), MINT_TIMEOUT_MS);
+  return mintDeviceTokenApi(undefined, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>("checking");
   const [email, setEmail] = useState<string | null>(null);
@@ -38,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ?mint=1 — we just completed an Access OTP on /admin and carry its cookie.
         if (isMint) {
           setMinting(true);
-          const { token } = await mintDeviceTokenApi();
+          const { token } = await mintWithTimeout();
           await setDeviceToken(token);
           if (cancelled) return;
           const url = new URL(window.location.href);
@@ -65,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // No token: try a silent mint in case a session cookie already exists
         // (desktop, or a phone that just signed in elsewhere).
         try {
-          const { token } = await mintDeviceTokenApi();
+          const { token } = await mintWithTimeout();
           await setDeviceToken(token);
           if (cancelled) return;
           setStatus("authenticated");

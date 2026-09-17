@@ -25,7 +25,7 @@ import type {
 } from "../types";
 import { newId } from "../utils/format";
 import { mapProfileRow } from "../utils/profile";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, fetchInvoices, createInvoice as apiCreateInvoice, updateInvoice as apiUpdateInvoice, deleteInvoice as apiDeleteInvoice, voidInvoice as apiVoidInvoice, sendInvoice as apiSendInvoice, addInvoiceItem as apiAddInvoiceItem, updateInvoiceItem as apiUpdateInvoiceItem, deleteInvoiceItem as apiDeleteInvoiceItem, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type OrderItemPatch } from "../utils/api";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, fetchInvoices, createInvoice as apiCreateInvoice, updateInvoice as apiUpdateInvoice, deleteInvoice as apiDeleteInvoice, voidInvoice as apiVoidInvoice, sendInvoice as apiSendInvoice, addInvoiceItem as apiAddInvoiceItem, updateInvoiceItem as apiUpdateInvoiceItem, deleteInvoiceItem as apiDeleteInvoiceItem, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type ApiInvoiceItem, type OrderItemPatch } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -89,7 +89,7 @@ interface StoreContextValue {
   handleDeleteInvoice: (id: number) => Promise<void>;
   handleVoidInvoice: (id: number) => Promise<void>;
   handleSendInvoice: (id: number) => Promise<{ ok: boolean; status: string }>;
-  handleAddInvoiceItem: (id: number, item: Parameters<typeof apiAddInvoiceItem>[1]) => Promise<void>;
+  handleAddInvoiceItem: (id: number, item: Parameters<typeof apiAddInvoiceItem>[1]) => Promise<ApiInvoiceItem>;
   handleUpdateInvoiceItem: (id: number, itemId: number, patch: Parameters<typeof apiUpdateInvoiceItem>[2]) => Promise<void>;
   handleDeleteInvoiceItem: (id: number, itemId: number) => Promise<void>;
   handleMergeCustomers: (survivingId: string, mergedId: string) => Promise<void>;
@@ -137,7 +137,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           dueDate: r.pickup_date,
           createdAt: r.created_at,
           notes: r.notes || "",
-          inventoryDeducted: r.inventory_deducted === 1 || r.inventory_deducted === true,
+          inventoryDeducted: Number(r.inventory_deducted) === 1,
           foodColoring: r.food_coloring || null,
         };
       });
@@ -439,8 +439,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [refreshInvoices]);
 
   const handleAddInvoiceItem = useCallback(async (id: number, item: Parameters<typeof apiAddInvoiceItem>[1]) => {
-    await apiAddInvoiceItem(id, item);
+    const created = await apiAddInvoiceItem(id, item);
     await refreshInvoices();
+    return created.item;
   }, [refreshInvoices]);
 
   const handleUpdateInvoiceItem = useCallback(async (id: number, itemId: number, patch: Parameters<typeof apiUpdateInvoiceItem>[2]) => {

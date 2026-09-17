@@ -4,10 +4,15 @@ import { formatCurrency } from "../utils/format";
 
 export interface DraftInvoiceItem {
   id?: number;
+  /** Stable client-only key for rows not yet persisted (never sent to the API). */
+  draftKey?: string;
   description: string;
   qty: number;
   unit_price_cents: number;
 }
+
+let draftSeq = 0;
+const nextDraftKey = () => `draft-${++draftSeq}`;
 
 const centsToText = (c: number) => (Number(c) / 100).toString();
 const textToCents = (v: string) => Math.max(0, Math.round((parseFloat(v) || 0) * 100));
@@ -95,7 +100,7 @@ export default function InvoiceItemComposer({
   const update = (i: number, patch: Partial<DraftInvoiceItem>) =>
     onChange(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
-  const add = () => onChange([...items, { description: "", qty: 1, unit_price_cents: 0 }]);
+  const add = () => onChange([...items, { description: "", qty: 1, unit_price_cents: 0, draftKey: nextDraftKey() }]);
 
   const total = items.reduce(
     (sum, it) => sum + (Number(it.qty) || 0) * (Number(it.unit_price_cents) || 0),
@@ -106,7 +111,12 @@ export default function InvoiceItemComposer({
     <div className="space-y-3">
       <div className="space-y-2">
         {items.map((it, i) => (
-          <ItemRow key={i} item={it} onUpdate={(patch) => update(i, patch)} onRemove={() => remove(i)} />
+          <ItemRow
+            key={it.id ?? it.draftKey ?? `row-${i}`}
+            item={it}
+            onUpdate={(patch) => update(i, patch)}
+            onRemove={() => remove(i)}
+          />
         ))}
       </div>
 

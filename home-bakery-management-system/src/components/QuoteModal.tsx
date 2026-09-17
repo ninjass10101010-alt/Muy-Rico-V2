@@ -46,6 +46,9 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
   const [uploading, setUploading] = useState(false);
 
   const [items, setItems] = useState<DraftQuoteItem[]>([]);
+  // Bumped only when an item is added, so the composer form resets after a
+  // successful add but survives removing an unrelated item mid-compose.
+  const [composerGen, setComposerGen] = useState(0);
 
   const [quotedPrice, setQuotedPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -322,9 +325,12 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
         <div className="space-y-3">
           <label className="block text-xs font-medium text-cocoa-muted">Items</label>
           <QuoteItemComposer
-            key={items.length}
+            key={composerGen}
             submitLabel="+ Add item"
-            onSubmit={(item: DraftQuoteItem) => setItems((prev) => [...prev, item])}
+            onSubmit={(item: DraftQuoteItem) => {
+              setItems((prev) => [...prev, item]);
+              setComposerGen((g) => g + 1);
+            }}
           />
 
           <div className="min-h-[120px] space-y-2 rounded-xl border border-dashed border-sand-200 p-3">

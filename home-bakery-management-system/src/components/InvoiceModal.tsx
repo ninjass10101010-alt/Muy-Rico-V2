@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Modal from "./ui/Modal";
 import InvoiceItemComposer, { type DraftInvoiceItem } from "./InvoiceItemComposer";
 import { useStore } from "../context/StoreContext";
-import { fetchInvoice } from "../utils/api";
 import type { Invoice, InvoiceItem, PaymentOptions } from "../types";
 
 const OPTIONS: { value: PaymentOptions; label: string; hint: string }[] = [
@@ -103,7 +102,11 @@ export default function InvoiceModal({
         });
 
         // Persist line-item changes (the metadata PATCH does not touch items).
+        // The baseline advances as each op succeeds, so a retry after a partial
+        // failure is safe (no duplicate adds, no re-deletes) and the user keeps
+        // their in-progress edits.
         const baseline = baselineRef.current;
+        const originalIds = new Set(baseline.map((b) => b.id));
         const keptIds = new Set<number>();
         for (const it of clean) {
           if (it.id != null) {
@@ -119,18 +122,38 @@ export default function InvoiceModal({
                 qty: it.qty,
                 unit_price_cents: it.unit_price_cents,
               });
+              if (prev) {
+                prev.description = it.description;
+                prev.qty = it.qty;
+                prev.unit_price_cents = it.unit_price_cents;
+              } else {
+                baseline.push({
+                  id: it.id,
+                  description: it.description,
+                  qty: it.qty,
+                  unit_price_cents: it.unit_price_cents,
+                  sort_order: 0,
+                });
+              }
             }
           } else {
-            await handleAddInvoiceItem(invoice.id, {
+            const created = await handleAddInvoiceItem(invoice.id, {
               description: it.description,
               qty: it.qty,
               unit_price_cents: it.unit_price_cents,
             });
+            // Adopt the server id so a retry updates this line instead of re-adding it
+            it.id = created.id;
+            baseline.push(created);
+            setItems((cur) => cur.map((x) => (x === it ? { ...x, id: created.id } : x)));
           }
         }
-        for (const prev of baseline) {
-          if (!keptIds.has(prev.id)) {
-            await handleDeleteInvoiceItem(invoice.id, prev.id);
+        // Delete lines the user removed (ids snapshotted before adds appended)
+        for (const prevId of originalIds) {
+          if (!keptIds.has(prevId)) {
+            await handleDeleteInvoiceItem(invoice.id, prevId);
+            const idx = baseline.findIndex((b) => b.id === prevId);
+            if (idx >= 0) baseline.splice(idx, 1);
           }
         }
       } else {
@@ -142,26 +165,15 @@ export default function InvoiceModal({
           due_date: dueDate || null,
           payment_options: paymentOptions,
           notes: notes.trim() || null,
-          items: clean,
+          // Strip the client-only draftKey before it reaches the API
+          items: clean.map(({ description, qty, unit_price_cents }) => ({ description, qty, unit_price_cents })),
           send: sendNow,
         });
       }
       onClose();
     } catch (e) {
-      if (editing && invoice) {
-        try {
-          const fresh = await fetchInvoice(invoice.id);
-          setItems(fresh.items.map((i) => ({
-            id: i.id,
-            description: i.description,
-            qty: i.qty,
-            unit_price_cents: i.unit_price_cents,
-          })));
-          baselineRef.current = fresh.items;
-        } catch {
-          // keep the current drafts if the refresh also fails
-        }
-      }
+      // Keep the user's drafts and the advanced baseline — the save can be
+      // retried safely without duplicating or re-deleting lines.
       setError(String((e as Error).message || e));
     } finally {
       setSaving(false);

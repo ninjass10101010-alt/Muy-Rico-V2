@@ -8,6 +8,7 @@ import {
   saveDismissMap,
   loadReminderConfig,
   saveReminderConfigToLocal,
+  type DismissState,
 } from "./reminders";
 import type { Order } from "../types";
 

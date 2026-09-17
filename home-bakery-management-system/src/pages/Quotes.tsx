@@ -115,7 +115,7 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
 
   function openDetail(q: Quote) {
     setSelected(q);
-    setQuotedPrice(q.quotedPrice ? (q.quotedPrice / 100).toFixed(2) : "");
+    setQuotedPrice(q.quotedPrice != null ? (q.quotedPrice / 100).toFixed(2) : "");
     setAdminNotes(q.adminNotes || "");
     setSaveMsg(null);
     setEditingItemId(null);
@@ -130,7 +130,8 @@ export default function Quotes({ search, setPage }: { search: string; setPage: (
     setSaving(true);
     setSaveMsg(null);
     try {
-      const priceCents = quotedPrice ? Math.round(parseFloat(quotedPrice) * 100) : null;
+      const parsedPrice = parseFloat(quotedPrice);
+      const priceCents = quotedPrice && Number.isFinite(parsedPrice) ? Math.round(parsedPrice * 100) : null;
       await handleUpdateQuote(selected.id, {
         quoted_price: priceCents,
         admin_notes: adminNotes || null,

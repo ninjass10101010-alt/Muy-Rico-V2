@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Mail, Phone, FileText } from "lucide-react";
 import Modal from "./ui/Modal";
 import { formatCurrency } from "../utils/format";
-import type { Customer } from "../types";
 import type { DuplicatePair } from "../utils/api";
 
 interface MergeModalProps {

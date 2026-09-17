@@ -6,7 +6,7 @@ import type { BusinessProfile, PaymentMethod } from "../types";
 import { DEFAULT_REMINDER_CONFIG } from "../types";
 import { saveReminderConfigToLocal } from "../utils/reminders";
 import { PAYMENT_METHOD_LABELS } from "../utils/format";
-import { backfillAllOrderLabels, fetchDevices, revokeDeviceApi, type DeviceInfo } from "../utils/api";
+import { backfillAllOrderLabels, fetchDevices, revokeDeviceApi, apiFetch, type DeviceInfo } from "../utils/api";
 
 const METHOD_ICONS: Record<PaymentMethod, string> = {
   stripe: "💳",
@@ -40,6 +40,7 @@ export default function Settings() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
   const [revokingId, setRevokingId] = useState<number | null>(null);
+  const [deviceError, setDeviceError] = useState("");
   const savedTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -80,11 +81,21 @@ export default function Settings() {
 
   async function revokeDeviceRow(id: number) {
     setRevokingId(id);
+    setDeviceError("");
     try {
       await revokeDeviceApi(id);
       setDevices((rows) => rows.filter((d) => d.id !== id));
-    } catch {
-      /* keep list as-is */
+      // If we just revoked the device we're using, the bearer token is dead.
+      // Probing an authenticated endpoint makes apiFetch clear the token and
+      // bounce to login immediately (it only signs out when the bearer was the
+      // sole credential, so a still-valid Access browser session is untouched).
+      try {
+        await apiFetch("/api/auth/verify");
+      } catch {
+        /* 401 already triggered sign-out via the unauthorized handler */
+      }
+    } catch (err) {
+      setDeviceError(err instanceof Error ? err.message : "Could not revoke that device. Please try again.");
     } finally {
       setRevokingId(null);
     }
@@ -369,8 +380,13 @@ export default function Settings() {
             onClick={signOut}
             className="mt-3 rounded-lg border border-sand-200 bg-white px-3 py-1.5 text-xs font-medium text-cocoa hover:bg-sand-50"
           >
-            Sign out of all devices
+            Sign out of this device
           </button>
+          {deviceError && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-hibiscus">
+              <AlertCircle size={12} /> {deviceError}
+            </p>
+          )}
         </div>
 
         <button
