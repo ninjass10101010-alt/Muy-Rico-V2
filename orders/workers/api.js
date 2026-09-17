@@ -3538,23 +3538,23 @@ async function createInvoice(request, env, ctx, actor) {
     const notes = body.notes != null ? String(body.notes) : null;
     const adminNotes = body.admin_notes != null ? String(body.admin_notes) : null;
 
-    const insertStmt = env.DB.prepare(`
-      INSERT INTO invoices
-        (number, status, customer_name, email, phone, language, customer_id,
-         due_date, payment_options, total_cents, notes, admin_notes, public_token, created_by)
-      VALUES ('tmp-' || lower(hex(randomblob(8))), 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      customerName, email, phone, lang, customerId,
-      dueDate, paymentOptions, total, notes, adminNotes, token, actor || 'unknown',
-    );
-
-    const numberStmt = env.DB.prepare(
-      "UPDATE invoices SET number = 'INV-' || printf('%04d', last_insert_rowid() + 1000) WHERE id = last_insert_rowid()"
-    );
-    const itemStmts = items.map((it, i) => env.DB.prepare(
-      'INSERT INTO invoice_items (invoice_id, description, qty, unit_price_cents, sort_order) VALUES (last_insert_rowid(), ?, ?, ?, ?)'
-    ).bind(it.description, it.qty, it.unit_price_cents, i));
-    const results = await env.DB.batch([insertStmt, numberStmt, ...itemStmts]);
+    const results = await env.DB.batch([
+      env.DB.prepare(`
+        INSERT INTO invoices
+          (number, status, customer_name, email, phone, language, customer_id,
+           due_date, payment_options, total_cents, notes, admin_notes, public_token, created_by)
+        VALUES ('tmp-' || lower(hex(randomblob(8))), 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        customerName, email, phone, lang, customerId,
+        dueDate, paymentOptions, total, notes, adminNotes, token, actor || 'unknown',
+      ),
+      env.DB.prepare(
+        "UPDATE invoices SET number = 'INV-' || printf('%04d', id + 1000) WHERE public_token = ?"
+      ).bind(token),
+      ...items.map((it, i) => env.DB.prepare(
+        'INSERT INTO invoice_items (invoice_id, description, qty, unit_price_cents, sort_order) SELECT id, ?, ?, ?, ? FROM invoices WHERE public_token = ?'
+      ).bind(it.description, it.qty, it.unit_price_cents, i, token)),
+    ]);
     const id = results[0].meta.last_row_id;
     const number = invoiceNumberFor(id);
 
