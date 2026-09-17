@@ -26,6 +26,22 @@ export function matchedPayMode(paymentOptions, totalCents, amountCents) {
   return null;
 }
 
+// Classifies an incoming /paid request. Pure so the idempotency + amount policy
+// is unit-testable without a D1 harness.
+export function classifyInvoicePayment({ hasPaymentRef, sameRef, status, convertedOrderId, paymentOptions, totalCents, amountCents }) {
+  if (hasPaymentRef) {
+    if (!sameRef) return 'duplicate';
+    if (convertedOrderId == null && status !== 'converted' && status !== 'void'
+        && matchedPayMode(paymentOptions, totalCents, amountCents)) {
+      return 'heal';
+    }
+    return 'already';
+  }
+  if (status === 'converted' || status === 'void') return 'settled';
+  if (!matchedPayMode(paymentOptions, totalCents, amountCents)) return 'unexpected-amount';
+  return 'settle';
+}
+
 export function invoiceNumberFor(id) {
   return `INV-${String(Number(id) + 1000).padStart(4, '0')}`;
 }

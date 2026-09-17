@@ -730,6 +730,11 @@ async function handleInvoicePayPalCapture(request, env) {
     return json({ error: "Could not verify PayPal order" }, 400);
   }
   const ppCents = Math.round(parseFloat(paypalOrder.purchase_units?.[0]?.amount?.value || "0") * 100);
+  const ppCurrency = paypalOrder.purchase_units?.[0]?.amount?.currency_code || "";
+  if (ppCurrency !== "USD") {
+    console.error(`invoice currency mismatch: ${ppCurrency} invoice=${id}`);
+    return json({ error: "Currency mismatch" }, 400);
+  }
   const expectedCents = chargeMode === "full" ? invoice.total_cents : invoice.deposit_cents;
   if (ppCents !== expectedCents) {
     console.error(`invoice amount mismatch: expected=${expectedCents} paypal=${ppCents} invoice=${id} mode=${chargeMode}`);
@@ -752,6 +757,10 @@ async function handleInvoicePayPalCapture(request, env) {
   }
 
   const capture = captureData.purchase_units?.[0]?.payments?.captures?.[0] || {};
+  if ((capture.amount?.currency_code || "USD") !== "USD") {
+    console.error(`invoice capture currency mismatch: ${capture.amount?.currency_code} invoice=${id}`);
+    return json({ error: "Currency mismatch" }, 400);
+  }
   const captureId = capture.id || paypalOrderId;
   const amountCents = Math.round(parseFloat(capture.amount?.value || "0") * 100) || expectedCents;
   const ok = await markInvoicePaid(env, {
@@ -841,6 +850,11 @@ async function handleQuoteDepositPayPalCapture(request, env) {
     return json({ error: "Could not verify PayPal order" }, 400);
   }
   const ppCents = Math.round(parseFloat(paypalOrder.purchase_units?.[0]?.amount?.value || "0") * 100);
+  const ppCurrency = paypalOrder.purchase_units?.[0]?.amount?.currency_code || "";
+  if (ppCurrency !== "USD") {
+    console.error(`quote currency mismatch: ${ppCurrency} quote=${id}`);
+    return json({ error: "Currency mismatch" }, 400);
+  }
   const expectedCents = mode === "full" ? quote.total_cents : quote.deposit_cents;
   if (ppCents !== expectedCents) {
     console.error(`quote deposit amount mismatch: expected=${expectedCents} paypal=${ppCents} quote=${id} mode=${mode === "full" ? "full" : "deposit"}`);
@@ -863,6 +877,10 @@ async function handleQuoteDepositPayPalCapture(request, env) {
   }
 
   const capture = captureData.purchase_units?.[0]?.payments?.captures?.[0] || {};
+  if ((capture.amount?.currency_code || "USD") !== "USD") {
+    console.error(`quote capture currency mismatch: ${capture.amount?.currency_code} quote=${id}`);
+    return json({ error: "Currency mismatch" }, 400);
+  }
   const captureId = capture.id || paypalOrderId;
   const amountCents = Math.round(parseFloat(capture.amount?.value || "0") * 100) || quote.deposit_cents;
   const ok = await markQuoteDepositPaid(env, {

@@ -70,8 +70,8 @@ import {
   depositCentsFor, isDepositSufficient, buildPayUrl, generateQuoteToken,
 } from './quote-deposit-lib.js';
 import {
-  depositCentsFor as invoiceDepositCentsFor, matchedPayMode,
-  invoiceNumberFor, computeTotalCents, generateInvoiceToken,
+  depositCentsFor as invoiceDepositCentsFor,
+  invoiceNumberFor, computeTotalCents, generateInvoiceToken, classifyInvoicePayment,
 } from './invoice-lib.js';
 import { buildInvoiceDocumentHtml, invoiceEmailMeta } from './invoice-html.js';
 import {
@@ -640,6 +640,12 @@ async function notifyOrderCreated(env, body, id, actor) {
   if (env.EMAIL_RECIPIENT && env.RESEND_API_KEY) {
     notifyEmail(env, msg, id, { customer, itemsStr, total, date, time, paymentLabel, actor });
   }
+}
+
+// Legacy Telegram Markdown breaks the send (HTTP 400) on unescaped _ * ` [ in
+// interpolated values (e.g. Stripe ids like cs_live_xxx). Escape only those.
+function escapeTgMarkdown(s) {
+  return String(s ?? '').replace(/([_*`\[])/g, '\\$1');
 }
 
 async function notifyTelegram(env, msg) {
@@ -3532,7 +3538,7 @@ async function createInvoice(request, env, ctx, actor) {
     const notes = body.notes != null ? String(body.notes) : null;
     const adminNotes = body.admin_notes != null ? String(body.admin_notes) : null;
 
-    const result = await env.DB.prepare(`
+    const insertStmt = env.DB.prepare(`
       INSERT INTO invoices
         (number, status, customer_name, email, phone, language, customer_id,
          due_date, payment_options, total_cents, notes, admin_notes, public_token, created_by)
@@ -3540,21 +3546,17 @@ async function createInvoice(request, env, ctx, actor) {
     `).bind(
       customerName, email, phone, lang, customerId,
       dueDate, paymentOptions, total, notes, adminNotes, token, actor || 'unknown',
-    ).run();
+    );
 
-    const id = result.meta.last_row_id;
+    const numberStmt = env.DB.prepare(
+      "UPDATE invoices SET number = 'INV-' || printf('%04d', last_insert_rowid() + 1000) WHERE id = last_insert_rowid()"
+    );
+    const itemStmts = items.map((it, i) => env.DB.prepare(
+      'INSERT INTO invoice_items (invoice_id, description, qty, unit_price_cents, sort_order) VALUES (last_insert_rowid(), ?, ?, ?, ?)'
+    ).bind(it.description, it.qty, it.unit_price_cents, i));
+    const results = await env.DB.batch([insertStmt, numberStmt, ...itemStmts]);
+    const id = results[0].meta.last_row_id;
     const number = invoiceNumberFor(id);
-    // `number` is NOT NULL + UNIQUE, so the INSERT above uses a unique random
-    // placeholder ('tmp-<hex>') and we set the real INV-<id+1000> here. A crash
-    // between the two leaves a visible 'tmp-' number, never a constraint error.
-    await env.DB.prepare('UPDATE invoices SET number = ? WHERE id = ?').bind(number, id).run();
-
-    for (let i = 0; i < items.length; i++) {
-      await env.DB.prepare(`
-        INSERT INTO invoice_items (invoice_id, description, qty, unit_price_cents, sort_order)
-        VALUES (?, ?, ?, ?, ?)
-      `).bind(id, items[i].description, items[i].qty, items[i].unit_price_cents, i).run();
-    }
 
     let sent = false;
     if (body.send === true) {
@@ -3621,6 +3623,12 @@ async function updateInvoice(id, request, env) {
     if (guard) return guard;
 
     const body = await request.json();
+    if (body.customer_name !== undefined && !String(body.customer_name).trim()) {
+      return json({ error: 'customer_name cannot be empty' }, 400);
+    }
+    if (body.email !== undefined && !String(body.email).trim()) {
+      return json({ error: 'email cannot be empty' }, 400);
+    }
     const sets = [];
     const binds = [];
     const textCols = {
@@ -3809,68 +3817,57 @@ async function convertInvoiceToOrder(env, id, invoice, { amountCents, method, su
 
   const pickupDate = invoice.due_date || new Date().toISOString().slice(0, 10);
 
-  const orderResult = await env.DB.prepare(`
-    INSERT INTO orders
-      (customer_name, phone, email, pickup_date, items_json,
-       total_cents, payment_method, payment_status, status, notes,
-       created_by, source, language)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?)
-  `).bind(
-    invoice.customer_name,
-    invoice.phone,
-    invoice.email,
-    pickupDate,
-    itemsJson,
-    invoice.total_cents,
-    method,
-    paymentStatus,
-    orderNotes,
-    actor,
-    invoice.language || 'es',
-  ).run();
-
-  const orderId = orderResult.meta.last_row_id;
-
   const payId = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  await env.DB.prepare('UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1').bind(orderId).run();
-  await env.DB.prepare(`
-    INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-  `).bind(payId, orderId, invoice.customer_name, amountCents / 100, method, subMethod).run();
 
-  await env.DB.prepare(`
-    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
-  `).bind(orderId, actor).run();
+  try {
+    const results = await env.DB.batch([
+      // The unique index on orders(invoice_id) makes this the conversion serialization point.
+      env.DB.prepare(`
+        INSERT INTO orders
+          (customer_name, phone, email, pickup_date, items_json,
+           total_cents, payment_method, payment_status, status, notes,
+           created_by, source, language, invoice_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?, ?)
+      `).bind(
+        invoice.customer_name, invoice.phone, invoice.email, pickupDate, itemsJson,
+        invoice.total_cents, method, paymentStatus, orderNotes, actor,
+        invoice.language || 'es', id,
+      ),
+      env.DB.prepare(
+        'UPDATE payments SET active = 0 WHERE order_id = (SELECT id FROM orders WHERE invoice_id = ?) AND active = 1'
+      ).bind(id),
+      env.DB.prepare(`
+        UPDATE invoices SET status = 'converted',
+          converted_order_id = (SELECT id FROM orders WHERE invoice_id = ?),
+          paid_cents = ?, paid_at = datetime('now'), payment_method = ?, payment_sub_method = ?,
+          updated_at = datetime('now')
+        WHERE id = ? AND status NOT IN ('converted','void')
+      `).bind(id, amountCents, method, subMethod, id),
+      env.DB.prepare(`
+        INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date)
+        SELECT ?, id, ?, ?, ?, ?, datetime('now') FROM orders WHERE invoice_id = ?
+      `).bind(payId, invoice.customer_name, amountCents / 100, method, subMethod, id),
+      env.DB.prepare(`
+        INSERT INTO order_events (order_id, actor, event)
+        SELECT id, ?, 'order:created' FROM orders WHERE invoice_id = ?
+      `).bind(actor, id),
+    ]);
 
-  // Claim the conversion atomically: only the first caller to reach here converts.
-  const claim = await env.DB.prepare(`
-    UPDATE invoices SET status = 'converted', converted_order_id = ?, paid_cents = ?,
-      paid_at = datetime('now'), payment_method = ?, payment_sub_method = ?,
-      updated_at = datetime('now')
-    WHERE id = ? AND converted_order_id IS NULL AND status NOT IN ('converted','void')
-  `).bind(orderId, amountCents, method, subMethod, id).run();
-
-  if (claim.meta.changes === 0) {
-    // Lost the race: another caller already converted this invoice. Roll back the
-    // order/payment/event this call created, then return the winner's order id.
-    try {
-      await env.DB.prepare('DELETE FROM payments WHERE order_id = ?').bind(orderId).run();
-      await env.DB.prepare('DELETE FROM order_events WHERE order_id = ?').bind(orderId).run();
-      await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(orderId).run();
-    } catch (e) {
-      console.error('convertInvoiceToOrder orphan rollback failed', e);
+    return { orderId: results[0].meta.last_row_id, paymentStatus };
+  } catch (e) {
+    if (/UNIQUE constraint failed/i.test(String(e))) {
+      // Another caller won the conversion race; return their order id.
+      const winner = await env.DB.prepare(
+        'SELECT converted_order_id FROM invoices WHERE id = ?'
+      ).bind(id).first();
+      return { orderId: winner ? winner.converted_order_id : null, paymentStatus: null, already: true };
     }
-    const winner = await env.DB.prepare(
-      'SELECT converted_order_id FROM invoices WHERE id = ?'
-    ).bind(id).first();
-    return { orderId: winner ? winner.converted_order_id : null, paymentStatus: null, already: true };
+    throw e;
   }
-
-  return { orderId, paymentStatus };
 }
 
 async function notifyDuplicateInvoicePayment(env, id, ref, why) {
-  const msg = `⚠️ Duplicate invoice payment on Invoice #${id} (ref ${ref} — ${why}) — refund needed`;
+  const msg = `⚠️ Duplicate invoice payment on Invoice #${id} (ref ${escapeTgMarkdown(ref)} — ${escapeTgMarkdown(why)}) — refund needed`;
   console.warn(msg);
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
     return notifyTelegram(env, msg);
@@ -3916,22 +3913,32 @@ async function invoicePaid(id, request, env, ctx) {
   }
   if (!ref) return json({ error: 'Missing ref' }, 400);
 
+  const outcome = classifyInvoicePayment({
+    hasPaymentRef: !!invoice.payment_ref,
+    sameRef: invoice.payment_ref === ref,
+    status: invoice.status,
+    convertedOrderId: invoice.converted_order_id,
+    paymentOptions: invoice.payment_options,
+    totalCents: invoice.total_cents,
+    amountCents,
+  });
+
   // Idempotency: a replay with the same ref is a no-op ack
-  if (invoice.payment_ref) {
-    if (invoice.payment_ref === ref) {
-      if (invoice.converted_order_id == null
-          && invoice.status !== 'converted' && invoice.status !== 'void'
-          && matchedPayMode(invoice.payment_options, invoice.total_cents, amountCents)) {
-        return await healInvoiceConversion(env, id, invoice, { amountCents, method, subMethod, ctx });
-      }
-      return json({ ok: true, already: true, order_id: invoice.converted_order_id }, 200);
-    }
+  if (outcome === 'duplicate') {
     ctx.waitUntil(notifyDuplicateInvoicePayment(env, id, ref, 'second payment'));
     return json({ ok: true, duplicate: true }, 200);
   }
 
+  if (outcome === 'heal') {
+    return await healInvoiceConversion(env, id, invoice, { amountCents, method, subMethod, ctx });
+  }
+
+  if (outcome === 'already') {
+    return json({ ok: true, already: true, order_id: invoice.converted_order_id }, 200);
+  }
+
   // Owner already converted/voided before this payment landed
-  if (invoice.status === 'converted' || invoice.status === 'void') {
+  if (outcome === 'settled') {
     await env.DB.prepare(`
       UPDATE invoices SET paid_cents = ?, paid_at = datetime('now'),
         payment_method = ?, payment_sub_method = ?, payment_ref = ?, updated_at = datetime('now') WHERE id = ?
@@ -3940,11 +3947,9 @@ async function invoicePaid(id, request, env, ctx) {
     return json({ ok: true, duplicate: true, reason: 'already_settled' }, 200);
   }
 
-  // The amount must correspond to a mode the admin authorized
-  const mode = matchedPayMode(invoice.payment_options, invoice.total_cents, amountCents);
-  if (!mode) {
-    // Provider-signed but not an allowed amount (e.g. total edited after checkout was created).
-    // The money moved: record it + alert instead of returning 400 (a 400 would retry forever).
+  // Provider-signed but not an allowed amount (e.g. total edited after checkout was created).
+  // The money moved: record it + alert instead of returning 400 (a 400 would retry forever).
+  if (outcome === 'unexpected-amount') {
     await env.DB.prepare(`
       UPDATE invoices SET paid_cents = ?, paid_at = datetime('now'),
         payment_method = ?, payment_sub_method = ?, payment_ref = ?, updated_at = datetime('now') WHERE id = ?
@@ -3995,12 +4000,12 @@ async function invoicePaid(id, request, env, ctx) {
 async function sendInvoiceEmail(env, invoice, items) {
   const email = invoice.email;
   const lang = invoice.language || 'es';
-  if (!email || !env.RESEND_API_KEY) return;
+  if (!email || !env.RESEND_API_KEY) return false;
   const isEn = lang === 'en';
   const meta = invoiceEmailMeta(invoice, isEn);
   const html = buildInvoiceDocumentHtml(invoice, items, isEn);
   try {
-    await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: 'Bearer ' + env.RESEND_API_KEY,
@@ -4013,8 +4018,14 @@ async function sendInvoiceEmail(env, invoice, items) {
         html,
       }),
     });
+    if (!res.ok) {
+      console.error('sendInvoiceEmail failed', res.status, await res.text().catch(() => ''));
+      return false;
+    }
+    return true;
   } catch (e) {
     console.error('sendInvoiceEmail failed:', e);
+    return false;
   }
 }
 
@@ -4026,7 +4037,8 @@ async function sendInvoiceCore(id, env) {
     return { error: json({ error: `Invoice is ${invoice.status}; cannot email` }, 400) };
   }
   const items = await getInvoiceItems(env, id);
-  await sendInvoiceEmail(env, invoice, items);
+  const delivered = await sendInvoiceEmail(env, invoice, items);
+  if (!delivered) return { error: json({ error: 'Invoice email could not be sent' }, 502) };
   let status = invoice.status;
   if (invoice.status === 'draft') {
     await env.DB.prepare(
@@ -4059,7 +4071,7 @@ async function notifyInvoicePaid(env, id, number, customerName, orderId, paidCen
   const paid = '$' + (paidCents / 100).toFixed(2);
   const total = '$' + (totalCents / 100).toFixed(2);
   const methodLabel = method.charAt(0).toUpperCase() + method.slice(1);
-  const msg = `🧾 ${number} paid → Order #${orderId} (${customerName})\n💰 ${paid} of ${total} via ${methodLabel}`;
+  const msg = `🧾 ${escapeTgMarkdown(number)} paid → Order #${orderId} (${escapeTgMarkdown(customerName)})\n💰 ${paid} of ${total} via ${escapeTgMarkdown(methodLabel)}`;
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
     return notifyTelegram(env, msg);
   }

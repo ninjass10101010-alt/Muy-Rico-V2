@@ -3,6 +3,7 @@ import {
   depositCentsFor, balanceCentsFor, allowedPayModes, matchedPayMode,
   invoiceNumberFor, computeTotalCents, buildPayUrl,
   encodeInvoiceCustomId, parseInvoiceCustomId, generateInvoiceToken,
+  classifyInvoicePayment,
 } from '../workers/invoice-lib.js';
 
 describe('depositCentsFor (re-exported 50% rule)', () => {
@@ -30,6 +31,59 @@ describe('matchedPayMode', () => {
   it('both matches full', () => expect(matchedPayMode('both', 18000, 18000)).toBe('full'));
   it('both matches deposit', () => expect(matchedPayMode('both', 18000, 9000)).toBe('deposit'));
   it('both rejects a wrong amount', () => expect(matchedPayMode('both', 18000, 1234)).toBeNull());
+});
+
+describe('classifyInvoicePayment', () => {
+  const base = { paymentOptions: 'both', totalCents: 18000 };
+
+  it('no ref + valid amount → settle', () => {
+    expect(classifyInvoicePayment({
+      ...base, hasPaymentRef: false, sameRef: false, status: 'sent',
+      convertedOrderId: null, amountCents: 18000,
+    })).toBe('settle');
+  });
+
+  it('no ref + wrong amount → unexpected-amount', () => {
+    expect(classifyInvoicePayment({
+      ...base, hasPaymentRef: false, sameRef: false, status: 'sent',
+      convertedOrderId: null, amountCents: 1234,
+    })).toBe('unexpected-amount');
+  });
+
+  it('already converted → settled', () => {
+    expect(classifyInvoicePayment({
+      ...base, hasPaymentRef: false, sameRef: false, status: 'converted',
+      convertedOrderId: 42, amountCents: 18000,
+    })).toBe('settled');
+  });
+
+  it('same ref, not yet converted, valid amount → heal', () => {
+    expect(classifyInvoicePayment({
+      ...base, hasPaymentRef: true, sameRef: true, status: 'sent',
+      convertedOrderId: null, amountCents: 9000,
+    })).toBe('heal');
+  });
+
+  it('same ref, already converted → already', () => {
+    expect(classifyInvoicePayment({
+      ...base, hasPaymentRef: true, sameRef: true, status: 'converted',
+      convertedOrderId: 42, amountCents: 18000,
+    })).toBe('already');
+  });
+
+  it('different ref → duplicate', () => {
+    expect(classifyInvoicePayment({
+      ...base, hasPaymentRef: true, sameRef: false, status: 'sent',
+      convertedOrderId: null, amountCents: 18000,
+    })).toBe('duplicate');
+  });
+
+  it('void with no ref → settled', () => {
+    expect(classifyInvoicePayment({
+      ...base, hasPaymentRef: false, sameRef: false, status: 'void',
+      convertedOrderId: null, amountCents: 18000,
+    })).toBe('settled');
+  });
 });
 
 describe('invoiceNumberFor', () => {
