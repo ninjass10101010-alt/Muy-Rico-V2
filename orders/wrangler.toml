@@ -30,3 +30,14 @@ R2_PUBLIC_ID = "71c703c51efd43de8dde4439bd02a8af"
 # Payment webhook reconciliation (set via `wrangler secret put PAYMENT_WEBHOOK_SECRET --name muy-rico-orders-api`)
 # Shared with muy-rico-checkout so it can call POST /api/orders/:id/mark-paid
 # PAYMENT_WEBHOOK_SECRET = "***"
+
+# Cloudflare Access JWT verification (RECOMMENDED — closes the auth-forgery hole).
+# When BOTH are set, the API no longer trusts the raw cf-access-authenticated-user-email
+# header or the unsigned CF_Authorization cookie; identity must come from a JWT whose
+# RS256 signature verifies against the team's JWKS, with matching iss/aud/exp.
+# Prereq: an Access application must cover this Worker (and /api/* on the site) so the
+# Cf-Access-Jwt-Assertion header is injected.
+#   ACCESS_TEAM_DOMAIN = "<your-team>.cloudflareaccess.com"   (no scheme)
+#   ACCESS_AUD         = "<Access application AUD tag>"
+# Set via: wrangler secret put ACCESS_TEAM_DOMAIN -c orders/wrangler.toml
+#          wrangler secret put ACCESS_AUD -c orders/wrangler.toml

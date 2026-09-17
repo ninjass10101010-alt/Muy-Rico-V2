@@ -60,6 +60,22 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Constant-time string compare for shared secrets (avoids early-exit timing leaks).
+function timingSafeEqualStr(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const len = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
+function hasValidWebhookSecret(request, env) {
+  const provided = request.headers.get('X-Webhook-Secret') || '';
+  return Boolean(env.PAYMENT_WEBHOOK_SECRET) && timingSafeEqualStr(provided, env.PAYMENT_WEBHOOK_SECRET);
+}
+
 import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
 import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode } from './enrich-lib.js';
 import { validatePickupDate, pickupChangeEvent } from './order-date.js';
@@ -77,6 +93,7 @@ import { buildInvoiceDocumentHtml, invoiceEmailMeta } from './invoice-html.js';
 import {
   mintDeviceToken, resolveDeviceToken, listDevices, revokeDevice, revokeAllDevices,
 } from './device-token-lib.js';
+import { verifyAccessJwt } from './access-jwt-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -87,12 +104,25 @@ export default {
     if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
     // --- Access check ---
-    // Two sources of identity:
-    //   1) cf-access-authenticated-user-email header (injected by Access when path matches)
-    //   2) CF_Authorization JWT cookie (present on all requests from an authenticated session)
-    // The header is preferred; the cookie is a fallback when Access only guards /admin* but not /api/*.
+    // Identity sources, strongest first:
+    //   1) VERIFIED Cloudflare Access JWT (Cf-Access-Jwt-Assertion header or the
+    //      CF_Authorization cookie) — signature checked against the team JWKS.
+    //      Enabled by setting ACCESS_TEAM_DOMAIN + ACCESS_AUD.
+    //   2) Trusted-device bearer token (home-screen app).
+    // Legacy fallbacks (raw email header + unsigned cookie decode) are only used
+    // when hardening is NOT configured, so enabling it never locks anyone out
+    // mid-deploy but closes the forgery hole once configured.
     const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-    let actorEmail = isLocal ? 'local@dev' : (request.headers.get('cf-access-authenticated-user-email') || '');
+    const accessHardened = !isLocal && Boolean(env.ACCESS_TEAM_DOMAIN && env.ACCESS_AUD);
+    let actorEmail = isLocal ? 'local@dev' : '';
+
+    if (!actorEmail && accessHardened) {
+      const assertion = request.headers.get('Cf-Access-Jwt-Assertion') || cookieValue(request, 'CF_Authorization') || '';
+      actorEmail = (await verifyAccessJwt({ token: assertion, teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD })) || '';
+    }
+    if (!actorEmail && !isLocal && !accessHardened) {
+      actorEmail = request.headers.get('cf-access-authenticated-user-email') || '';
+    }
     if (!actorEmail && !isLocal) {
       const bearer = (request.headers.get('Authorization') || '').trim();
       if (bearer.toLowerCase().startsWith('bearer ')) {
@@ -100,7 +130,7 @@ export default {
         if (record) actorEmail = record.email;
       }
     }
-    if (!actorEmail && !isLocal) {
+    if (!actorEmail && !isLocal && !accessHardened) {
       actorEmail = emailFromAccessCookie(request) || '';
     }
     let actorName  = actorEmail.split('@')[0] || 'unknown';
@@ -415,20 +445,23 @@ export default {
   },
 };
 
+/** Read a single cookie value from the request Cookie header. */
+function cookieValue(request, name) {
+  const cookie = request.headers.get('Cookie') || '';
+  const match = cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+  return match ? match[1] : null;
+}
+
 /**
- * Extract the authenticated user email from the Cloudflare Access JWT cookie.
- * This is a fallback when cf-access-authenticated-user-email header isn't
- * injected (Access only guards /admin*, not /api/*).
- *
- * The cookie value is a JWT: header.payload.signature
- * We only decode the payload — the signature is not verified here because
- * the cookie is HttpOnly/Secure and only Cloudflare can issue it.
+ * LEGACY fallback only (used when ACCESS_TEAM_DOMAIN/ACCESS_AUD are unset).
+ * Decodes the Access JWT payload WITHOUT verifying the signature — the token is
+ * forgeable by any client, so this must never be the sole identity source once
+ * hardening is configured. Prefer verifyAccessJwt().
  */
 function emailFromAccessCookie(request) {
-  const cookie = request.headers.get('Cookie') || '';
-  const match = cookie.match(/\bCF_Authorization=([^;]+)/);
-  if (!match) return null;
-  const payload = match[1].split('.')[1];
+  const token = cookieValue(request, 'CF_Authorization');
+  if (!token) return null;
+  const payload = token.split('.')[1];
   if (!payload) return null;
   try {
     const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
@@ -527,6 +560,11 @@ async function createOrder(request, env, ctx, actor) {
   // Website orders go through the email-based backfill below.
   const isWebsite = (body.source || 'in-person') === 'website';
   const rawCustomerId = isWebsite ? null : customerId;
+  // Unauthenticated website orders can never self-declare as paid, nor skip the
+  // payment step. Derive the effective initial state once and use it everywhere
+  // (insert + notification/label guards) so client input can't influence it.
+  const effectivePaymentStatus = isWebsite ? 'unpaid' : (body.payment_status || 'unpaid');
+  const effectiveStatus = isWebsite ? 'awaiting_payment' : (body.status || 'pending');
 
   // Website backfill: link order to existing customer by email, or create one.
   let effectiveCustomerId = rawCustomerId;
@@ -580,8 +618,8 @@ async function createOrder(request, env, ctx, actor) {
     body.subtotal_cents != null ? Number(body.subtotal_cents) : Number(body.total_cents) || 0,
     body.discount_cents != null ? Number(body.discount_cents) : 0,
     body.payment_method,
-    body.payment_status || 'unpaid',
-    body.status || 'pending',
+    effectivePaymentStatus,
+    effectiveStatus,
     body.notes || null,
     actor,
     body.source || 'in-person',
@@ -602,7 +640,7 @@ async function createOrder(request, env, ctx, actor) {
   }
 
   // Only fire notifications and labels for real orders (not awaiting_payment)
-  if (body.status !== 'awaiting_payment') {
+  if (effectiveStatus !== 'awaiting_payment') {
     ctx.waitUntil(notifyOrderCreated(env, body, id, actor));
     ctx.waitUntil(generateLabelsForOrder(env, id, body));
   }
@@ -974,8 +1012,7 @@ async function deductOrderInventory(orderId, env, actor) {
 
 async function markOrderPaid(id, request, env, ctx) {
   // Authenticate via shared secret (no Cloudflare Access on this public route)
-  const provided = request.headers.get('X-Webhook-Secret') || '';
-  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+  if (!hasValidWebhookSecret(request, env)) {
     return json({ error: 'Forbidden — invalid webhook secret' }, 401);
   }
 
@@ -986,6 +1023,7 @@ async function markOrderPaid(id, request, env, ctx) {
     return json({ error: `Invalid or missing method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
   }
   const subMethod = body.sub_method || null;
+  const amountCents = body.amount_cents != null ? Number(body.amount_cents) : null;
 
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   if (!order) return json({ error: 'Not found' }, 404);
@@ -993,6 +1031,16 @@ async function markOrderPaid(id, request, env, ctx) {
   // Idempotent: already paid → no-op (still log the event below).
   // If a replay with a different method arrives, we reject it to avoid silently overwriting.
   const alreadyPaid = order.payment_status === 'paid';
+
+  // Never mark an order paid for less than it is owed. The checkout worker sends
+  // the settled amount from Stripe/PayPal; a mismatch (e.g. a tampered or legacy
+  // checkout session) is refused and recorded for review.
+  if (!alreadyPaid && amountCents != null && Number.isFinite(amountCents) && amountCents !== Number(order.total_cents)) {
+    await env.DB.prepare(
+      `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)`
+    ).bind(id, 'system', `order:payment-amount-mismatch: paid=${amountCents} expected=${order.total_cents}`).run();
+    return json({ error: 'Payment amount does not match order total' }, 409);
+  }
 
   if (!alreadyPaid) {
     await env.DB.prepare(`
@@ -1050,8 +1098,7 @@ async function markOrderPaid(id, request, env, ctx) {
 }
 
 async function getOrderPayable(id, request, env) {
-  const provided = request.headers.get('X-Webhook-Secret') || '';
-  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+  if (!hasValidWebhookSecret(request, env)) {
     return json({ error: 'Forbidden' }, 401);
   }
   const order = await env.DB.prepare(
@@ -1403,7 +1450,9 @@ function migrateFlavorGroups(v) {
   return v;
 }
 
-const ALLOWED_IMG = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+// Raster only. SVG is intentionally excluded: it can carry script and is served
+// back from a public R2 URL (stored-XSS vector).
+const ALLOWED_IMG = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMG_BYTES = 5 * 1024 * 1024;
 
 async function uploadImage(request, env) {
@@ -3892,8 +3941,7 @@ async function healInvoiceConversion(env, id, invoice, { amountCents, method, su
 
 // Records a customer online payment, auto-converts the invoice, notifies owner + customer.
 async function invoicePaid(id, request, env, ctx) {
-  const provided = request.headers.get('X-Webhook-Secret') || '';
-  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+  if (!hasValidWebhookSecret(request, env)) {
     return json({ error: 'Forbidden — invalid webhook secret' }, 401);
   }
 
@@ -4182,8 +4230,7 @@ async function notifyDuplicateDeposit(env, id, ref, why) {
 // Records the customer-online deposit, auto-converts the quote, notifies owner + customer.
 async function quoteDepositPaid(id, request, env, ctx) {
   // Shared-secret auth (same pattern as markOrderPaid — no Access on this route)
-  const provided = request.headers.get('X-Webhook-Secret') || '';
-  if (!env.PAYMENT_WEBHOOK_SECRET || provided !== env.PAYMENT_WEBHOOK_SECRET) {
+  if (!hasValidWebhookSecret(request, env)) {
     return json({ error: 'Forbidden — invalid webhook secret' }, 401);
   }
 

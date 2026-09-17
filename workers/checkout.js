@@ -14,9 +14,6 @@ export default {
     }
 
     try {
-      if (path === "/create-checkout" && request.method === "POST") {
-        return await handleCreateCheckout(request, env);
-      }
       const qpay = path.match(/^\/quote\/(\d+)\/payable$/);
       if (qpay && request.method === "GET") {
         return await handleQuoteDepositPayable(Number(qpay[1]), request, env);
@@ -86,39 +83,6 @@ function ordersApiFetch(env, path, init = {}) {
   }
   const base = env.ORDERS_API_BASE || "https://muy-rico-orders-api.bexgarcia0208.workers.dev";
   return fetch(base + path, { ...init, headers });
-}
-
-async function handleCreateCheckout(request, env) {
-  const { amount, items, origin, orderId } = await request.json();
-  const key = env.STRIPE_SECRET_KEY;
-  if (!key) return json({ error: "STRIPE_SECRET_KEY not set" }, 500);
-
-  const params = new URLSearchParams();
-  params.append("line_items[0][price_data][currency]", "usd");
-  params.append("line_items[0][price_data][product_data][name]", "Muy Rico Order");
-  params.append("line_items[0][price_data][product_data][description]", items || "Bakery order");
-  params.append("line_items[0][price_data][unit_amount]", String(amount));
-  params.append("line_items[0][quantity]", "1");
-  params.append("mode", "payment");
-  if (orderId) {
-    params.append("client_reference_id", String(orderId));
-    params.append("metadata[order_id]", String(orderId));
-  }
-  const base = origin || "";
-  params.append("success_url", base + "/order.html?paid=true&order=" + (orderId || ""));
-  params.append("cancel_url", base + "/order.html?order=" + (orderId || ""));
-
-  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + key,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: params,
-  });
-  const session = await res.json();
-  if (session.error) return json({ error: session.error.message }, 400);
-  return json({ url: session.url });
 }
 
 async function handleStripeWebhook(request, env) {
@@ -191,7 +155,12 @@ async function handleStripeWebhook(request, env) {
     // Fetch charge details to capture the specific card/instrument used.
     const subMethod = await extractStripeSubMethod(event, obj, env);
 
-    const ok = await markOrderPaidViaApi(orderId, "stripe", env, subMethod);
+    // Pass the amount Stripe actually settled so the API can verify it against
+    // the order total before marking paid.
+    const settledCents = obj.amount_total != null ? obj.amount_total
+      : obj.amount_received != null ? obj.amount_received
+      : obj.amount;
+    const ok = await markOrderPaidViaApi(orderId, "stripe", env, subMethod, settledCents);
     if (!ok) return json({ error: "mark-paid failed" }, 500);
   } else {
     // Acknowledge but ignore other event types (e.g. checkout.session.async_payment_*)
@@ -210,12 +179,12 @@ async function hmacSha256(secret, payload) {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function markOrderPaidViaApi(orderId, method, env, subMethod = null) {
+async function markOrderPaidViaApi(orderId, method, env, subMethod = null, amountCents = null) {
   try {
     const res = await ordersApiFetch(env, "/api/orders/" + encodeURIComponent(orderId) + "/mark-paid", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method, sub_method: subMethod }),
+      body: JSON.stringify({ method, sub_method: subMethod, amount_cents: amountCents }),
     });
     if (res.status === 404) {
       console.error("mark-paid 404 for order", orderId);
@@ -406,8 +375,15 @@ async function handlePayPalWebhook(request, env) {
       });
       return ok ? json({ received: true }) : json({ error: "invoice-paid failed" }, 500);
     }
+    // Regular orders: only a completed capture moves money. An approval event
+    // (CHECKOUT.ORDER.APPROVED) must NOT mark the order paid — mirror the
+    // quote/invoice branches above.
+    if (event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+      return json({ received: true });
+    }
     const subMethod = await extractPayPalWebhookSubMethod(event, env);
-    const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod);
+    const orderAmountCents = Math.round(parseFloat(resource.amount?.value || "0") * 100);
+    const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod, orderAmountCents);
     if (!ok) return json({ error: "mark-paid failed" }, 500);
   } else {
     console.log("paypal event ignored:", event.event_type);
@@ -531,14 +507,21 @@ async function handlePayPalCapture(request, env) {
   }
 
   const subMethod = extractPayPalSubMethod(captureData);
-  const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod);
+  const ok = await markOrderPaidViaApi(orderId, "paypal", env, subMethod, ppCents);
   if (!ok) return json({ error: "mark-paid failed" }, 500);
 
   return json({ ok: true });
 }
 
+function htmlEscape(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
 function successPage(url) {
-  const token = url.searchParams.get("token") || "";
+  // Never reflect a query param raw into HTML — escape it.
+  const token = htmlEscape((url.searchParams.get("token") || "").slice(0, 12));
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment Complete — Muy Rico</title>
@@ -553,7 +536,7 @@ function successPage(url) {
 <div class="card">
   <h1>Payment Complete</h1>
   <p>Your order has been placed and your payment was successful.</p>
-  <p style="font-size:14px;color:#999">PayPal Ref: ${token.slice(0,12)}…</p>
+  <p style="font-size:14px;color:#999">PayPal Ref: ${token}…</p>
   <a class="btn" href="https://muy-rico.bexgarcia0208.workers.dev">Back to Muy Rico</a>
 </div>
 </body>
