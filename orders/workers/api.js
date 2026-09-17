@@ -536,6 +536,44 @@ function json(data, status = 200, extra = {}) {
 
 
 
+// Optional catalog price enforcement. Enable with ENFORCE_CATALOG_PRICES=1.
+// Confirms each line item's unit price equals the product's catalog price or one
+// of its pack prices. Items whose product is unknown/inactive are recorded but
+// NOT rejected, so a stale static fallback can never block a real order.
+// Returns { ok, mismatches, unknown }.
+async function verifyCatalogPrices(env, items) {
+  let parsed = items;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { parsed = []; }
+  }
+  if (!Array.isArray(parsed)) return { ok: true, mismatches: [], unknown: [] };
+
+  const ids = [...new Set(parsed.map((i) => i && i.productId).filter(Boolean))];
+  if (!ids.length) return { ok: true, mismatches: [], unknown: [] };
+
+  const placeholders = ids.map(() => '?').join(',');
+  const { results } = await env.DB.prepare(
+    `SELECT id, name, price, pack_sizes, active FROM products WHERE id IN (${placeholders})`
+  ).bind(...ids).all();
+  const byId = new Map((results || []).map((r) => [String(r.id), r]));
+
+  const mismatches = [];
+  const unknown = [];
+  for (const item of parsed) {
+    const price = Number(item && item.price);
+    const pid = item && item.productId;
+    if (!pid) { unknown.push(item && item.name); continue; }
+    const prod = byId.get(String(pid));
+    if (!prod || Number(prod.active) === 0) { unknown.push(item && item.name); continue; }
+    const packs = safeJsonParse(prod.pack_sizes, []) || [];
+    const allowed = [Number(prod.price), ...packs.map((p) => Number(p && p.price))].filter(Number.isFinite);
+    if (!Number.isFinite(price) || !allowed.some((a) => Math.abs(a - price) < 0.005)) {
+      mismatches.push({ name: item && item.name, productId: pid, price, allowed });
+    }
+  }
+  return { ok: mismatches.length === 0, mismatches, unknown };
+}
+
 async function createOrder(request, env, ctx, actor) {
   const body = await request.json();
   for (const f of ['customer_name', 'pickup_date', 'items_json', 'payment_method']) {
@@ -555,6 +593,15 @@ async function createOrder(request, env, ctx, actor) {
   }
 
   const items = typeof body.items_json === 'string' ? body.items_json : JSON.stringify(body.items_json);
+
+  // Optional: refuse orders whose line-item prices don't match the catalog.
+  if (env.ENFORCE_CATALOG_PRICES === '1') {
+    const check = await verifyCatalogPrices(env, items);
+    if (!check.ok) {
+      return json({ error: 'Item price does not match the current catalog', mismatches: check.mismatches }, 409);
+    }
+  }
+
   const customerId = getBodyField(body, 'customer_id') || null;
   // Hardening: ignore client-provided customer_id for website orders.
   // Website orders go through the email-based backfill below.

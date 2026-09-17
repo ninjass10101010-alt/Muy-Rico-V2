@@ -19,6 +19,11 @@ crons = ["0 * * * *"]
 [vars]
 ALLOWED_ORIGIN = "https://muy-rico.pages.dev"
 R2_PUBLIC_ID = "71c703c51efd43de8dde4439bd02a8af"
+# Optional: set to "1" to reject public orders whose line-item prices don't match
+# the product catalog (base price or any pack price). Items with an unknown/inactive
+# product are allowed through, so a stale fallback can't block real orders.
+# Verify against the live catalog before enabling.
+# ENFORCE_CATALOG_PRICES = "1"
 # Email notifications via Resend (set via `wrangler secret put`)
 #   RESEND_API_KEY = "re_xxx"
 #   EMAIL_RECIPIENT = "you@example.com,you2@example.com"
