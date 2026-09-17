@@ -5,37 +5,46 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Depósito — Muy Rico Bakery</title>
 <link rel="icon" href="/qr_muy_rico.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf7f2; margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 32px 16px; color: #2c2523; }
-  .card { background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 32px 28px; max-width: 460px; width: 100%; }
+  /* Editorial Panadería: matches the main site (cream paper, forest ink,
+     clay accent, Playfair Display + Figtree). Kept self-contained so the
+     payment page stays a fast, dependency-free landing surface. */
+  body { font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF6EC; margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 32px 16px; color: #243B30; }
+  .card { background: #FFFDF7; border: 1px solid rgba(30,70,54,.16); border-radius: 24px; box-shadow: 0 2px 18px rgba(30,70,54,.06); padding: 32px 28px; max-width: 460px; width: 100%; }
   .logo { display: block; margin: 0 auto 16px; max-width: 140px; }
-  h1 { font-size: 22px; margin: 0 0 4px; text-align: center; }
-  .sub { text-align: center; color: #706561; font-size: 14px; margin: 0 0 20px; }
+  h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 22px; margin: 0 0 4px; text-align: center; color: #1E4636; }
+  .sub { text-align: center; color: #5A7066; font-size: 14px; margin: 0 0 20px; }
   .lang { text-align: center; margin-bottom: 16px; font-size: 12px; }
-  .lang button { border: 0; border-radius: 4px; padding: 4px 12px; margin: 0 2px; font-size: 12px; font-weight: 600; cursor: pointer; background: #e3dcd2; color: #4a423d; }
-  .lang button.on { background: #1e4636; color: #fff; }
+  .lang button { border: 1px solid rgba(30,70,54,.32); border-radius: 999px; padding: 10px 18px; margin: 0 2px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: #43685A; min-height: 44px; transition: background .2s, color .2s, border-color .2s; }
+  .lang button:hover { color: #1E4636; border-color: #1E4636; }
+  .lang button.on { background: #1E4636; color: #FAF6EC; border-color: #1E4636; }
   table.items { width: 100%; border-collapse: collapse; margin: 12px 0; }
-  table.items td { padding: 8px; border-bottom: 1px solid #f0e9dc; font-size: 14px; }
-  table.items td:last-child { text-align: center; white-space: nowrap; color: #706561; }
-  table.totals { width: 100%; border-collapse: collapse; background: #faf7f2; border-radius: 8px; margin: 16px 0 20px; }
-  table.totals td { padding: 10px 14px; font-size: 14px; color: #4a423d; }
+  table.items td { padding: 8px; border-bottom: 1px solid rgba(30,70,54,.16); font-size: 14px; }
+  table.items td:last-child { text-align: center; white-space: nowrap; color: #5A7066; }
+  table.totals { width: 100%; border-collapse: collapse; background: #F2ECDD; border-radius: 14px; margin: 16px 0 20px; }
+  table.totals td { padding: 10px 14px; font-size: 14px; color: #5A7066; }
   table.totals td:last-child { text-align: right; }
-  table.totals tr.hi td { font-weight: 700; color: #2c2523; font-size: 15px; }
-  .btn-pay { display: block; width: 100%; border: 0; border-radius: 8px; padding: 14px; font-size: 16px; font-weight: 700; background: #2d7a46; color: #fff; cursor: pointer; margin-bottom: 14px; }
+  table.totals tr.hi td { font-weight: 700; color: #1E4636; font-size: 15px; }
+  .btn-pay { display: block; width: 100%; border: 0; border-radius: 999px; padding: 16px; font-size: 16px; font-weight: 700; background: #1E4636; color: #FAF6EC; cursor: pointer; margin-bottom: 14px; transition: background .2s, transform .12s; }
+  .btn-pay:hover:not(:disabled) { background: #16352A; }
+  .btn-pay:active:not(:disabled) { transform: translateY(1px); }
   .btn-pay:disabled { opacity: .6; cursor: default; }
-  .divider { text-align: center; color: #8a8078; font-size: 12px; margin: 4px 0 12px; text-transform: uppercase; letter-spacing: .05em; }
-  .mode { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1.5px solid #e3dcd2; border-radius: 8px; margin-bottom: 8px; font-size: 14px; cursor: pointer; color: #4a423d; }
-  .mode input { accent-color: #2d7a46; margin: 0; }
-  .mode input:checked + span { font-weight: 700; color: #2c2523; }
+  .divider { text-align: center; color: #5A7066; font-size: 12px; margin: 4px 0 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .mode { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border: 1.5px solid rgba(30,70,54,.32); border-radius: 14px; margin-bottom: 8px; font-size: 14px; cursor: pointer; color: #5A7066; min-height: 44px; }
+  .mode input { accent-color: #1E4636; margin: 0; width: 18px; height: 18px; }
+  .mode input:checked + span { font-weight: 700; color: #1E4636; }
   #paypal-area { min-height: 44px; }
   .msg { text-align: center; padding: 8px 0 0; }
-  .msg.ok h1 { color: #2d7a46; }
-  .msg.err h1 { color: #c0392b; }
-  .muted { color: #706561; font-size: 13px; line-height: 1.5; }
-  .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid #e3dcd2; border-top-color: #2d7a46; border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -3px; margin-right: 6px; }
+  .msg.ok h1 { color: #1E4636; }
+  .msg.err h1 { color: #A24437; }
+  .muted { color: #5A7066; font-size: 13px; line-height: 1.5; }
+  .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(30,70,54,.24); border-top-color: #1E4636; border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -3px; margin-right: 6px; }
   @keyframes sp { to { transform: rotate(360deg); } }
-  .foot { text-align: center; color: #706561; font-size: 12px; margin-top: 24px; }
+  .foot { text-align: center; color: #5A7066; font-size: 12px; margin-top: 24px; }
 </style>
 </head>
 <body>

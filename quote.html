@@ -174,6 +174,31 @@
       font-weight: 600;
     }
 
+    /* Markup uses .checkbox-grid (static + JS item templates) — same treatment */
+    .checkbox-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      margin-top: 0.6rem;
+    }
+    .checkbox-grid .dietary-disclaimer {
+      flex-basis: 100%;
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    /* Small ghost button (used by add-item / picker close) */
+    .btn.btn-ghost.btn-sm {
+      padding: 0.42rem 1rem;
+      font-size: 0.78rem;
+      border-radius: 999px;
+    }
+
+    /* Vertical rhythm between dynamically inserted item cards */
+    .space-y-6 > * + * { margin-top: 1.5rem; }
+
     /* ── Dropzone polish ── */
     .dropzone:hover { border-color: var(--forest-soft) !important; }
     .dropzone-text {
@@ -346,7 +371,7 @@
       <div class="section-container" style="max-width: 720px; margin: 0 auto;">
 
         <!-- Pricing disclaimer banner -->
-        <div class="quote-notice" style="
+        <div id="quote-notice" class="quote-notice" style="
           background: rgba(188, 85, 72, 0.08);
           border: 1px solid var(--clay);
           border-radius: 14px;
@@ -550,21 +575,24 @@
           <!-- Submit -->
           <div class="form-section" data-motion="rise" style="text-align: center;">
             <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: var(--clay-deep);"></div>
-            <div id="form-success" style="display:none; background: rgba(30,70,54,0.06); border: 1px solid var(--forest-soft); border-radius: 12px; padding: 24px; margin-bottom: 16px;">
-              <p style="font-size: 18px; font-family: 'Playfair Display', serif; color: var(--forest); font-weight: 600; margin-bottom: 4px;" class="lang-fade"
-                 data-es="¡Solicitud Enviada!" data-en="Request Sent!">Request Sent!</p>
-              <p style="font-size: 14px; color: var(--color-text-muted);" class="lang-fade"
-                 data-es="Gracias por tu solicitud. Te enviaremos una cotización en 1-2 días hábiles. Revisa tu correo electrónico."
-                 data-en="Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.">
-                 Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.
-              </p>
-            </div>
             <button type="submit" id="submit-btn" class="btn btn-coral btn-lg lang-fade"
                     data-es="Enviar Solicitud" data-en="Submit Quote Request">
               Submit Quote Request
             </button>
           </div>
         </form>
+
+        <!-- Success panel lives OUTSIDE the form: hiding the form on success
+             must not hide the confirmation the customer needs to see. -->
+        <div id="form-success" style="display:none; background: rgba(30,70,54,0.06); border: 1px solid var(--forest-soft); border-radius: 12px; padding: 24px; margin-bottom: 16px; text-align: center;">
+          <p style="font-size: 18px; font-family: 'Playfair Display', serif; color: var(--forest); font-weight: 600; margin-bottom: 4px;" class="lang-fade"
+             data-es="¡Solicitud Enviada!" data-en="Request Sent!">Request Sent!</p>
+          <p style="font-size: 14px; color: var(--color-text-muted);" class="lang-fade"
+             data-es="Gracias por tu solicitud. Te enviaremos una cotización en 1-2 días hábiles. Revisa tu correo electrónico."
+             data-en="Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.">
+             Thank you for your request. We'll send you a quote within 1-2 business days. Check your email.
+          </p>
+        </div>
       </div>
     </section>
 
@@ -585,6 +613,7 @@
   </main>
 
   <script>
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (window.MuyRicoMotion) MuyRicoMotion.init({});
 
   // ─── Language toggle (matches index.html / order.html / gallery.html pattern) ──
@@ -677,11 +706,11 @@
     dropzone.style.borderColor = 'var(--forest)';
   });
   dropzone.addEventListener('dragleave', () => {
-    dropzone.style.borderColor = 'var(--sand-300)';
+    dropzone.style.borderColor = 'var(--hairline-strong)';
   });
   dropzone.addEventListener('drop', (e) => {
     e.preventDefault();
-    dropzone.style.borderColor = 'var(--sand-300)';
+    dropzone.style.borderColor = 'var(--hairline-strong)';
     if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
   });
 
@@ -1017,7 +1046,10 @@
       const data = await res.json();
       if (res.ok) {
         form.style.display = 'none';
+        const notice = document.getElementById('quote-notice');
+        if (notice) notice.style.display = 'none';
         formSuccess.style.display = 'block';
+        formSuccess.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'center' });
       } else {
         showError(data.error || 'Something went wrong. Please try again.');
         submitBtn.disabled = false;
