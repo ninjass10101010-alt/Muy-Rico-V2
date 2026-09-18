@@ -6,7 +6,6 @@ import { uploadQuoteImage } from "../utils/api";
 import QuoteItemComposer, { TYPE_LABELS, type DraftQuoteItem } from "./QuoteItemComposer";
 
 const OCCASIONS = ["", "Birthday", "Wedding", "Anniversary", "Baby Shower", "Quinceañera", "Other"];
-const DIETARY_OPTIONS = ["Gluten-Free", "Vegan", "Nut-Free", "Dairy-Free", "Egg-Free", "Sugar-Free"];
 
 const inputCls = "w-full rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm";
 
@@ -41,7 +40,6 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
   const [desiredDate, setDesiredDate] = useState("");
   const [budget, setBudget] = useState("");
   const [comments, setComments] = useState("");
-  const [dietary, setDietary] = useState<string[]>([]);
   const [refImageUrl, setRefImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -66,7 +64,6 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
     setDesiredDate("");
     setBudget("");
     setComments("");
-    setDietary([]);
     setRefImageUrl("");
     setItems([]);
     setQuotedPrice("");
@@ -132,7 +129,6 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
         phone: phone.trim() || null,
         language,
         occasion: occasion || null,
-        dietary,
         comments: comments.trim() || null,
         desired_date: desiredDate || null,
         budget: budget.trim() || null,
@@ -251,24 +247,6 @@ export default function QuoteModal({ open, onClose }: { open: boolean; onClose: 
             <div className="min-w-0">
               <label className="mb-1.5 block text-xs font-medium text-cocoa-muted">Budget</label>
               <input value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="e.g. $60–80" className={inputCls} />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-cocoa-muted">Dietary needs</label>
-            <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-              {DIETARY_OPTIONS.map((d) => (
-                <label key={d} className="flex items-center gap-1.5 text-xs text-cocoa-muted">
-                  <input
-                    type="checkbox"
-                    checked={dietary.includes(d)}
-                    onChange={(e) =>
-                      setDietary((prev) => (e.target.checked ? [...prev, d] : prev.filter((x) => x !== d)))
-                    }
-                  />
-                  {d}
-                </label>
-              ))}
             </div>
           </div>
 

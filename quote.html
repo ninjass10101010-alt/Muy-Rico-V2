@@ -120,13 +120,7 @@
       color: var(--cream);
     }
 
-    /* ── Dietary checkboxes ── */
-    .checkbox-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.7rem;
-      margin-top: 0.6rem;
-    }
+    /* ── Checkbox pills (toppings etc.) ── */
     .checkbox-label {
       display: inline-flex;
       align-items: center;
@@ -181,13 +175,7 @@
       gap: 0.7rem;
       margin-top: 0.6rem;
     }
-    .checkbox-grid .dietary-disclaimer {
-      flex-basis: 100%;
-      font-size: 0.78rem;
-      color: var(--color-text-muted);
-      line-height: 1.5;
-      margin: 0;
-    }
+
 
     /* Small ghost button (used by add-item / picker close) */
     .btn.btn-ghost.btn-sm {
@@ -438,41 +426,6 @@
               </div>
             </div>
 
-            <!-- Dietary restrictions -->
-            <div class="form-group">
-              <label class="form-label lang-fade" data-es="Restricciones dietéticas" data-en="Dietary restrictions">Dietary restrictions</label>
-              <div class="checkbox-grid">
-                <label class="checkbox-label">
-                  <input type="checkbox" name="dietary" value="Gluten-Free">
-                  <span class="lang-fade" data-es="Sin Gluten" data-en="Gluten-Free">Gluten-Free</span>
-                </label>
-                <p class="dietary-disclaimer lang-fade"
-                   data-es="La opción sin gluten es solo para preferencia dietética. No es apta para enfermedad celíaca ni sensibilidad severa al gluten."
-                   data-en="The gluten-free option is for dietary preference only. Not safe for celiac disease or severe gluten sensitivity.">
-                   The gluten-free option is for dietary preference only. Not safe for celiac disease or severe gluten sensitivity.
-                </p>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="dietary" value="Vegan">
-                  <span class="lang-fade" data-es="Vegano" data-en="Vegan">Vegan</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="dietary" value="Nut-Free">
-                  <span class="lang-fade" data-es="Sin Nueces" data-en="Nut-Free">Nut-Free</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="dietary" value="Dairy-Free">
-                  <span class="lang-fade" data-es="Sin Lácteos" data-en="Dairy-Free">Dairy-Free</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="dietary" value="Egg-Free">
-                  <span class="lang-fade" data-es="Sin Huevo" data-en="Egg-Free">Egg-Free</span>
-                </label>
-                <label class="checkbox-label">
-                  <input type="checkbox" name="dietary" value="Sugar-Free">
-                  <span class="lang-fade" data-es="Sin Azúcar" data-en="Sugar-Free">Sugar-Free</span>
-                </label>
-              </div>
-            </div>
           </div>
 
           <!-- Items Section -->
@@ -1018,9 +971,6 @@
       return;
     }
 
-    // Collect form-level fields
-    const dietary = Array.from(document.querySelectorAll('input[name="dietary"]:checked')).map(cb => cb.value);
-
     submitBtn.disabled = true;
     submitBtn.textContent = '...';
 
@@ -1034,7 +984,6 @@
           phone: document.getElementById('phone').value.trim() || null,
           language: currentLang,
           occasion: document.getElementById('occasion').value || null,
-          dietary,
           comments: document.getElementById('comments').value.trim() || null,
           desired_date: document.getElementById('desired_date').value || null,
           budget: document.getElementById('budget').value.trim() || null,
