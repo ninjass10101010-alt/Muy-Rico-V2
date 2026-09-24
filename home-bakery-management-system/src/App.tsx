@@ -21,6 +21,8 @@ import PublicOrder from "./pages/PublicOrder";
 import Quotes from "./pages/Quotes";
 import Invoices from "./pages/Invoices";
 import CalendarView from "./pages/CalendarView";
+import { ToastProvider } from "./components/ui/Toast";
+import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 
 export type Page =
   | "dashboard"
@@ -178,7 +180,11 @@ export default function App() {
   return (
     <AuthProvider>
       <StoreProvider>
-        <AppRouter />
+        <ToastProvider>
+          <ConfirmProvider>
+            <AppRouter />
+          </ConfirmProvider>
+        </ToastProvider>
       </StoreProvider>
     </AuthProvider>
   );

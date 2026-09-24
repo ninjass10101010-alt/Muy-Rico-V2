@@ -8,7 +8,7 @@
 
 The Inventory page works but feels clunky in four ways (user-confirmed):
 
-1. **Native popups** — errors use `alert()`, confirmations use `confirm()` (5 confirms + 2 alerts in `Inventory.tsx`, 4 confirms in `ScanModal.tsx`). Stepper failures are swallowed by `console.warn` — the user never learns a change failed.
+1. **Native popups** — errors use `alert()`, confirmations use `confirm()` (5 confirms + 2 alerts in `Inventory.tsx`, 3 confirms in `ScanModal.tsx`). Stepper failures are swallowed by `console.warn` — the user never learns a change failed.
 2. **Flat table** — one long unsorted table; no status or category filtering beyond topbar text search. Category and Unit are free-text inputs, so values drift ("lb", "lbs", "pound").
 3. **Bloated modal** — the Add/Edit form stacks item fields + ingredient-group picker + USDA search + label info into one long scroll. The 90% path (name/qty/cost) is buried.
 4. **Sluggish adjustments** — each +/− click runs a PATCH **plus a full `refreshInventory()`** before the UI moves. No per-row restock; the restock dialog only exists on the dashboard low-stock widget.
@@ -109,7 +109,7 @@ Two pill tabs at the top of the modal body (matching existing app tab styling):
   - `adjust(id, delta)` and `setQuantity(id, qty)` / `restock(id, amount)` helpers.
   - Internally: apply local patch → debounce per item id → PATCH via existing `updateInventoryItem` API (absolute quantity, `Math.max(0, …)`, 2-decimal clamp) → on failure, rollback + `toast.error`.
   - **Safety flush:** on unmount, pending debounced saves fire immediately (not dropped).
-- `StoreContext` gains `patchInventoryLocal(id, patch)` — a pure local state writer that does **not** call the API or refresh. Existing `apiUpdateInventoryItem` (API + full refresh) is untouched for modal saves.
+- `StoreContext` already exposes `setInventory` (StoreContext.tsx:821) — the hook uses it directly for immediate local state writes; **no new store action needed**. Existing `apiUpdateInventoryItem` (API + full refresh) is untouched for modal saves.
 - No worker/API changes: writes remain absolute-quantity PATCHes, same as today.
 
 ### 7c. Concurrency note
