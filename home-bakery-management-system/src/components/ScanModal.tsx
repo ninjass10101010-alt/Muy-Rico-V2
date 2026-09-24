@@ -17,6 +17,7 @@ import { useStore } from "../context/StoreContext";
 import { sanitizeBarcode } from "../utils/barcode";
 import type { IngredientGroup, InventoryItem } from "../types";
 import { GroupPicker, type GroupChoice } from "./GroupPicker";
+import { useConfirm } from "./ui/ConfirmDialog";
 import { useIngredientGroups } from "../hooks/useIngredientGroups";
 import { isActiveMember } from "../utils/ingredientGroups";
 
@@ -70,6 +71,7 @@ function apiItemToStoreShape(it: ApiInventoryItem): InventoryItem {
 export default function ScanModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { inventory, groups, refreshInventory } = useStore();
   const { activateItem } = useIngredientGroups();
+  const confirm = useConfirm();
   const [mode, setMode] = useState<Mode>("scanning");
   const [code, setCode] = useState<string>("");
   const [item, setItem] = useState<ApiInventoryItem | null>(null);
@@ -441,7 +443,18 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
           // the affected products' stored labels — declining skips only the
           // activation (the item is already saved above).
           const hasLabelData = !!(payload.ingredients_label || (Array.isArray(payload.allergens) && payload.allergens.length));
-          if (hasLabelData || window.confirm("This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?")) {
+          if (!hasLabelData) {
+            const activateAnyway = await confirm({
+              title: "No label data",
+              message:
+                "This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?",
+              confirmLabel: "Activate anyway",
+            });
+            if (activateAnyway) {
+              const r = await activateItem(grp, fullItem);
+              setSwapMsg(r.message);
+            }
+          } else {
             const r = await activateItem(grp, fullItem);
             setSwapMsg(r.message);
           }
@@ -475,12 +488,17 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     } finally {
       setBusy(false);
     }
-  }, [newName, newCategory, newUnit, offProduct, code, groupChoice, makeActiveChecked, groups, activateItem, gotoAdjust, refreshInventory]);
+  }, [newName, newCategory, newUnit, offProduct, code, groupChoice, makeActiveChecked, groups, activateItem, gotoAdjust, refreshInventory, confirm]);
 
   // Clear the barcode from the item currently in the count stepper.
   const unbindCurrent = useCallback(async () => {
     if (!item) return;
-    if (!window.confirm(`Remove barcode "${item.barcode}" from "${item.name}"? The item stays in inventory — you can scan and bind a new code anytime.`)) return;
+    if (!await confirm({
+      title: "Unbind barcode",
+      message: `Remove barcode "${item.barcode}" from "${item.name}"? The item stays in inventory — you can scan and bind a new code anytime.`,
+      confirmLabel: "Unbind",
+      danger: true,
+    })) return;
     setBusy(true);
     setErrMsg("");
     try {
@@ -497,7 +515,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     } finally {
       setBusy(false);
     }
-  }, [item, refreshInventory, focusManual]);
+  }, [item, refreshInventory, focusManual, confirm]);
 
   // Swap a scanned (non-active) member in as the group's active ingredient.
   // Pass the STORE-shaped item (with label fields) so the hook can re-compose
@@ -511,7 +529,13 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
       // affected products' stored labels — warn and let the user back out.
       const hasLabelData = !!(fullItem.ingredients_label || (fullItem.allergens && fullItem.allergens.length));
       if (!hasLabelData) {
-        if (!window.confirm("This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?")) return;
+        const activateAnyway = await confirm({
+          title: "No label data",
+          message:
+            "This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?",
+          confirmLabel: "Activate anyway",
+        });
+        if (!activateAnyway) return;
       }
       const r = await activateItem(group, fullItem);
       setSwapMsg(r.message);
@@ -520,7 +544,7 @@ export default function ScanModal({ open, onClose }: { open: boolean; onClose: (
     } finally {
       setBusy(false);
     }
-  }, [activateItem, inventory, apiItemToStoreShape]);
+  }, [activateItem, inventory, apiItemToStoreShape, confirm]);
 
   // 409 conflict: free the code from the item that owns it, then retry the pending action.
   const unbindConflictAndRebind = useCallback(async () => {

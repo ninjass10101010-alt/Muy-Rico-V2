@@ -12,6 +12,15 @@ import type { InventoryItem, IngredientGroup } from "../types";
 import { GroupPicker, type GroupChoice } from "../components/GroupPicker";
 import { useIngredientGroups } from "../hooks/useIngredientGroups";
 import { isActiveMember } from "../utils/ingredientGroups";
+import { useOptimisticInventoryAdjust } from "../hooks/useOptimisticInventoryAdjust";
+import {
+  distinctInventoryValues,
+  filterAndSortInventory,
+  type InventorySortKey,
+  type InventoryStatusFilter,
+} from "../utils/inventoryTable";
+import { useToast } from "../components/ui/Toast";
+import { useConfirm } from "../components/ui/ConfirmDialog";
 
 const ScanModal = lazy(() => import("../components/ScanModal"));
 
@@ -34,7 +43,11 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
 }) {
   const { inventory, products, orders, apiCreateInventoryItem, apiUpdateInventoryItem, apiDeleteInventoryItem, groups, apiCreateGroup } = useStore();
   const { activateItem } = useIngredientGroups();
+  const { adjust, restock, dirtyIds } = useOptimisticInventoryAdjust();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<"basics" | "label">("basics");
   const [scanOpen, setScanOpen] = useState(false);
   const [draft, setDraft] = useState<InventoryItem>(emptyItem());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -52,8 +65,21 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
   const [groupChoice, setGroupChoice] = useState<GroupChoice>({ kind: "none" });
   const [makeActiveChecked, setMakeActiveChecked] = useState(false);
   const [groupStatus, setGroupStatus] = useState("");
+  const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<InventorySortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [restockItem, setRestockItem] = useState<InventoryItem | null>(null);
+  const [restockAmount, setRestockAmount] = useState("");
+  const [restockErr, setRestockErr] = useState("");
 
-  const filtered = inventory.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = filterAndSortInventory(inventory, {
+    search,
+    status: statusFilter,
+    category: categoryFilter,
+    sortKey,
+    sortDir,
+  });
 
   const highlightRef = useRef<HTMLTableRowElement | null>(null);
   useEffect(() => {
@@ -79,6 +105,7 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     setGroupChoice({ kind: "none" });
     setMakeActiveChecked(false);
     setGroupStatus("");
+    setModalTab("basics");
     setModalOpen(true);
   }
 
@@ -95,6 +122,7 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     setGroupChoice(i.groupId ? { kind: "existing", id: i.groupId } : { kind: "none" });
     setMakeActiveChecked(false);
     setGroupStatus("");
+    setModalTab("basics");
     setModalOpen(true);
   }
 
@@ -140,9 +168,12 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
         if (grp) {
           const hasLabelData = !!(draft.ingredients_label || (Array.isArray(draft.allergens) && draft.allergens.length));
           if (!hasLabelData) {
-            const ok = confirm(
-              "This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?",
-            );
+            const ok = await confirm({
+              title: "No label data",
+              message:
+                "This item has no label data yet. Products that auto-generate labels will not include it until label data is added. Activate anyway?",
+              confirmLabel: "Activate anyway",
+            });
             if (!ok) {
               setModalOpen(false);
               return;
@@ -155,7 +186,7 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
       setModalOpen(false);
     } catch (err: any) {
       console.error("Save inventory item failed:", err);
-      alert(`Failed to save item: ${err.message || err}`);
+      toast.error(`Failed to save item: ${err.message || err}`);
     }
   }
 
@@ -166,12 +197,13 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     const msg = refs.length
       ? `"${name}" is in the recipe of: ${refs.join(", ")}. Deactivating it will SKIP its deduction on future orders until it's re-added. Remove anyway?`
       : "Remove this inventory item? It can't be used in recipes until re-added.";
-    if (!confirm(msg)) return;
+    const ok = await confirm({ title: `Remove ${name}?`, message: msg, confirmLabel: "Remove", danger: true });
+    if (!ok) return;
     try {
       await apiDeleteInventoryItem(id);
     } catch (err: any) {
       console.error("Delete inventory item failed:", err);
-      alert(`Failed to delete item: ${err.message || err}`);
+      toast.error(`Failed to delete item: ${err.message || err}`);
     }
   }
 
@@ -188,22 +220,36 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     }
   }
 
-  function adjust(id: string, delta: number) {
-    const current = inventory.find(i => i.id === id)?.quantity ?? 0;
-    apiUpdateInventoryItem(id, {
-      quantity: Math.max(0, +(current + delta).toFixed(2)),
-    }).catch((err) => {
-      console.warn("Adjust failed:", err);
-    });
+  function openRestock(item: InventoryItem) {
+    setRestockItem(item);
+    setRestockAmount("");
+    setRestockErr("");
+  }
+
+  function submitRestock() {
+    if (!restockItem) return;
+    const amount = Number(restockAmount);
+    if (!restockAmount.trim() || !Number.isFinite(amount) || amount <= 0) {
+      setRestockErr("Enter a positive amount received.");
+      return;
+    }
+    restock(restockItem.id, amount);
+    setRestockItem(null);
   }
 
   async function unbind(id: string, name: string) {
-    if (!confirm(`Unbind the barcode from "${name}"? The item stays in inventory — you can scan and bind a new code anytime.`)) return;
+    const ok = await confirm({
+      title: "Unbind barcode",
+      message: `Unbind the barcode from "${name}"? The item stays in inventory — you can scan and bind a new code anytime.`,
+      confirmLabel: "Unbind",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await apiUpdateInventoryItem(id, { barcode: null } as any);
     } catch (err: any) {
       console.error("Unbind failed:", err);
-      alert(`Failed to unbind: ${err.message || err}`);
+      toast.error(`Failed to unbind: ${err.message || err}`);
     }
   }
 
@@ -213,12 +259,13 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
     if (!item.ingredients_label && !(item.allergens && item.allergens.length)) {
       msg += " This item has no label data yet. Products that auto-generate labels will not include it until label data is added.";
     }
-    if (!confirm(msg)) return;
+    const ok = await confirm({ title: `Switch ${group.name}?`, message: msg, confirmLabel: "Make active" });
+    if (!ok) return;
     try {
       const r = await activateItem(group, item);
       setGroupStatus(r.message);
     } catch (err: any) {
-      alert(`Failed to switch: ${err.message || err}`);
+      toast.error(`Failed to switch: ${err.message || err}`);
     }
   }
 
@@ -265,6 +312,24 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
 
   const totalValue = inventory.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
   const lowCount = inventory.filter((i) => i.quantity <= i.reorderLevel).length;
+  const outCount = inventory.filter((i) => i.quantity <= 0).length;
+  const categories = useMemo(() => distinctInventoryValues(inventory, "category"), [inventory]);
+  const units = useMemo(() => distinctInventoryValues(inventory, "unit"), [inventory]);
+  const missingLabelData = !draft.ingredients_label?.trim() && !allergensText.trim();
+
+  function toggleSort(key: InventorySortKey) {
+    if (sortKey === key) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function sortIndicator(key: InventorySortKey): string {
+    if (sortKey !== key) return "";
+    return sortDir === "asc" ? " ▴" : " ▾";
+  }
 
   const { profile } = useStore();
   const cfg = loadReminderConfig(profile?.reminders);
@@ -319,21 +384,73 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
         <div className="rounded-lg bg-palm/10 px-3 py-2 text-sm text-palm">{groupStatus}</div>
       )}
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            ["all", `All (${inventory.length})`],
+            ["low", `Low (${lowCount})`],
+            ["out", `Out (${outCount})`],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setStatusFilter(value)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition",
+                statusFilter === value
+                  ? "border-palm bg-palm text-white"
+                  : "border-sand-200 bg-white text-cocoa-muted hover:bg-sand-100",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <select
+          value={categoryFilter ?? ""}
+          onChange={(e) => setCategoryFilter(e.target.value || null)}
+          className="input max-w-48"
+          aria-label="Filter by category"
+        >
+          <option value="">All categories</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-sand-100 bg-sand-50 text-left text-xs uppercase tracking-wide text-cocoa-muted">
-                <th className="px-4 py-3">Item</th>
+                <th className="px-4 py-3">
+                  <button onClick={() => toggleSort("name")} className="uppercase tracking-wide hover:text-cocoa">
+                    Item{sortIndicator("name")}
+                  </button>
+                </th>
                 <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Quantity</th>
-                <th className="px-4 py-3">Reorder at</th>
+                <th className="px-4 py-3">
+                  <button onClick={() => toggleSort("quantity")} className="uppercase tracking-wide hover:text-cocoa">
+                    Quantity{sortIndicator("quantity")}
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button onClick={() => toggleSort("reorderLevel")} className="uppercase tracking-wide hover:text-cocoa">
+                    Reorder at{sortIndicator("reorderLevel")}
+                  </button>
+                </th>
                 <th className="px-4 py-3">
                   <button onClick={() => setShowDemand((v) => !v)} className="uppercase tracking-wide hover:text-cocoa" title="Toggle upcoming demand">
                     Upcoming demand {showDemand ? "▾" : "▸"}
                   </button>
                 </th>
-                <th className="px-4 py-3">Cost/unit</th>
+                <th className="px-4 py-3">
+                  <button onClick={() => toggleSort("costPerUnit")} className="uppercase tracking-wide hover:text-cocoa">
+                    Cost/unit{sortIndicator("costPerUnit")}
+                  </button>
+                </th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -389,18 +506,28 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => adjust(i.id, -1)}
-                          className="rounded-md border border-sand-200 p-1 text-cocoa-muted hover:bg-sand-100"
+                          disabled={i.quantity <= 0}
+                          aria-label={`Decrease ${i.name}`}
+                          className="rounded-md border border-sand-200 p-1 text-cocoa-muted transition hover:bg-sand-100 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Minus size={12} />
                         </button>
-                        <span className="w-16 text-center">
+                        <span className={cn("w-16 text-center", dirtyIds.includes(i.id) && "animate-pulse")}>
                           {i.quantity} {i.unit}
                         </span>
                         <button
                           onClick={() => adjust(i.id, 1)}
-                          className="rounded-md border border-sand-200 p-1 text-cocoa-muted hover:bg-sand-100"
+                          aria-label={`Increase ${i.name}`}
+                          className="rounded-md border border-sand-200 p-1 text-cocoa-muted transition hover:bg-sand-100"
                         >
                           <Plus size={12} />
+                        </button>
+                        <button
+                          onClick={() => openRestock(i)}
+                          aria-label={`Restock ${i.name}`}
+                          className="rounded-md border border-palm/30 px-1.5 py-1 text-[10px] font-medium text-palm transition hover:bg-palm/5"
+                        >
+                          Restock
                         </button>
                       </div>
                     </td>
@@ -429,17 +556,25 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
                         <button
                           onClick={() => openHistory(i)}
                           title="Scan history"
+                          aria-label={`Scan history for ${i.name}`}
                           className="rounded-lg p-1.5 text-cocoa-muted hover:bg-sand-100"
                         >
                           <History size={14} />
                         </button>
                         <button
                           onClick={() => openEdit(i)}
+                          title="Edit item"
+                          aria-label={`Edit ${i.name}`}
                           className="rounded-lg p-1.5 text-cocoa-muted hover:bg-sand-100"
                         >
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => remove(i.id, i.name)} className="rounded-lg p-1.5 text-hibiscus hover:bg-hibiscus-light/10">
+                        <button
+                          onClick={() => remove(i.id, i.name)}
+                          title="Remove item"
+                          aria-label={`Remove ${i.name}`}
+                          className="rounded-lg p-1.5 text-hibiscus hover:bg-hibiscus-light/10"
+                        >
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -461,197 +596,282 @@ export default function Inventory({ search, highlightId, onGoToCalendar }: {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "Edit Item" : "Add Inventory Item"}>
         <div className="space-y-3">
-          <Field label="Item name">
-            <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="input" />
-          </Field>
-          <Field label="Category">
-            <input
-              value={draft.category}
-              onChange={(e) => setDraft({ ...draft, category: e.target.value })}
-              className="input"
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Quantity">
-              <input
-                type="number"
-                step="0.01"
-                value={draft.quantity}
-                onChange={(e) => setDraft({ ...draft, quantity: Number(e.target.value) })}
-                className="input"
-              />
-            </Field>
-            <Field label="Unit">
-              <input value={draft.unit} onChange={(e) => setDraft({ ...draft, unit: e.target.value })} className="input" />
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Reorder level">
-              <input
-                type="number"
-                step="0.01"
-                value={draft.reorderLevel}
-                onChange={(e) => setDraft({ ...draft, reorderLevel: Number(e.target.value) })}
-                className="input"
-              />
-            </Field>
-            <Field label="Cost per unit ($)">
-              <input
-                type="number"
-                step="0.01"
-                value={draft.costPerUnit}
-                onChange={(e) => setDraft({ ...draft, costPerUnit: Number(e.target.value) })}
-                className="input"
-              />
-            </Field>
-          </div>
-          <Field label="Supplier">
-            <input
-              value={draft.supplier}
-              onChange={(e) => setDraft({ ...draft, supplier: e.target.value })}
-              className="input"
-            />
-          </Field>
-          <Field label="Barcode (optional)">
-            <div className="flex gap-2">
-              <input
-                value={draft.barcode || ""}
-                onChange={(e) => setDraft({ ...draft, barcode: e.target.value || undefined })}
-                placeholder="Scan or type a code — leave blank to clear"
-                className="input font-mono flex-1"
-              />
-              {draft.barcode && (
-                <button
-                  type="button"
-                  onClick={() => setDraft({ ...draft, barcode: undefined })}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs text-cocoa-muted hover:bg-sand-100"
-                >
-                  <Unlink size={12} /> Clear
-                </button>
+          <div className="flex gap-1.5 rounded-xl bg-sand-100 p-1">
+            <button
+              type="button"
+              onClick={() => setModalTab("basics")}
+              className={cn(
+                "flex-1 rounded-lg py-1.5 text-xs font-medium transition",
+                modalTab === "basics" ? "bg-white text-cocoa shadow-sm" : "text-cocoa-muted hover:text-cocoa",
               )}
-            </div>
-          </Field>
-
-          <GroupPicker
-            groups={groups}
-            choice={groupChoice}
-            setChoice={setGroupChoice}
-            makeActive={makeActiveChecked}
-            setMakeActive={setMakeActiveChecked}
-            canMakeActive={
-              groupChoice.kind === "new" ||
-              (groupChoice.kind === "existing" &&
-                !(groups.find((g) => g.id === groupChoice.id)?.activeItemId))
-            }
-          />
-
-          <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
-            <p className="mb-2 text-xs font-medium text-cocoa">Label info (used to auto-generate product labels)</p>
-            <div className="space-y-3">
-              <div>
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <label className="text-xs font-medium text-cocoa-muted">Sub-ingredients label (legal)</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUsdaQ(draft.name || usdaQ);
-                      setUsdaOpen(!usdaOpen);
-                      setUsdaResults([]);
-                      setUsdaErr("");
-                    }}
-                    className="rounded-lg border border-palm/30 px-2.5 py-1 text-xs font-medium text-palm hover:bg-palm/5"
-                  >
-                    Find ingredient data
-                  </button>
-                </div>
-                {draft.nutritionSource && (
-                  <p className="mb-1 text-[11px] text-cocoa-muted">
-                    Filled from USDA · {(draft.nutritionFetchedAt || "").slice(0, 10)} — click "Find ingredient
-                    data" to refetch.
-                  </p>
-                )}
-                <textarea
-                  value={draft.ingredients_label || ""}
-                  onChange={(e) => setDraft({ ...draft, ingredients_label: e.target.value || undefined })}
-                  placeholder='e.g. "Enriched flour (wheat flour, niacin, …)". Leave blank for packaging.'
-                  rows={2}
-                  className="input"
+            >
+              Basics
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalTab("label")}
+              className={cn(
+                "relative flex-1 rounded-lg py-1.5 text-xs font-medium transition",
+                modalTab === "label" ? "bg-white text-cocoa shadow-sm" : "text-cocoa-muted hover:text-cocoa",
+              )}
+            >
+              Label info
+              {missingLabelData && (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-hibiscus"
                 />
-                {usdaOpen && (
-                  <div className="mt-2 rounded-lg border border-sand-200 bg-white p-2">
-                    <div className="flex gap-2">
-                      <input
-                        value={usdaQ}
-                        onChange={(e) => setUsdaQ(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") usdaSearch(); }}
-                        placeholder="Search USDA FoodData Central…"
-                        className="input flex-1"
-                      />
-                      <button
-                        onClick={usdaSearch}
-                        disabled={usdaBusy}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-palm px-3 text-xs font-semibold text-white disabled:opacity-50"
-                      >
-                        <Search size={12} /> {usdaBusy ? "Searching…" : "Search"}
-                      </button>
-                    </div>
-                    {usdaDemo && (
-                      <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
-                        USDA demo key in use — max 30 lookups/hour. Ask the owner to set the USDA_KEY secret for
-                        full access.
-                      </p>
-                    )}
-                    {usdaErr && <p className="mt-2 text-xs text-hibiscus">{usdaErr}</p>}
-                    <ul className="mt-2 max-h-48 divide-y divide-sand-100 overflow-y-auto">
-                      {usdaResults.map((c) => (
-                        <li key={c.fdcId}>
-                          <button
-                            type="button"
-                            onClick={() => usdaApply(c)}
-                            className="w-full px-2 py-2 text-left hover:bg-sand-50"
-                          >
-                            <div className="text-sm font-medium text-cocoa">{c.name}</div>
-                            <div className="text-xs text-cocoa-muted">
-                              {c.dataType}
-                              {c.foodCategory ? ` · ${c.foodCategory}` : ""}
-                              {c.portionGramWeight != null
-                                ? ` · ${Math.round(c.portionGramWeight)} g/portion`
-                                : ""}
-                            </div>
-                          </button>
-                        </li>
-                      ))}
-                      {!usdaBusy && usdaResults.length === 0 && (
-                        <li className="px-2 py-3 text-xs text-cocoa-muted">No matches — try a different search.</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-              <Field label="Allergens (comma-separated tags)">
-                <input
-                  value={allergensText}
-                  onChange={(e) => setAllergensText(e.target.value)}
-                  placeholder="Wheat, Milk, Eggs, Soy, …"
-                  className="input"
-                />
-              </Field>
-              <Field label="Weight per unit (lb)">
+              )}
+            </button>
+          </div>
+
+          {modalTab === "basics" && (
+            <>
+              <Field label="Item name">
+              <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="input" />
+            </Field>
+            <Field label="Category">
+              <input
+                value={draft.category}
+                onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+                list="inventory-category-options"
+                className="input"
+              />
+              <datalist id="inventory-category-options">
+                {categories.map((category) => (
+                  <option key={category} value={category} />
+                ))}
+              </datalist>
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Quantity">
                 <input
                   type="number"
                   step="0.01"
-                  min={0}
-                  value={draft.unit_weight ?? ""}
-                  onChange={(e) => setDraft({ ...draft, unit_weight: e.target.value === "" ? undefined : Number(e.target.value) })}
-                  placeholder="lb: 1 / dozen eggs: 1.5 / bottle vanilla: 0.25"
+                  value={draft.quantity}
+                  onChange={(e) => setDraft({ ...draft, quantity: Number(e.target.value) })}
+                  className="input"
+                />
+              </Field>
+              <Field label="Unit">
+                <input
+                  value={draft.unit}
+                  onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+                  list="inventory-unit-options"
+                  className="input"
+                />
+                <datalist id="inventory-unit-options">
+                  {units.map((unit) => (
+                    <option key={unit} value={unit} />
+                  ))}
+                </datalist>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Reorder level">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={draft.reorderLevel}
+                  onChange={(e) => setDraft({ ...draft, reorderLevel: Number(e.target.value) })}
+                  className="input"
+                />
+              </Field>
+              <Field label="Cost per unit ($)">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={draft.costPerUnit}
+                  onChange={(e) => setDraft({ ...draft, costPerUnit: Number(e.target.value) })}
                   className="input"
                 />
               </Field>
             </div>
+            <Field label="Supplier">
+              <input
+                value={draft.supplier}
+                onChange={(e) => setDraft({ ...draft, supplier: e.target.value })}
+                className="input"
+              />
+            </Field>
+            <Field label="Barcode (optional)">
+              <div className="flex gap-2">
+                <input
+                  value={draft.barcode || ""}
+                  onChange={(e) => setDraft({ ...draft, barcode: e.target.value || undefined })}
+                  placeholder="Scan or type a code — leave blank to clear"
+                  className="input font-mono flex-1"
+                />
+                {draft.barcode && (
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, barcode: undefined })}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sand-200 px-2.5 text-xs text-cocoa-muted hover:bg-sand-100"
+                  >
+                    <Unlink size={12} /> Clear
+                  </button>
+                )}
+              </div>
+            </Field>
+
+            <GroupPicker
+              groups={groups}
+              choice={groupChoice}
+              setChoice={setGroupChoice}
+              makeActive={makeActiveChecked}
+              setMakeActive={setMakeActiveChecked}
+              canMakeActive={
+                groupChoice.kind === "new" ||
+                (groupChoice.kind === "existing" &&
+                  !(groups.find((g) => g.id === groupChoice.id)?.activeItemId))
+              }
+            />
+            </>
+          )}
+
+          {modalTab === "label" && (
+            <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
+              <p className="mb-2 text-xs font-medium text-cocoa">Label info (used to auto-generate product labels)</p>
+              <div className="space-y-3">
+                <div>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <label className="text-xs font-medium text-cocoa-muted">Sub-ingredients label (legal)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUsdaQ(draft.name || usdaQ);
+                        setUsdaOpen(!usdaOpen);
+                        setUsdaResults([]);
+                        setUsdaErr("");
+                      }}
+                      className="rounded-lg border border-palm/30 px-2.5 py-1 text-xs font-medium text-palm hover:bg-palm/5"
+                    >
+                      Find ingredient data
+                    </button>
+                  </div>
+                  {draft.nutritionSource && (
+                    <p className="mb-1 text-[11px] text-cocoa-muted">
+                      Filled from USDA · {(draft.nutritionFetchedAt || "").slice(0, 10)} — click "Find ingredient
+                      data" to refetch.
+                    </p>
+                  )}
+                  <textarea
+                    value={draft.ingredients_label || ""}
+                    onChange={(e) => setDraft({ ...draft, ingredients_label: e.target.value || undefined })}
+                    placeholder='e.g. "Enriched flour (wheat flour, niacin, …)". Leave blank for packaging.'
+                    rows={2}
+                    className="input"
+                  />
+                  {usdaOpen && (
+                    <div className="mt-2 rounded-lg border border-sand-200 bg-white p-2">
+                      <div className="flex gap-2">
+                        <input
+                          value={usdaQ}
+                          onChange={(e) => setUsdaQ(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") usdaSearch(); }}
+                          placeholder="Search USDA FoodData Central…"
+                          className="input flex-1"
+                        />
+                        <button
+                          onClick={usdaSearch}
+                          disabled={usdaBusy}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-palm px-3 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          <Search size={12} /> {usdaBusy ? "Searching…" : "Search"}
+                        </button>
+                      </div>
+                      {usdaDemo && (
+                        <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
+                          USDA demo key in use — max 30 lookups/hour. Ask the owner to set the USDA_KEY secret for
+                          full access.
+                        </p>
+                      )}
+                      {usdaErr && <p className="mt-2 text-xs text-hibiscus">{usdaErr}</p>}
+                      <ul className="mt-2 max-h-48 divide-y divide-sand-100 overflow-y-auto">
+                        {usdaResults.map((c) => (
+                          <li key={c.fdcId}>
+                            <button
+                              type="button"
+                              onClick={() => usdaApply(c)}
+                              className="w-full px-2 py-2 text-left hover:bg-sand-50"
+                            >
+                              <div className="text-sm font-medium text-cocoa">{c.name}</div>
+                              <div className="text-xs text-cocoa-muted">
+                                {c.dataType}
+                                {c.foodCategory ? ` · ${c.foodCategory}` : ""}
+                                {c.portionGramWeight != null
+                                  ? ` · ${Math.round(c.portionGramWeight)} g/portion`
+                                  : ""}
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                        {!usdaBusy && usdaResults.length === 0 && (
+                          <li className="px-2 py-3 text-xs text-cocoa-muted">No matches — try a different search.</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+                <Field label="Allergens (comma-separated tags)">
+                  <input
+                    value={allergensText}
+                    onChange={(e) => setAllergensText(e.target.value)}
+                    placeholder="Wheat, Milk, Eggs, Soy, …"
+                    className="input"
+                  />
+                </Field>
+                <Field label="Weight per unit (lb)">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={draft.unit_weight ?? ""}
+                    onChange={(e) => setDraft({ ...draft, unit_weight: e.target.value === "" ? undefined : Number(e.target.value) })}
+                    placeholder="lb: 1 / dozen eggs: 1.5 / bottle vanilla: 0.25"
+                    className="input"
+                  />
+                </Field>
+              </div>
           </div>
+          )}
 
           <button onClick={save} className="w-full rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md">
             {editingId ? "Save Changes" : "Add Item"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!restockItem}
+        onClose={() => setRestockItem(null)}
+        title={restockItem ? `Restock — ${restockItem.name}` : "Restock"}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-cocoa-muted">
+            Current stock:{" "}
+            <span className="font-semibold text-cocoa">
+              {restockItem?.quantity} {restockItem?.unit}
+            </span>
+          </p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-cocoa-muted">Amount received</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              autoFocus
+              value={restockAmount}
+              onChange={(e) => setRestockAmount(e.target.value)}
+              className="input"
+            />
+          </div>
+          {restockErr && <p className="text-xs text-hibiscus">{restockErr}</p>}
+          <button
+            onClick={submitRestock}
+            className="w-full rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+          >
+            Add to stock
           </button>
         </div>
       </Modal>
