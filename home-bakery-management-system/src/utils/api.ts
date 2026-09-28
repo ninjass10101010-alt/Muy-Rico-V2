@@ -843,6 +843,21 @@ export async function deletePayment(id: string): Promise<{ ok: boolean }> {
   });
 }
 
+/**
+ * Un-void a payment.
+ *
+ * Its own verb and path, NOT `deletePayment`: that route sets `active = 0`, so
+ * calling it on an already-voided row is a no-op that still returns ok — the
+ * Restore button did nothing at all. The server also re-derives the order's
+ * payment_status from the ledger on this path, which is why it is a real call
+ * and not a local list edit.
+ */
+export async function restorePayment(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/payments/${encodeURIComponent(id)}/restore`, {
+    method: "POST",
+  });
+}
+
 // ─── Receipts ─────────────────────────────────────────────────────────────────
 
 export interface ApiReceipt {

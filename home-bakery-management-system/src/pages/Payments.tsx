@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { CreditCard, DollarSign, Smartphone } from "lucide-react";
 import { useStore } from "../context/StoreContext";
-import { deletePayment, fetchPayments, type ApiPayment } from "../utils/api";
+import { fetchPayments, restorePayment as restorePaymentRequest, type ApiPayment } from "../utils/api";
 import { formatCurrency, formatDateTime, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_LABELS, formatPaymentSubMethod } from "../utils/format";
 import type { Payment, PaymentMethod } from "../types";
 
@@ -60,7 +60,9 @@ export default function Payments({ search }: { search: string }) {
 
   const restorePayment = async (id: string) => {
     try {
-      await deletePayment(id);
+      // Re-fetch after: the server re-derives the order's payment_status, so
+      // the voided list can legitimately change beyond this row.
+      await restorePaymentRequest(id);
       await readVoided();
     } catch (err) {
       console.warn("Failed to restore payment:", err);

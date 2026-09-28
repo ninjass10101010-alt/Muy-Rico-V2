@@ -350,6 +350,10 @@ export default {
       if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
       const payDelete = path.match(/^\/api\/payments\/([^/]+)$/);
       if (payDelete && method === 'DELETE') return await deletePayment(payDelete[1], env, actorName);
+      // Own verb and own path: a restore must never be reachable by, or
+      // confusable with, the deactivate above.
+      const payRestore = path.match(/^\/api\/payments\/([^/]+)\/restore$/);
+      if (payRestore && method === 'POST') return await restorePayment(payRestore[1], env, actorName);
 
       if (path === '/api/quotes' && method === 'POST') return await createQuote(request, env, ctx, actorName);
       if (path === '/api/quotes' && method === 'GET')  return await listQuotes(env);
@@ -2850,6 +2854,62 @@ async function createPayment(request, env, actor) {
 async function deletePayment(id, env, actor) {
   const r = await env.DB.prepare(`UPDATE payments SET active = 0 WHERE id = ?`).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  return json({ ok: true }, 200);
+}
+
+// Reactivating a voided payment, NOT a second spelling of deletePayment.
+// deletePayment sets active = 0, so calling it on an already-voided row is a
+// no-op that still answers 200 — which is how the Payments "Restore" button
+// shipped inert. Both read paths filter WHERE active = 1 and nothing else
+// un-deactivated a row, so without this a voided payment was unrecoverable
+// from the app. Soft, like the void: the row is an audit record and is never
+// removed from D1.
+async function restorePayment(id, env, actor) {
+  const r = await env.DB.prepare(`UPDATE payments SET active = 1 WHERE id = ?`).bind(id).run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+
+  // Everything below runs AFTER the reactivate is durable. Flipping active back
+  // to 1 changes the order's ledger sum, so the order's cached payment_status
+  // is now stale — leaving it is exactly the "status disagrees with the ledger"
+  // failure this handler exists to prevent. A throw here would return 500 for a
+  // restore that already committed, so log and still report success.
+  try {
+    const payment = await env.DB.prepare(
+      'SELECT order_id FROM payments WHERE id = ?'
+    ).bind(id).first();
+    const orderId = payment && payment.order_id;
+    // Orphan payment (no order): nothing to derive against, and
+    // order_events.order_id is NOT NULL (migrations/0001_initial.sql:29).
+    if (orderId == null) return json({ ok: true }, 200);
+
+    const order = await env.DB.prepare(
+      'SELECT total_cents FROM orders WHERE id = ?'
+    ).bind(orderId).first();
+    // Order was deleted mid-flight; the payment row still stands on its own.
+    if (!order) return json({ ok: true }, 200);
+
+    // Sum AFTER the reactivate, so the restored row is in it.
+    const active = await env.DB.prepare(
+      'SELECT amount FROM payments WHERE order_id = ? AND active = 1'
+    ).bind(orderId).all();
+    const collected = activePaymentsCents((active && active.results) || []);
+    const totalCents = Number(order.total_cents) || 0;
+
+    // Same guard as createPayment: a derived 'unpaid' from (0 collected, 0
+    // total) would park a 100%-discount order in the awaiting-payment filter
+    // forever. Nothing is collectable, so there is nothing to derive.
+    if (totalCents > 0) {
+      await env.DB.prepare('UPDATE orders SET payment_status = ? WHERE id = ?')
+        .bind(derivePaymentStatus(collected, totalCents), orderId).run();
+    }
+
+    await env.DB.prepare(`
+      INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_restored')
+    `).bind(orderId, actor || 'unknown').run();
+  } catch (e) {
+    console.error('restorePayment: payment restored but post-commit steps failed', e);
+  }
+
   return json({ ok: true }, 200);
 }
 
