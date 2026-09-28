@@ -3515,7 +3515,10 @@ async function updateQuote(id, request, env, ctx, actor) {
     // A terminal quote's price is frozen: a converted quote's price is the
     // price of the order it produced, so rewriting it makes the two disagree.
     // Notes stay editable and the unarchive transition stays permitted.
-    // Mirrors the guard assertInvoiceEditable applies in updateInvoice.
+    // Deliberately NARROWER than updateInvoice, which applies
+    // assertInvoiceEditable to the whole endpoint: that shape rejects the
+    // unarchive transition, since the Quotes tab unarchives by PATCHing
+    // status on an archived quote. Do not widen this to match.
     if (body.quoted_price !== undefined) {
       const guard = assertQuoteEditable(existing, 'its price can no longer be changed');
       if (guard) return guard;
