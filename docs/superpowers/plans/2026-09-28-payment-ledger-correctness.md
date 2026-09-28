@@ -78,7 +78,11 @@ describe('activePaymentsCents', () => {
     expect(activePaymentsCents([{ amount: 12.34 }])).toBe(1234);
     expect(activePaymentsCents([{ amount: 19.99 }])).toBe(1999);
     expect(activePaymentsCents([{ amount: 0.1 }, { amount: 0.2 }])).toBe(30);
-    expect(activePaymentsCents([{ amount: 1.005 }])).toBe(101); // rounds, does not truncate to 100
+    // Rounds, never truncates. 0.29 * 100 is 28.999999999999996 in binary, so a
+    // truncating implementation would record 28 cents and under-report revenue
+    // by a cent on roughly 4.6% of real two-decimal amounts.
+    expect(activePaymentsCents([{ amount: 0.29 }])).toBe(29);
+    expect(activePaymentsCents([{ amount: 1.13 }])).toBe(113);
   });
 
   it('sums multiple rows', () => {
@@ -204,7 +208,7 @@ export function balanceCentsCents(activeCents, totalCents) {
 
 Run: `cd orders && npx vitest run tests/payment-ledger-lib.test.js`
 
-Expected: PASS — 16 tests
+Expected: PASS — 15 tests (4 + 7 + 4 `it` blocks)
 
 - [ ] **Step 5: Run the full worker suite to confirm nothing regressed**
 
