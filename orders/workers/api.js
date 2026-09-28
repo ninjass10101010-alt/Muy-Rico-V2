@@ -86,6 +86,9 @@ import {
   depositCentsFor, isDepositSufficient, buildPayUrl, generateQuoteToken,
 } from './quote-deposit-lib.js';
 import {
+  derivePaymentStatus, activePaymentsCents, balanceCentsCents,
+} from './payment-ledger-lib.js';
+import {
   depositCentsFor as invoiceDepositCentsFor,
   invoiceNumberFor, computeTotalCents, generateInvoiceToken, classifyInvoicePayment,
 } from './invoice-lib.js';
@@ -2699,7 +2702,9 @@ async function listPayments(env) {
 }
 
 async function createPayment(request, env, actor) {
-  const body = await request.json();
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+
   const customerName = getBodyField(body, 'customer_name');
   if (!body.id || !customerName || !body.method) {
     return json({ error: 'Missing required fields: id, customer_name, method' }, 400);
@@ -2707,36 +2712,93 @@ async function createPayment(request, env, actor) {
   if (!ALLOWED_PAYMENT.includes(body.method)) {
     return json({ error: `Invalid method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
   }
+
   const orderId = getBodyField(body, 'order_id');
   const amount = Number(body.amount) || 0;
+  const methodDetails = getBodyField(body, 'method_details') || null;
+  // replace defaults to TRUE so every pre-existing caller keeps its current
+  // semantics: a full re-record supersedes earlier rows. Callers recording a
+  // top-up (deposit then balance) must pass replace:false or they will erase
+  // the deposit they are settling.
+  const replace = body.replace === undefined ? true : body.replace !== false;
 
-  // Deactivate ALL existing active payments for this order before inserting.
-  // This prevents double-counting when toggling paid/unpaid/paid again.
-  // We use order_id alone (no amount match) because any prior active payment
-  // for the same order is stale once we record a new one.
-  if (orderId != null) {
-    await env.DB.prepare(`
-      UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1
-    `).bind(orderId).run();
+  const insert = () => env.DB.prepare(`
+    INSERT INTO payments (id, order_id, order_number, customer_name, amount, method, method_details, date, created_at, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
+  `).bind(
+    body.id,
+    orderId == null ? null : orderId,
+    getBodyField(body, 'order_number') || null,
+    customerName,
+    amount,
+    body.method,
+    methodDetails,
+    body.date || null,
+  );
+
+  // Orphan payment (no order): nothing to deactivate, nothing to derive.
+  if (orderId == null) {
+    try {
+      await insert().run();
+    } catch (err) {
+      return json({ error: String(err) }, 400);
+    }
+    return json({ ok: true, id: body.id }, 201);
   }
 
+  // Deactivate and insert commit as ONE batch. Previously the deactivate was a
+  // separate statement outside the try/catch, so a failed insert left the order
+  // with zero active payments while returning 400 to a client that logs and moves on.
+  const stmts = [];
+  if (replace) {
+    stmts.push(env.DB.prepare(`
+      UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1
+    `).bind(orderId));
+  }
+  stmts.push(insert());
+
   try {
-    await env.DB.prepare(`
-      INSERT INTO payments (id, order_id, order_number, customer_name, amount, method, date, created_at, active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
-    `).bind(
-      body.id,
-      orderId,
-      getBodyField(body, 'order_number') || null,
-      customerName,
-      amount,
-      body.method,
-      body.date || null,
-    ).run();
+    await env.DB.batch(stmts);
   } catch (err) {
     return json({ error: String(err) }, 400);
   }
-  return json({ ok: true, id: body.id }, 201);
+
+  // Derive the order's payment status from the ledger. Never trust a
+  // client-supplied status — this is the single source of truth.
+  const order = await env.DB.prepare(
+    'SELECT total_cents FROM orders WHERE id = ?'
+  ).bind(orderId).first();
+  if (!order) {
+    // Order was deleted mid-flight; the payment row still stands on its own.
+    return json({ ok: true, id: body.id }, 201);
+  }
+
+  const active = await env.DB.prepare(
+    'SELECT amount FROM payments WHERE order_id = ? AND active = 1'
+  ).bind(orderId).all();
+  const collected = activePaymentsCents((active && active.results) || []);
+  const totalCents = Number(order.total_cents) || 0;
+  const paymentStatus = derivePaymentStatus(collected, totalCents);
+
+  // Skip the status write for a zero-total order (a 100% discount). Deriving
+  // 'unpaid' from (0 collected, 0 total) would park it in the dashboard's
+  // awaiting-payment filter with a $0.00 balance, forever. Nothing is
+  // collectable, so there is nothing to derive.
+  if (totalCents > 0) {
+    await env.DB.prepare('UPDATE orders SET payment_status = ? WHERE id = ?')
+      .bind(paymentStatus, orderId).run();
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_recorded')
+  `).bind(orderId, actor || 'unknown').run();
+
+  return json({
+    ok: true,
+    id: body.id,
+    paymentStatus,
+    balanceCents: balanceCentsCents(collected, totalCents),
+  }, 201);
 }
 
 async function deletePayment(id, env, actor) {
