@@ -3521,8 +3521,10 @@ async function updateQuote(id, request, env, ctx, actor) {
       if (guard) return guard;
     }
 
-    // Validate BEFORE the `sets.length === 0` early return, otherwise a bad
-    // status would be silently swallowed into a successful no-op.
+    // Validated up front rather than where the value is consumed. Today a
+    // request carrying `status` always pushes into `sets`, so the early return
+    // below is unreachable for it — but checking here keeps a bad status from
+    // being written if the `sets` construction ever changes shape.
     if (body.status !== undefined && !ALLOWED_QUOTE_STATUS.includes(body.status)) {
       return json({
         error: `Invalid status. Must be one of: ${ALLOWED_QUOTE_STATUS.join(', ')}`,
