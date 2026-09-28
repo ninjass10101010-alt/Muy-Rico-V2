@@ -108,9 +108,13 @@ export default function Orders({ search, setPage, setLabelFilter }: {
     setPayError("");
     const orderId = Number(payFor.id);
     try {
-      const updated: Order = { ...payFor, paymentStatus: "paid", paymentMethod: payMethod };
-      await apiUpdateOrder(orderId, { payment_status: "paid", payment_method: payMethod });
-      await recordPayment(updated);
+      await recordPayment({
+        orderId,
+        customerName: payFor.customerName,
+        amountCents: Math.round(payFor.total * 100),
+        method: payMethod,
+        replace: true,
+      });
       setPayFor(null);
       setReceiptMsg("");
       try {
@@ -481,19 +485,32 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                               .filter((p) => p.orderId === selected.id)
                               .reduce((sum, p) => sum + p.amount, 0);
                             const remaining = Math.max(0, selected.total - totalPaid);
-                            await apiUpdateOrder(Number(selected.id), { payment_status: "paid", payment_method: markPayMethod });
-                            await recordPayment({ ...selected, paymentStatus: "paid", paymentMethod: markPayMethod, total: remaining } as Order);
-                            setReceiptMsg("");
                             try {
-                              await generateReceipt(Number(selected.id));
-                              setReceiptMsg("Receipt created successfully.");
+                              await recordPayment({
+                                orderId: Number(selected.id),
+                                customerName: selected.customerName,
+                                amountCents: Math.round(remaining * 100),
+                                method: markPayMethod,
+                                replace: false,
+                              });
+                              setReceiptMsg("");
+                              try {
+                                await generateReceipt(Number(selected.id));
+                                setReceiptMsg("Receipt created successfully.");
+                              } catch (err) {
+                                console.error("Receipt generation failed:", err);
+                                setReceiptMsg("Receipt generation failed.");
+                              }
+                              setMarkPayFor(null);
+                              setSelected(null);
+                              await refreshOrders();
                             } catch (err) {
-                              console.error("Receipt generation failed:", err);
-                              setReceiptMsg("Receipt generation failed.");
+                              // recordPayment rethrows, so a failure must not fall
+                              // through to a receipt and a closed modal as if the
+                              // money had been taken. Leave the modal open.
+                              console.error("Failed to record payment:", err);
+                              setReceiptMsg("Could not confirm the payment. Check the payment ledger before trying again.");
                             }
-                            setMarkPayFor(null);
-                            setSelected(null);
-                            await refreshOrders();
                           }}
                           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                         >
@@ -544,19 +561,29 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       <div className="flex gap-2">
                         <button
                           onClick={async () => {
-                            await apiUpdateOrder(Number(selected.id), { payment_status: "paid", payment_method: markPayMethod });
-                            await recordPayment({ ...selected, paymentStatus: "paid", paymentMethod: markPayMethod });
-                            setReceiptMsg("");
                             try {
-                              await generateReceipt(Number(selected.id));
-                              setReceiptMsg("Receipt created successfully.");
+                              await recordPayment({
+                                orderId: Number(selected.id),
+                                customerName: selected.customerName,
+                                amountCents: Math.round(selected.total * 100),
+                                method: markPayMethod,
+                                replace: true,
+                              });
+                              setReceiptMsg("");
+                              try {
+                                await generateReceipt(Number(selected.id));
+                                setReceiptMsg("Receipt created successfully.");
+                              } catch (err) {
+                                console.error("Receipt generation failed:", err);
+                                setReceiptMsg("Receipt generation failed.");
+                              }
+                              setMarkPayFor(null);
+                              setSelected(null);
+                              await refreshOrders();
                             } catch (err) {
-                              console.error("Receipt generation failed:", err);
-                              setReceiptMsg("Receipt generation failed.");
+                              console.error("Failed to record payment:", err);
+                              setReceiptMsg("Could not confirm the payment. Check the payment ledger before trying again.");
                             }
-                            setMarkPayFor(null);
-                            setSelected(null);
-                            await refreshOrders();
                           }}
                           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                         >

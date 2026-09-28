@@ -19,13 +19,14 @@ import type {
   OrderSource,
   PackSize,
   Payment,
+  PaymentMethod,
   Product,
   Quote,
   Receipt,
 } from "../types";
 import { newId } from "../utils/format";
 import { mapProfileRow } from "../utils/profile";
-import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, fetchInvoices, createInvoice as apiCreateInvoice, updateInvoice as apiUpdateInvoice, deleteInvoice as apiDeleteInvoice, voidInvoice as apiVoidInvoice, sendInvoice as apiSendInvoice, addInvoiceItem as apiAddInvoiceItem, updateInvoiceItem as apiUpdateInvoiceItem, deleteInvoiceItem as apiDeleteInvoiceItem, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type ApiInvoiceItem, type OrderItemPatch } from "../utils/api";
+import { fetchOrders, createOrder as apiCreateOrder, updateOrder as apiUpdateOrder, cancelOrder as apiCancelOrder, deleteOrder as apiDeleteOrder, fetchProducts, createProduct as apiCreateProduct, updateProduct as apiUpdateProduct, deleteProduct as apiDeleteProduct, fetchInventory, createInventoryItem as apiCreateInventoryItem, updateInventoryItem as apiUpdateInventoryItem, deleteInventoryItem as apiDeleteInventoryItem, fetchCustomers, createCustomer as apiCreateCustomer, updateCustomer as apiUpdateCustomer, deleteCustomer as apiDeleteCustomer, fetchPayments, createPayment as apiCreatePayment, buildPaymentCreate, readPaymentResult, fetchLabelTemplates, createLabelTemplate as apiCreateLabelTemplate, updateLabelTemplate as apiUpdateLabelTemplate, deleteLabelTemplate as apiDeleteLabelTemplate, fetchProfile, updateProfile as apiUpdateProfile, resetSeedData, fetchReceipts, resendReceiptApi, generateReceiptApi, deductInventory as deductInventoryFromApi, fetchQuotes, updateQuote as apiUpdateQuote, convertQuote as apiConvertQuote, deleteQuote as apiDeleteQuote, createQuote as apiCreateQuote, emailQuote as apiEmailQuote, addQuoteItem as apiAddQuoteItem, updateQuoteItem as apiUpdateQuoteItem, deleteQuoteItem as apiDeleteQuoteItem, apiMergeCustomers, apiRelinkOrder, fetchInventoryGroups, createInventoryGroup as apiCreateInventoryGroupApi, updateInventoryGroup as apiUpdateInventoryGroupApi, fetchInvoices, createInvoice as apiCreateInvoice, updateInvoice as apiUpdateInvoice, deleteInvoice as apiDeleteInvoice, voidInvoice as apiVoidInvoice, sendInvoice as apiSendInvoice, addInvoiceItem as apiAddInvoiceItem, updateInvoiceItem as apiUpdateInvoiceItem, deleteInvoiceItem as apiDeleteInvoiceItem, type PaymentOutcome, type ApiProduct, type ApiInventoryItem, type ApiCustomer, type ApiPayment, type ApiLabelTemplate, type ApiReceipt, type ApiQuote, type ApiQuoteItem, type ApiIngredientGroup, type ApiInvoiceItem, type OrderItemPatch } from "../utils/api";
 
 interface StoreContextValue {
   products: Product[];
@@ -63,7 +64,15 @@ interface StoreContextValue {
   handleDeleteLabel: (id: string) => Promise<void>;
   profile: BusinessProfile;
   handleUpdateProfile: (draft: BusinessProfile) => Promise<void>;
-  recordPayment: (order: Order) => Promise<void>;
+  recordPayment: (input: {
+    orderId: number;
+    customerName: string;
+    amountCents: number;
+    method: PaymentMethod;
+    subMethod?: string | null;
+    date?: string;
+    replace?: boolean;
+  }) => Promise<PaymentOutcome>;
   loading: boolean;
   apiDeductInventory: (orderId: number) => Promise<void>;
   resetAllData: () => Promise<void>;
@@ -581,9 +590,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const handleApiCreateOrder = useCallback(async (order: Parameters<typeof apiCreateOrder>[0]) => {
     const result = await apiCreateOrder(order);
-    await refreshOrders();
+    // OrderModal records the new-order deposit by calling createPayment
+    // directly (to avoid a circular import), so payments must be refreshed
+    // here or "Collect Balance" will read a stale array and over-collect.
+    await Promise.all([refreshOrders(), refreshPayments()]);
     return result;
-  }, [refreshOrders]);
+  }, [refreshOrders, refreshPayments]);
 
   const handleApiUpdateOrder = useCallback(async (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null; pickup_date?: string }) => {
     await apiUpdateOrder(id, patch);
@@ -682,23 +694,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await refreshProfile();
   }, [refreshProfile]);
 
-  const recordPayment = useCallback(async (order: Order) => {
-    if (!order.paymentMethod) return;
-    try {
-      await apiCreatePayment({
-        id: newId("pay"),
-        orderId: Number(order.id) || null,
-        orderNumber: order.orderNumber,
-        customerName: order.customerName,
-        amount: order.total,
-        method: order.paymentMethod,
-        date: new Date().toISOString(),
-      });
-      await refreshPayments();
-    } catch (err) {
-      console.warn("Failed to record payment to API:", err);
-    }
-  }, [refreshPayments]);
+  const recordPayment = useCallback(async (input: {
+    orderId: number;
+    customerName: string;
+    amountCents: number;
+    method: PaymentMethod;
+    subMethod?: string | null;
+    date?: string;
+    replace?: boolean;
+  }): Promise<PaymentOutcome> => {
+    // amountCents because the modal and Orders both do balance maths in cents;
+    // the wire format is dollars to match the REAL column. customerName stays
+    // required — createPayment 400s without it.
+    const result = await apiCreatePayment(buildPaymentCreate({
+      id: newId("pay"),
+      orderId: input.orderId,
+      orderNumber: null,
+      customerName: input.customerName,
+      amountCents: input.amountCents,
+      method: input.method,
+      subMethod: input.subMethod,
+      date: input.date,
+      replace: input.replace,
+    }));
+    await Promise.all([refreshPayments(), refreshOrders()]);
+    // paymentStatus/balanceCents stay null when the server omitted them, so a
+    // caller can render "could not determine this" instead of a false "$0.00 due".
+    return readPaymentResult(result);
+  }, [refreshPayments, refreshOrders]);
 
   const resendReceipt = useCallback(async (id: string) => {
     try {

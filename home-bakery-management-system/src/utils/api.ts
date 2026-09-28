@@ -1,4 +1,4 @@
-import type { BusinessProfile, FlavorGroup, PackSize, PaymentMethod, RecipeLine, Invoice, PaymentOptions } from "../types";
+import type { BusinessProfile, FlavorGroup, PackSize, PaymentMethod, PaymentStatus, RecipeLine, Invoice, PaymentOptions } from "../types";
 import { getDeviceToken, clearDeviceToken } from "./tokenStore";
 
 const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -700,9 +700,90 @@ export interface PaymentCreate {
   orderId?: number | null;
   orderNumber?: string | null;
   customerName: string;
+  /** DOLLARS, not cents — payments.amount is a REAL column (migrations/0006). */
   amount: number;
   method: PaymentMethod;
+  methodDetails?: string | null;
   date?: string;
+  /**
+   * true (default, omitted) supersedes earlier payments for the order.
+   * false appends a top-up so a deposit survives the balance that settles it.
+   */
+  replace?: boolean;
+}
+
+/** The cents-denominated input the store and Orders.tsx both hold. */
+export interface PaymentRecordInput {
+  id: string;
+  orderId: number;
+  orderNumber?: string | null;
+  customerName: string;
+  amountCents: number;
+  method: PaymentMethod;
+  subMethod?: string | null;
+  date?: string;
+  replace?: boolean;
+}
+
+/**
+ * Build the wire body from the cents the UI does its balance maths in.
+ *
+ * The conversion lives here rather than in the React callback so it can be
+ * pinned by a test: getting it wrong is what turned a $1.30 deposit into a
+ * $13.00 over-collection.
+ */
+export function buildPaymentCreate(input: PaymentRecordInput): PaymentCreate {
+  return {
+    id: input.id,
+    orderId: input.orderId,
+    orderNumber: input.orderNumber ?? null,
+    customerName: input.customerName,
+    // amountCents because the modal and Orders both do balance maths in cents;
+    // the wire format is dollars to match the REAL column.
+    amount: input.amountCents / 100,
+    method: input.method,
+    methodDetails: input.subMethod ?? null,
+    date: input.date ?? new Date().toISOString(),
+    // Left undefined when unset so the key is omitted and the server applies
+    // its own replace=true default rather than us asserting one.
+    replace: input.replace,
+  };
+}
+
+export interface PaymentResult {
+  ok: boolean;
+  id: string;
+  paymentStatus?: PaymentStatus;
+  balanceCents?: number;
+}
+
+export interface PaymentOutcome {
+  ok: boolean;
+  paymentStatus: PaymentStatus | null;
+  balanceCents: number | null;
+  /** True only when the server actually reported both derived fields. */
+  determined: boolean;
+}
+
+/**
+ * Read the server's derived status without inventing one.
+ *
+ * The handler omits paymentStatus and balanceCents entirely when the order was
+ * deleted mid-flight or a post-commit step failed, so a caller can tell
+ * "nothing is due" apart from "we could not determine this". Defaulting those
+ * to "unpaid"/0 would re-fabricate the exact lie the server avoided.
+ */
+export function readPaymentResult(
+  result: Partial<PaymentResult> | null | undefined,
+): PaymentOutcome {
+  const paymentStatus = result?.paymentStatus ?? null;
+  const balanceCents = result?.balanceCents ?? null;
+  return {
+    ok: Boolean(result?.ok),
+    paymentStatus,
+    balanceCents,
+    determined: paymentStatus !== null && balanceCents !== null,
+  };
 }
 
 export async function fetchPayments(): Promise<ApiPayment[]> {
@@ -710,7 +791,7 @@ export async function fetchPayments(): Promise<ApiPayment[]> {
   return data.payments;
 }
 
-export async function createPayment(p: PaymentCreate): Promise<{ ok: boolean; id: string }> {
+export async function createPayment(p: PaymentCreate): Promise<PaymentResult> {
   return apiFetch("/api/payments", {
     method: "POST",
     body: JSON.stringify(p),
