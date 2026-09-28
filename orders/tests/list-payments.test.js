@@ -145,6 +145,48 @@ describe('POST /api/payments/:id/restore', () => {
     expect(write.binds).toEqual(['partial', 1]);
   });
 
+  it('marks the order paid when the restored payment covers the whole total', async () => {
+    // The other side of the derivation, and the outcome an owner most wants
+    // confirmed after a restore: the payment they just un-voided settles the
+    // order. Until now the only status this route was ever asserted to produce
+    // was 'partial', so the 'paid' branch of derivePaymentStatus ran unpinned.
+    const { env, ctx, calls } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 130 },
+      activeRows: [{ amount: 1.3 }],
+    });
+    const res = await worker.fetch(restore('pay_2'), env, ctx);
+    expect(res.status).toBe(200);
+
+    // The row was reactivated and the ledger read — the derivation, not a short
+    // circuit, is what produced the status.
+    expect(calls.some((c) => /UPDATE payments SET active = 1 WHERE id/.test(c.sql))).toBe(true);
+    expect(calls.some((c) => /SELECT amount FROM payments/.test(c.sql))).toBe(true);
+
+    const write = statusWrite(calls);
+    expect(write).toBeTruthy();
+    expect(write.binds).toEqual(['paid', 1]);
+  });
+
+  it('leaves payment_status alone when the order was deleted mid-flight', async () => {
+    // The payment row names an order, but that order is gone. There is nothing
+    // to write a status to, and the payment still stands on its own — a 200,
+    // not an error. The ledger read must not even be attempted: `order` is null
+    // here, so reaching it would throw into the catch rather than early-return.
+    const { env, ctx, calls } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: null,
+    });
+    const res = await worker.fetch(restore('pay_2'), env, ctx);
+    expect(res.status).toBe(200);
+    // Proves the route ran rather than the router's identical 404 fallback.
+    expect(calls.some((c) => /UPDATE payments SET active = 1 WHERE id/.test(c.sql))).toBe(true);
+    expect(calls.some((c) => /SELECT total_cents FROM orders/.test(c.sql))).toBe(true);
+    expect(calls.some((c) => /SELECT amount FROM payments/.test(c.sql))).toBe(false);
+    expect(statusWrite(calls)).toBeUndefined();
+    expect(calls.some((c) => /INSERT INTO order_events/.test(c.sql))).toBe(false);
+  });
+
   it('leaves payment_status alone when the order total is zero', async () => {
     // createPayment's convention: a 100%-discount order must not be parked at a
     // derived 'unpaid' with a $0.00 balance, so the write is guarded.

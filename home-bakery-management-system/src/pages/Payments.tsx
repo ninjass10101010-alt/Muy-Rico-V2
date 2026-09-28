@@ -33,11 +33,12 @@ function apiToPaymentForRow(row: ApiPayment): Payment {
 }
 
 export default function Payments({ search }: { search: string }) {
-  const { payments, profile } = useStore();
+  const { payments, profile, refreshPayments } = useStore();
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [showVoided, setShowVoided] = useState(false);
   const [voidedPayments, setVoidedPayments] = useState<Payment[]>([]);
   const [voidedBusy, setVoidedBusy] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   const readVoided = async () => {
     const rows = await fetchPayments(true);
@@ -59,13 +60,20 @@ export default function Payments({ search }: { search: string }) {
   };
 
   const restorePayment = async (id: string) => {
+    setRestoringId(id);
     try {
       // Re-fetch after: the server re-derives the order's payment_status, so
-      // the voided list can legitimately change beyond this row.
+      // the voided list can legitimately change beyond this row. The store's
+      // ledger has to be refreshed too — "Total collected", the per-method tiles
+      // and the active table all read `payments`, so without it a restored row
+      // leaves the voided list and never appears anywhere on the page, and the
+      // figures still describe the pre-restore ledger.
       await restorePaymentRequest(id);
-      await readVoided();
+      await Promise.all([refreshPayments(), readVoided()]);
     } catch (err) {
       console.warn("Failed to restore payment:", err);
+    } finally {
+      setRestoringId(null);
     }
   };
 
@@ -196,9 +204,10 @@ export default function Payments({ search }: { search: string }) {
                       <td className="px-2 py-2 text-right">
                         <button
                           onClick={() => restorePayment(p.id)}
-                          className="text-xs font-semibold text-palm hover:underline"
+                          disabled={restoringId === p.id}
+                          className="text-xs font-semibold text-palm hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          Restore
+                          {restoringId === p.id ? "Restoring…" : "Restore"}
                         </button>
                       </td>
                     </tr>
