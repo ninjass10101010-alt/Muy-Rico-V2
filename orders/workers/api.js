@@ -2772,8 +2772,12 @@ async function createPayment(request, env, actor) {
   // do that: order_id is a foreign key (migrations/0001_initial.sql:29) and the
   // cron at api.js:445 deletes awaiting_payment orders, so one can disappear
   // between the read below and the insert. Log and still report success.
-  let paymentStatus = null;
-  let balanceCents = 0;
+  // Deliberately left undefined: if a statement above throws before derivation
+  // completes, these keys are omitted from the response so a caller can tell
+  // "nothing is due" apart from "we could not determine this" — unlike the
+  // missing-order path below, which likewise reports no derived fields.
+  let paymentStatus;
+  let balanceCents;
   try {
     const order = await env.DB.prepare(
       'SELECT total_cents FROM orders WHERE id = ?'

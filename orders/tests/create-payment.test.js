@@ -142,10 +142,13 @@ describe('createPayment replace mode', () => {
     // id, order_id, order_number, customer_name, amount, method, method_details, date
     expect(ins[0]).toBe('pay_test1');
     expect(ins[1]).toBe(1);
+    expect(ins[2]).toBe('MR-1');
     expect(ins[3]).toBe('Ana');
     expect(ins[4]).toBe(30);
     expect(ins[5]).toBe('cash');
     expect(ins[6]).toBe('{"type":"cash"}');
+    // BASE sends no `date`, and the handler binds `body.date || null`.
+    expect(ins[7]).toBeNull();
   });
 });
 
@@ -201,6 +204,9 @@ describe('createPayment read-after-write ordering', () => {
     await worker.fetch(createPaymentRequest(BASE), env, ctx);
     const batchIdx = calls.findIndex((c) => c.method === 'batch');
     const readIdx = calls.findIndex((c) => c.method === 'all');
+    // Without this, a missing batch (batchIdx -1) would satisfy the comparison
+    // below via any read at index 0 and the test would pass vacuously.
+    expect(batchIdx, 'the batch must be recorded').toBeGreaterThanOrEqual(0);
     expect(readIdx, 'the ledger read must see the rows the batch just wrote').toBeGreaterThan(batchIdx);
   });
 });
@@ -247,12 +253,24 @@ describe('createPayment derived status', () => {
   });
 
   it('still returns 201 when a post-commit step throws', async () => {
-    // The order_events insert is a real FK: the cron at api.js:445 deletes
-    // awaiting_payment orders, so one can vanish between the read and the
-    // insert. A 500 here would be returned for a payment that already landed.
+    // throwOnAll fails the ledger `all()` read, one of the four post-commit
+    // statements; the handler must swallow a throw from any of them rather than
+    // let the router answer 500 for a payment that already committed.
+    // The region is wrapped precisely because the order_events insert is a real
+    // FK: the cron at api.js:445 deletes awaiting_payment orders, so one can
+    // vanish between the read below and that insert.
     const { env, ctx } = makeEnv({ throwOnAll: true });
     const res = await worker.fetch(createPaymentRequest(BASE), env, ctx);
     expect(res.status).toBe(201);
+  });
+
+  it('omits the derived fields when a post-commit step throws', async () => {
+    const { env, ctx } = makeEnv({ throwOnAll: true });
+    const res = await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body).not.toHaveProperty('balanceCents');
+    expect(body).not.toHaveProperty('paymentStatus');
   });
 });
 
