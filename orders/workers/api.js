@@ -53,6 +53,7 @@ const ALLOWED_PAYMENT = ['venmo', 'cashapp', 'applepay', 'cash', 'stripe', 'payp
 const ALLOWED_STATUS  = ['pending', 'in-progress', 'ready', 'completed', 'done', 'cancelled', 'awaiting_payment'];
 const ALLOWED_PAYSTAT = ['unpaid', 'paid', 'partial'];
 const ALLOWED_SOURCE  = ['website', 'in-person'];
+const ALLOWED_QUOTE_STATUS = ['new', 'replied', 'converted', 'archived'];
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -3511,6 +3512,19 @@ async function updateQuote(id, request, env, ctx, actor) {
     ).bind(id).first();
     if (!existing) return json({ error: 'Not found' }, 404);
 
+    // Converted and archived quotes are terminal. Mirrors the guard
+    // updateInvoice applies at api.js:3722.
+    const guard = assertQuoteEditable(existing, 'it cannot be changed');
+    if (guard) return guard;
+
+    // Validate BEFORE the `sets.length === 0` early return, otherwise a bad
+    // status would be silently swallowed into a successful no-op.
+    if (body.status !== undefined && !ALLOWED_QUOTE_STATUS.includes(body.status)) {
+      return json({
+        error: `Invalid status. Must be one of: ${ALLOWED_QUOTE_STATUS.join(', ')}`,
+      }, 400);
+    }
+
     const sets = [];
     const binds = [];
 
@@ -3536,10 +3550,6 @@ async function updateQuote(id, request, env, ctx, actor) {
       `UPDATE cake_quotes SET ${sets.join(', ')} WHERE id = ?`
     ).bind(...binds).run();
 
-    if (body.status === 'archived' || body.status === 'converted') {
-      // No auto-email when archiving
-    }
-
     return json({ ok: true }, 200);
   } catch (e) {
     return json({ error: String(e) }, 500);
@@ -3558,9 +3568,12 @@ function validateQuoteItem(item) {
   return null;
 }
 
-function assertQuoteEditable(quote) {
+// `what` names the thing being guarded so the message is accurate for both
+// callers: item edits and the updateQuote field patch. Defaults to the
+// original wording so existing item-edit callers are unaffected.
+function assertQuoteEditable(quote, what = 'items cannot be changed') {
   if (quote.status === 'converted' || quote.status === 'archived') {
-    return json({ error: `Quote is ${quote.status}; items cannot be changed` }, 400);
+    return json({ error: `Quote is ${quote.status}; ${what}` }, 400);
   }
   return null;
 }
