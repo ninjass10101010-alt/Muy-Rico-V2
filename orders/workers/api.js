@@ -2814,7 +2814,16 @@ async function createPayment(request, env, actor) {
     // payment that did land was paid, which stays true at any order total. It is
     // also the same value markPaid writes (api.js:1098), so the two paths leave
     // an order in the same shape.
-    await env.DB.prepare('UPDATE orders SET payment_method = ?, payment_sub_method = ? WHERE id = ?')
+    //
+    // payment_sub_method is COALESCEd rather than assigned. markOrderPaid writes
+    // the card brand and last4 there, and NO SPA payment supplies one — none of
+    // the three recordPayment call sites passes a subMethod, so methodDetails is
+    // always null on this path. A plain assignment would null the column the
+    // moment the owner collects the balance in cash, destroying the only copy of
+    // the card detail the customer paid with, and the receipt generated right
+    // after would be the proof. COALESCE keeps a recorded sub-method and still
+    // lets a payment that does supply one overwrite it.
+    await env.DB.prepare('UPDATE orders SET payment_method = ?, payment_sub_method = COALESCE(?, payment_sub_method) WHERE id = ?')
       .bind(body.method, methodDetails, orderId).run();
 
     await env.DB.prepare(`

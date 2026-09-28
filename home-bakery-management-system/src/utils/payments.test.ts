@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { Order, Payment } from "../types";
+import type { Order, Payment, Product } from "../types";
 import type { PaymentOutcome } from "./api";
+import { StoreProvider } from "../context/StoreContext";
+import OrderModal from "../components/OrderModal";
 import Orders from "../pages/Orders";
 
 const fetchMock = vi.fn();
@@ -12,6 +14,7 @@ const fetchMock = vi.fn();
 
 afterEach(() => {
   fetchMock.mockReset();
+  h.store = null;
   vi.unstubAllGlobals();
 });
 
@@ -260,12 +263,18 @@ describe("remaining balance", () => {
  * charges the full $13.00 and fails.
  */
 const h = vi.hoisted(() => ({ store: null as FakeStore | null }));
-vi.mock("../context/StoreContext", () => ({ useStore: () => h.store }));
+// `...actual` keeps StoreProvider reachable, and the fallback lets a test drive
+// the real store instead of a fake one. The fake takes priority when set, so the
+// handler tests below are unaffected.
+vi.mock("../context/StoreContext", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../context/StoreContext")>();
+  return { ...actual, useStore: () => h.store ?? actual.useStore() };
+});
 
 function makeStore(recordPayment: (input: Record<string, unknown>) => Promise<PaymentOutcome>) {
   return {
     orders: [ORDER_52],
-    products: [],
+    products: [] as Product[],
     // Stale on purpose: the deposit is committed on the server but this array
     // has not been re-read since the order was created.
     payments: [] as Payment[],
@@ -408,6 +417,204 @@ describe("Collect Balance (rendered page)", () => {
     // collection, but the modal stays open with the message on it.
     expect(modalText(container)).toContain("Order MR-52");
     expect(buttonByText(container, /Collect/).disabled).toBe(false);
+    teardown(root, container);
+  });
+});
+
+/**
+ * The bug this whole task exists to prevent, in the shape it actually took.
+ *
+ * `refreshPayments` swallows a failed GET and yields `[]`. A caller that is
+ * about to CHARGE totals against that empty list, gets `total - 0`, and posts
+ * the full order on top of a deposit it never saw: order 52 becomes $1.30 +
+ * $13.00 on a $13.00 order. A 5xx, an offline blip or the 401-after-token-clear
+ * path in apiFetch all produce it, so it is not an exotic trigger.
+ *
+ * This test drives the REAL StoreProvider and the REAL Orders handler rather
+ * than a fake store, because the leniency lives in the provider: a fake's
+ * `refreshPayments` would simply reject and pass no matter what the charging
+ * path did with it.
+ */
+const ORDER_52_ROW = {
+  id: 52,
+  created_at: "2026-09-01T00:00:00.000Z",
+  customer_name: "Ana",
+  customer_id: null,
+  phone: null,
+  pickup_date: "2026-10-01",
+  pickup_time: null,
+  items_json: JSON.stringify([{ name: "Cake", qty: 1, price: 13 }]),
+  total_cents: 1300,
+  subtotal_cents: 1300,
+  discount_cents: 0,
+  payment_method: "cash",
+  payment_sub_method: null,
+  payment_status: "partial",
+  status: "pending",
+  notes: null,
+  created_by: "owner",
+  source: "in-person",
+  food_coloring: null,
+  inventory_deducted: 0,
+};
+
+/** Every endpoint answers 500 except the orders list, so the page can render. */
+function failingLedgerFetch() {
+  return vi.fn(async (input: unknown) => {
+    const url = String(input);
+    if (url.includes("/api/orders/")) {
+      return { ok: true, status: 200, json: async () => ({ order: ORDER_52_ROW, events: [] }) };
+    }
+    if (url.includes("/api/orders")) {
+      return { ok: true, status: 200, json: async () => ({ orders: [ORDER_52_ROW] }) };
+    }
+    // /api/payments included: this is the read that decides what gets charged.
+    return { ok: false, status: 500, json: async () => ({ error: "ledger unavailable" }) };
+  });
+}
+
+const postsTo = (fetchSpy: ReturnType<typeof vi.fn>, path: string) =>
+  fetchSpy.mock.calls.filter(
+    ([input, init]) => String(input).includes(path) && (init as RequestInit | undefined)?.method === "POST",
+  );
+
+async function renderRealStore(fetchSpy: ReturnType<typeof vi.fn>) {
+  vi.stubGlobal("fetch", fetchSpy);
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(
+      createElement(
+        StoreProvider,
+        null,
+        createElement(Orders, { search: "", setPage: () => {}, setLabelFilter: () => {} }),
+      ),
+    );
+  });
+  // The provider kicks off eleven refreshes on mount; let them settle.
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  return { container, root };
+}
+
+describe("Collect Balance when the ledger read fails", () => {
+  it("collects nothing, and says so, rather than charging the full total", async () => {
+    const fetchSpy = failingLedgerFetch();
+    const { container, root } = await renderRealStore(fetchSpy);
+
+    await click(container.querySelector("tbody tr") as Element);
+    await click(buttonByText(container, /^Collect Balance$/));
+    await click(buttonByText(container, /^Collect Balance$/));
+
+    // recordPayment's only wire effect is this POST. Anything here means the
+    // $13.00 was sent with no knowledge of the $1.30 deposit.
+    expect(
+      postsTo(fetchSpy, "/api/payments"),
+      "a failed ledger read must not reach the charging path",
+    ).toHaveLength(0);
+    expect(postsTo(fetchSpy, "/api/receipts"), "no receipt for a collection that never happened").toHaveLength(0);
+    expect(modalText(container)).toContain("Could not confirm the payment.");
+    teardown(root, container);
+  });
+
+  it("still reads the ledger leniently for display, so the panel does not throw", async () => {
+    const fetchSpy = failingLedgerFetch();
+    const { container, root } = await renderRealStore(fetchSpy);
+
+    await click(container.querySelector("tbody tr") as Element);
+    await click(buttonByText(container, /^Collect Balance$/));
+
+    // A stale figure beats a panel that throws. Only the charging read is strict.
+    expect(modalText(container)).not.toContain("Could not confirm the payment.");
+    expect(buttonByText(container, /^Collect Balance$/)).toBeTruthy();
+    teardown(root, container);
+  });
+});
+
+/**
+ * The new-order deposit is the fourth write path into the ledger, and the only
+ * one that goes through `createPayment` directly rather than `recordPayment`.
+ * It missed the `orderNumber` threading the other three got, which left the row
+ * at the centre of this bug blank in Payments.tsx's Order column and unfindable
+ * by its search.
+ */
+const EXPENSIVE = {
+  id: "prod_cake_tier",
+  name: "Tiered Cake",
+  category: "cake",
+  price: 60,
+  cost: 20,
+  sku: "",
+  emoji: "🎂",
+  active: true,
+  description: "",
+  ingredients: "",
+  pack_sizes: [],
+  flavor_groups: [],
+} as unknown as Product;
+
+async function renderOrderModal(store: FakeStore, order?: string[]) {
+  h.store = store;
+  const fetchSpy = vi.fn(async (input: unknown, init?: RequestInit) => {
+    if (String(input).includes("/api/payments") && init?.method === "POST") {
+      order?.push("deposit");
+      return { ok: true, status: 201, json: async () => ({ ok: true, id: "pay_1" }) };
+    }
+    return { ok: false, status: 500, json: async () => ({ error: "nope" }) };
+  });
+  vi.stubGlobal("fetch", fetchSpy);
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(createElement(OrderModal, { open: true, onClose: () => {} }));
+  });
+  return { container, root, fetchSpy };
+}
+
+describe("OrderModal new-order deposit", () => {
+  it("stamps the derived order number on the deposit, so the row is searchable", async () => {
+    const base = makeStore(async () => determined);
+    const store = { ...base, products: [EXPENSIVE], apiCreateOrder: vi.fn(async () => ({ id: 52 })) };
+    const { container, root, fetchSpy } = await renderOrderModal(store);
+
+    await click(container.querySelector("button.bg-coral") as Element);
+    await click(buttonByText(container, /Create Order/));
+
+    const post = postsTo(fetchSpy, "/api/payments")[0];
+    expect(post, "the deposit must be recorded").toBeTruthy();
+    // `orders` has no order_number column; MR-<id> is what the dashboard and the
+    // server derive from the id.
+    expect(JSON.parse((post[1] as RequestInit).body as string).orderNumber).toBe("MR-52");
+    teardown(root, container);
+  });
+
+  it("refreshes the store's ledger after the deposit commits", async () => {
+    // Payments.tsx reads the store array directly, and handleApiCreateOrder
+    // cannot refresh it: it runs before this deposit exists. Without the refresh
+    // the row is missing from the ledger page until the app reloads.
+    const order: string[] = [];
+    const base = makeStore(async () => determined);
+    const store = {
+      ...base,
+      products: [EXPENSIVE],
+      apiCreateOrder: vi.fn(async () => ({ id: 52 })),
+      refreshPayments: vi.fn(async () => {
+        order.push("refresh");
+        return [];
+      }),
+    };
+    const { container, root } = await renderOrderModal(store, order);
+
+    await click(container.querySelector("button.bg-coral") as Element);
+    await click(buttonByText(container, /Create Order/));
+
+    // The ledger must be re-read only once the row is committed, or the refresh
+    // reads a ledger that still does not contain it.
+    expect(order, "the refresh must follow the deposit POST").toEqual(["deposit", "refresh"]);
+    expect(store.refreshPayments).toHaveBeenCalled();
     teardown(root, container);
   });
 });

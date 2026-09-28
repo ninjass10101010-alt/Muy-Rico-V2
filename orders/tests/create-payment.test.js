@@ -261,6 +261,37 @@ describe('createPayment derived status', () => {
     const update = calls.find((c) => /UPDATE orders SET payment_method/.test(c.sql));
     expect(update, 'the order must record how it was paid').toBeTruthy();
     expect(update.binds).toEqual(['cash', null, 1]);
+    // The sub-method slot is COALESCEd, not assigned — see the clobber test
+    // below. `binds` is unchanged by the fix, so the SQL shape is what pins it.
+    expect(update.sql).toMatch(/payment_sub_method = COALESCE\(\?, payment_sub_method\)/);
+  });
+
+  it('does not clobber a recorded sub-method with a null one', async () => {
+    // A customer pays a deposit online, so the order holds
+    // payment_method='stripe' and payment_sub_method='{"type":"card",...}' from
+    // markOrderPaid (api.js:1097). The owner then collects the balance in cash:
+    // no SPA payment passes a subMethod, so binding null must leave the card
+    // detail standing rather than null the column and lose it for good. The mock
+    // cannot evaluate SQL, so the shape of the assignment is what is pinned.
+    const { env, ctx, calls } = makeEnv({ totalCents: 6000, activePayments: [{ amount: 60 }] });
+    await worker.fetch(createPaymentRequest({ ...BASE, method: 'cash' }), env, ctx);
+    const update = calls.find((c) => /UPDATE orders SET payment_method/.test(c.sql));
+    expect(update.binds[1], 'the wire value is null for every SPA payment').toBeNull();
+    expect(update.sql).not.toMatch(/payment_sub_method = \?/);
+    expect(update.sql).toMatch(/COALESCE\(\?, payment_sub_method\)/);
+  });
+
+  it('still overwrites the sub-method when the payment supplies one', async () => {
+    // COALESCE must not become a blanket no-op: a payment that does carry a
+    // sub-method is the current word on how this order was paid.
+    const { env, ctx, calls } = makeEnv({ totalCents: 6000, activePayments: [{ amount: 60 }] });
+    await worker.fetch(
+      createPaymentRequest({ ...BASE, method: 'venmo', method_details: '{"type":"cash"}' }),
+      env, ctx
+    );
+    const update = calls.find((c) => /UPDATE orders SET payment_method/.test(c.sql));
+    expect(update.binds).toEqual(['venmo', '{"type":"cash"}', 1]);
+    expect(update.sql).toMatch(/COALESCE\(\?, payment_sub_method\)/);
   });
 
   it('mirrors payment_sub_method from method_details onto the order', async () => {

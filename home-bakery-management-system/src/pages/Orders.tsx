@@ -474,8 +474,11 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               ) : selected.paymentStatus === "partial" ? (
                 <div className="space-y-2">
                   {(() => {
-                    // `payments` is refreshed when this panel opens, so these are
-                    // the rows that Collect Balance will be totalled against.
+                    // Display only, and deliberately not the source of the
+                    // charge: this is the render-time `payments` array, which the
+                    // handler below re-reads strictly at click time. The two can
+                    // differ for the few hundred ms before that refresh lands, so
+                    // the figure below is advisory and the charged amount is not.
                     const totalPaid = paidCentsForOrder(payments, selected.id) / 100;
                     const remaining = Math.max(0, selected.total - totalPaid);
                     return (
@@ -519,8 +522,15 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                               // handleApiCreateOrder's refresh has already run, so
                               // that array is missing it and `total - 0` would
                               // charge the full order on top of the deposit.
+                              //
+                              // strict, because a FAILED read is the same shape:
+                              // the default refreshPayments answers one with [],
+                              // which totals to `total - 0` and posts the whole
+                              // order. Any 5xx, offline blip or post-token-clear
+                              // 401 does it. Rethrowing lands in the catch below,
+                              // which leaves the modal open and collects nothing.
                               const amountCents = await remainingBalanceCents(
-                                refreshPayments,
+                                () => refreshPayments({ strict: true }),
                                 selected.id,
                                 Math.round(selected.total * 100),
                               );

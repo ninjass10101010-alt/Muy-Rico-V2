@@ -9,7 +9,7 @@ import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../ty
 import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 
 export default function OrderModal({ open, onClose, defaultDueDate }: { open: boolean; onClose: () => void; defaultDueDate?: string }) {
-  const { products, customers, handleCreateCustomer, profile, apiCreateOrder, generateReceipt } = useStore();
+  const { products, customers, handleCreateCustomer, profile, apiCreateOrder, generateReceipt, refreshPayments } = useStore();
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -182,12 +182,24 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
         await createPayment({
           id: newId("pay"),
           orderId: result.id,
-          orderNumber: null,
+          // The ledger's Order column is searchable (Payments.tsx), so a null
+          // here leaves the one row this whole task is about blank and
+          // unfindable. `orders` has no order_number column; MR-<id> is the same
+          // derivation the dashboard (StoreContext.tsx refreshOrders) and the
+          // server (api.js generateLabelsForOrder) use.
+          orderNumber: `MR-${result.id}`,
           customerName: finalCustomerName || "Walk-in Customer",
           amount: depositAmount,
           method: paymentMethod,
           date: new Date().toISOString(),
         });
+        // createPayment above is a raw api call, so nothing has put this row in
+        // the store's payments array — and handleApiCreateOrder cannot, because
+        // it runs before the deposit is committed. Payments.tsx reads that array
+        // directly, so without this the new deposit is missing from the ledger
+        // page and from its total until the app is reloaded. Lenient on purpose:
+        // this is display, and the charging read in Orders.tsx is strict.
+        await refreshPayments();
       } catch (err) {
         console.error("Failed to record deposit payment:", err);
       }

@@ -819,6 +819,12 @@ export function paidCentsForOrder(rows: Payment[], orderId: string): number {
  * refresh has already run, so a render-time array is missing the deposit and
  * `total - 0` charges the whole order on top of it — order 52, $13.00
  * collected against a $1.30 deposit.
+ *
+ * The reader must also REJECT when the fetch fails. An empty list is not a
+ * neutral answer to "what is outstanding", it is the answer $13.00: this
+ * function cannot tell rows nobody paid from rows it never received, and would
+ * charge the difference. A lenient reader has to be rethrown from, which is why
+ * the caller passes refreshPayments({ strict: true }).
  */
 export async function remainingBalanceCents(
   readPayments: () => Promise<Payment[]>,

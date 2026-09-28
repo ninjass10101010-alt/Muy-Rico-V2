@@ -51,7 +51,7 @@ interface StoreContextValue {
   orders: Order[];
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   payments: Payment[];
-  refreshPayments: () => Promise<Payment[]>;
+  refreshPayments: (opts?: { strict?: boolean }) => Promise<Payment[]>;
   receipts: Receipt[];
   refreshReceipts: () => Promise<void>;
   resendReceipt: (id: string) => Promise<void>;
@@ -349,16 +349,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   // Returns the rows it read so a caller that is about to CHARGE can total
-  // against the same fetch. A failed read returns an empty list rather than the
-  // seed rows it used to substitute: handing a caller rows nobody paid would
-  // let it sum a balance that does not exist.
-  const refreshPayments = useCallback(async (): Promise<Payment[]> => {
+  // against the same fetch.
+  //
+  // `strict` exists because the two kinds of reader are not interchangeable. A
+  // failed read cannot be summarised as "nothing collected": that hands the
+  // caller `total - 0`, the full order total, on top of a deposit it never saw.
+  // A display panel is better off showing a stale figure than throwing, so the
+  // default stays lenient — but a charging read must fail loudly instead, so it
+  // passes { strict: true } and the rejection reaches the handler's catch. In
+  // strict mode the state is left untouched too: a failed *charging* read says
+  // nothing about what the ledger holds.
+  const refreshPayments = useCallback(async (opts?: { strict?: boolean }): Promise<Payment[]> => {
     try {
       const rows = await fetchPayments();
       const mapped = rows.map(apiToPayment);
       setPayments(mapped);
       return mapped;
     } catch (err) {
+      if (opts?.strict) throw err;
       console.warn("Failed to fetch payments from API:", err);
       setPayments([]);
       return [];
