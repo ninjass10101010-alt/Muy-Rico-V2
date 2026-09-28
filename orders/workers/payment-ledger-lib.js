@@ -9,7 +9,8 @@
 
 /**
  * Sum a list of payment rows into integer cents.
- * Rounds per-row so float drift in REAL dollars cannot accumulate.
+ * Rounds each row before summing so every row's cents value is independently
+ * correct, instead of leaning on the total happening to land correctly.
  */
 export function activePaymentsCents(rows) {
   if (!Array.isArray(rows)) return 0;
@@ -27,6 +28,9 @@ export function derivePaymentStatus(activeCents, totalCents) {
   const paid = Number(activeCents);
   const total = Number(totalCents);
   if (!Number.isFinite(paid) || paid <= 0) return 'unpaid';
+  // A non-finite total only arrives from a caller bug: orders.total_cents is
+  // INTEGER NOT NULL DEFAULT 0 (migrations/0001_initial.sql:12). Reporting
+  // 'paid' here is deliberate — this module fails closed, toward settled.
   if (!Number.isFinite(total) || paid >= total) return 'paid';
   return 'partial';
 }

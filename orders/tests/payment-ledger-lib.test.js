@@ -29,6 +29,15 @@ describe('activePaymentsCents', () => {
     expect(activePaymentsCents([{ amount: 'abc' }, { amount: 5 }])).toBe(500);
     expect(activePaymentsCents([{ amount: null }])).toBe(0);
   });
+
+  it('nets negative amounts rather than excluding them', () => {
+    // Deliberate: the caller's SQL decides which rows to pass in, and
+    // payments.amount is written from integer cents on every path, so a
+    // negative cannot arise from the dashboard. Pinned so a refactor cannot
+    // silently switch this to a filter.
+    expect(activePaymentsCents([{ amount: -5 }])).toBe(-500);
+    expect(activePaymentsCents([{ amount: 10 }, { amount: -2.5 }])).toBe(750);
+  });
 });
 
 describe('derivePaymentStatus', () => {
@@ -58,11 +67,25 @@ describe('derivePaymentStatus', () => {
     expect(derivePaymentStatus(-100, 6000)).toBe('unpaid');
   });
 
-  it('does not report partial for a sum that is a cent short of the total', () => {
-    // The dollars/cents class of bug: 0.1 + 0.2 must not land on 29.99 cents.
+  it('sums dollars and cents without drift, landing on the total exactly', () => {
+    // The dollars/cents class of bug: adding REAL dollars in binary float can
+    // land a cent under. These three rows must total exactly 1264 cents.
     const rows = [{ amount: 12.34 }, { amount: 0.1 }, { amount: 0.2 }];
     expect(activePaymentsCents(rows)).toBe(1264);
     expect(derivePaymentStatus(activePaymentsCents(rows), 1264)).toBe('paid');
+  });
+
+  it('treats a non-finite total as settled, since the column is NOT NULL', () => {
+    // orders.total_cents is INTEGER NOT NULL DEFAULT 0 (migrations/0001:12),
+    // so a bad total can only arrive from a caller bug. The module is
+    // documented as fail-closed against reporting a settled order as partial,
+    // so this branch is a caller-bug amplifier, not a data condition. Pinned
+    // here so a future refactor cannot invert it silently.
+    expect(derivePaymentStatus(100, undefined)).toBe('paid');
+    expect(derivePaymentStatus(100, NaN)).toBe('paid');
+    // Number(null) is 0, which is finite, so it falls through the isFinite
+    // guard and reaches the >= comparison instead.
+    expect(derivePaymentStatus(100, null)).toBe('paid');
   });
 });
 
@@ -81,5 +104,10 @@ describe('balanceCentsCents', () => {
 
   it('returns zero when nothing was collected and the total is zero', () => {
     expect(balanceCentsCents(0, 0)).toBe(0);
+  });
+
+  it('returns more than the total when the collected sum is negative', () => {
+    // Follows directly from netting negatives — see activePaymentsCents.
+    expect(balanceCentsCents(-500, 6000)).toBe(6500);
   });
 });
