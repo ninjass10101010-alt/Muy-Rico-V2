@@ -1,8 +1,8 @@
 # Sales Hub — Quotes, Invoices, Payments & Receipts
 
 **Date:** 2026-09-28
-**Status:** Approved
-**Scope:** Dashboard cohesion + money-accuracy fixes. No new business capabilities beyond cash deposit recording.
+**Status:** Approved — amended 2026-09-28 after a deeper investigation invalidated part of §3
+**Scope:** Dashboard cohesion and a work queue. Money correctness has been **split out** to `2026-09-28-payment-ledger-correctness-design.md`, which ships first.
 
 ---
 
@@ -20,7 +20,7 @@ The sidebar exposes four separate screens — Cake Quotes, Invoices, Payments, R
 | Payment → Order | Solid FK (`0006_server_storage.sql:22`) |
 | Receipt → anything but Order | `receipts.order_id` is `NOT NULL` + `CASCADE` (`0022_receipts.sql:5`). **A paid, emailed invoice creates zero receipt rows** |
 
-Money is written to four places: `orders.payment_status`, `payments` rows, `cake_quotes.deposit_*`, `invoices.paid_*`. Nothing keeps them reconciled, and one of those writes is destructive (§3a).
+Money is written to four places: `orders.payment_status`, `payments` rows, `cake_quotes.deposit_*`, `invoices.paid_*`. Nothing keeps them reconciled, and one of those writes is destructive — see `2026-09-28-payment-ledger-correctness-design.md`.
 
 All analytics is client-side `useMemo` over the full in-memory store (`Dashboard.tsx:41-137`). `/api/stats` (`api.js:1446`) is dead code. This design adds no server aggregation — all five queue signals are derivable client-side from data the SPA already fetches.
 
@@ -88,126 +88,41 @@ All five are pure derivations over the existing store — no new endpoints, no n
 |---|---|---|---|
 | **Quotes to answer** | `status === "new"`, or `status === "replied"` with no `convertedOrderId`. Days-since badge, red past 3 days | Open quote detail | `#sales/quotes` |
 | **Invoices unpaid** | `status === "sent"` and `paidCents < totalCents`, sorted by `dueDate`. Urgency via `dueTier()` (`format.ts:110-124`) | Open invoice, copy pay link | `#sales/invoices/overdue` |
-| **Unrecorded payments** | Orders with `paymentStatus === "unpaid"` that are `completed`, or whose `dueTier()` is `overdue`/`today`/`tomorrow` — i.e. almost certainly settled in cash | **Record payment** (§3b) | `#sales/payments` |
+| **Unrecorded payments** | Orders with `paymentStatus === "unpaid"` that are `completed`, or whose `dueTier()` is `overdue`/`today`/`tomorrow` — i.e. almost certainly settled in cash | **Record payment** (see `RecordPaymentModal` below) | `#sales/payments` |
 | **Receipt problems** | `receipts` where `status === "failed"`, plus orders with `paymentStatus === "paid"` and no receipt row | Resend / generate receipt | `#sales/receipts/failed` |
 | **Deposits with no order** ⚠️ | `depositPaidCents > 0` and `convertedOrderId == null` | Open quote, reconcile or refund | `#sales/quotes` |
 
-**On the "deposits with no order" card.** A quote deposit normally auto-converts to an order (`api.js:4371`), so this is a narrow state, not a common one. It is reached when the provider-signed payment lands **below the 50% minimum** — the `insufficient_amount` branch at `api.js:4342-4347`. The money moved, no order is created, and the customer is sent **no confirmation email**; only the owner gets a Telegram ping (`:4346`). This is the highest-severity item in the queue and the one that was most invisible: the SPA cannot compute it today because quote deposit fields never reach the client (§3d).
+**On the "deposits with no order" card.** A quote deposit normally auto-converts to an order (`api.js:4371`), so this is a narrow state, not a common one. It is reached when the provider-signed payment lands **below the 50% minimum** — the `insufficient_amount` branch at `api.js:4342-4347`. The money moved, no order is created, and the customer is sent **no confirmation email**; only the owner gets a Telegram ping (`:4346`). This is the highest-severity item in the queue and the one that was most invisible: the SPA cannot compute it today because `rowToQuote` never maps the deposit fields at all (`api.js:3161-3187`), so they are write-only. The correctness spec fixes that as Fix 7.
+
+**What this card does not do:** it surfaces the state to you. It does not stop the customer having been shown a false success screen, and it does not let them pay the remainder. Both are open — see "Known issues" below.
 
 The other paths that return `duplicate` (`api.js:4323, 4333, 4346, 4367`) all have `convertedOrderId` set, so they correctly fall outside this card.
 
-### 3. Money-accuracy fixes
+### 3. Money-accuracy fixes — MOVED OUT
 
-#### 3a. `createPayment` gains a `replace` mode — prerequisite for deposits
+The eight subsections that used to live here (the `createPayment` `replace` mode, `RecordPaymentModal`, the `recordPayment` resignature, the quote-deposit mapping, the Order → Invoice link, the `payments.order_number` fallback, the "Undo payment" copy, and the `QuoteConvertModal` deposit floor) have been **split into `2026-09-28-payment-ledger-correctness-design.md`**, which ships first.
 
-**Today** (`api.js:2717-2721`) `createPayment` deactivates *every* active payment for the order before inserting. The stated intent (`api.js:2713-2716`) is to prevent double-counting when toggling paid → unpaid → paid. The side effect is that **a partial payment is destroyed by the next one**.
+That split happened after a deeper investigation found the premise of this section was wrong. These were not accuracy polish — the payment ledger was **losing data**, and the investigation turned up a third `createPayment` call site this spec had missed (`OrderModal.tsx:180-195`, the new-order 10% deposit) whose missing `refreshPayments()` makes the existing "Collect Balance" button collect the *full order total* instead of the balance. The local D1 store holds the proof: order 52 shows a `$1.30` deposit deactivated 85 seconds before a `$13.00` payment for a `$13.00` order — `$14.30` of real cash, `$13.00` recorded.
 
-This is not theoretical. The existing **"Collect Balance"** button at `Orders.tsx:479-497` records the remaining balance — which means it deletes the deposit record it was meant to settle. Deposits cannot work correctly until this changes.
+Shipping a dashboard that aggregates the ledger on top of that is building the reporting layer before the thing it reports on. The correctness spec goes first; this spec follows on trustworthy data.
 
-**New behaviour** (`api.js:2701-2740`):
+**Two corrections to the text below, both material:**
 
-| `replace` | Behaviour | Used by |
-|---|---|---|
-| `true` (default) | Current behaviour: deactivate all active payments for the order, then insert | Full settles; preserves every existing caller |
-| `false` | Insert as a top-up; leave existing active payments alone | Deposits, partial/balance collection |
+1. **The original §3d was wrong.** It claimed "the server already returns them" for the quote deposit fields. It does not. `QUOTE_FIELDS` selects them (`api.js:3140-3149`) but `rowToQuote` (`api.js:3161-3187`) — the serializer behind both `listQuotes` and `getQuote` — drops them, along with `public_token`. The mapping is therefore a **server** change, not just a client one, and it lives in the correctness spec as Fix 7. The same omission means the Quotes tab has no pay-link button, which invoices do have.
+2. **`RecordPaymentModal` is not blocked on the correctness work**, only on it shipping first. The modal itself stays here — the correctness spec only re-points the two existing `Orders.tsx` inline flows at a corrected `recordPayment` signature and preserves their current single-method-select UI.
 
-The default preserves current behaviour exactly, so `quote-deposit-lib.test.js` and `invoice-lib.test.js` stay green and no existing caller changes meaning.
+**Still in scope for this spec**, because they are cohesion rather than correctness:
 
-**After any insert, `orders.payment_status` is recomputed server-side** from the sum of active payments, rather than trusting a client-supplied status:
-
-- no active payments → `unpaid`
-- active sum `> 0` and `< total_cents` → `partial`
-- active sum `>= total_cents` → `paid` (overpayment counts as paid)
-
-The recompute is a pure function in a new `orders/workers/payment-ledger-lib.js`, unit-tested per the existing `*-lib.js` convention. It runs **only** inside `createPayment`, so it cannot disturb `markOrderPaid` (`api.js:1060-1140`, which forces `paid` and flips `awaiting_payment` → `pending` at `:1116-1122`) or the conversion batch paths (`api.js:3946-3949`, `api.js:4620-4626`), which write payments with their own inserts.
-
-**Cents vs dollars.** `payments.amount` is `REAL` dollars (`0006_server_storage.sql:25`) while every other monetary column is `INTEGER` cents. This is a pre-existing wart; changing it is a data migration and out of scope. The recompute converts with `Math.round(amount * 100)` and the SPA divides once at the write site, as `markOrderPaid` (`api.js:1109`) already does.
-
-**`method_details` on insert.** `createPayment` currently omits `method_details` from its INSERT (`api.js:2725`) even though the column exists (`0021_payment_sub_method.sql:6`), `ApiPayment` reads it (`api.ts:692`), and `markOrderPaid` already writes it (`api.js:1111`). Only the owner-recorded path drops it. The modal needs it, so the insert gains it and `PaymentCreate` (`api.ts:698-706`) gains the field.
-
-#### 3b. `RecordPaymentModal` — new component
-
-`src/components/RecordPaymentModal.tsx`.
-
-- **Amount** — defaults to the remaining balance. Min `$0.01`, step `0.01`. Live readout: *"Remaining after: $X"*.
-- **Method** — radio grid from `profile.acceptedMethods` filtered to exclude `ONLINE_ONLY` (`format.ts:54`: `stripe`, `paypal`), matching `Orders.tsx:132-134` and `QuoteConvertModal.tsx:46-48`. Defaults to `cash`.
-- **Sub-method** — optional free text (Venmo/CashApp handle, "who gave it to me"), shown only when a sub-method is meaningful. Rendered via `formatPaymentSubMethod` (`format.ts:56`) for the summary line.
-- **Date** — defaults to today, editable. Backdating a cash payment is a real workflow.
-- **Two buttons:**
-  - **Record** — records `amount` as a top-up (`replace: false`). Partial/deposit.
-  - **Settle in full** — sets amount to the remaining balance and records it (`replace: true`).
-- Not offered when remaining is `0`.
-- On success: toast via the app's `ToastProvider`, refresh orders + payments, close.
-
-**Replaces the two duplicated inline flows** at `Orders.tsx:466-517` and `Orders.tsx:530-570`, both of which become `setRecordPayFor(order)`. Also invoked from the queue's "Unrecorded payments" card.
-
-#### 3c. `recordPayment` signature change
-
-`StoreContext.tsx:685-701` changes from `(order: Order) => Promise<void>` to:
-
-```ts
-recordPayment(input: {
-  orderId: number;
-  amountCents: number;
-  method: PaymentMethod;
-  subMethod?: string | null;
-  date?: string;
-  replace?: boolean;
-}): Promise<{ ok: boolean; paymentStatus: PaymentStatus; balanceCents: number }>
-```
-
-This deletes the object-forging hack at `Orders.tsx:485`, which passes `{ ...selected, total: remaining }` — a fake `Order` whose `total` is silently the balance — so that `recordPayment` records the right figure.
-
-The modal and the three call sites (`Orders.tsx:113, 485, 548`) stop calling `apiUpdateOrder({ payment_status })` before recording. The server recompute from §3a is authoritative, which removes the double-write and the ordering hazard in the current code, where `Orders.tsx:484` marks the order `paid` and `:485` then records whatever it recorded.
-
-`recordPayment` returns the server-computed status and remaining balance so callers can show an accurate confirmation instead of guessing.
-
-**Unit handling.** `recordPayment` takes `amountCents` because that is what the modal's balance math uses — `Order.total` is dollars (`StoreContext.tsx:139`, `total_cents / 100`) but `Invoice.totalCents` is cents, and the modal is shared. The single division to dollars happens inside `recordPayment` when it calls `createPayment`, whose wire field `amount` is dollars (`api.ts:702`) to match the `REAL` column — exactly as `markOrderPaid` does at `api.js:1109`.
-
-#### 3d. Quote deposits reach the SPA
-
-The server already returns them — `QUOTE_FIELDS` at `api.js:3147` includes `deposit_paid_cents`, `deposit_paid_at`, `deposit_method`, `deposit_ref` — but `ApiQuote` (`api.ts:~1055-1081`), the `Quote` type (`types.ts:297-325`), and `apiToQuote` (`StoreContext.tsx:364-391`) all drop them.
-
-Add `depositPaidCents: number | null`, `depositPaidAt: string | null`, `depositMethod: string | null` to the `Quote` type (`types.ts:299`); add the three snake_case fields to `ApiQuote` (`api.ts:1056`); map them in `apiToQuote`. **No migration** — the columns exist since `0044_quote_deposit.sql`.
-
-This unlocks queue card 5 and lets the Quotes tab show a deposit badge on any quote that has been paid down.
-
-#### 3e. Restore the Order → Invoice link
-
-- Add `invoice_id?: number | null` to `ApiOrder` (`api.ts:39-60`).
-- Add `invoiceId: number | null` to the `Order` type (`types.ts:119`).
-- Map it in `apiToOrder` (`StoreContext.tsx:118-142`).
-- Resolve `invoiceId` → `INV-####` client-side against the already-loaded `invoices` array, and render a link in the order detail modal plus in any order row shown in the hub.
-
-**No migration** — the column and its unique index exist (`0048_orders_invoice_id.sql:7-8`); the SPA simply discards the value. The reverse direction (invoice → order) already renders at `Invoices.tsx:242-244`; this completes the pair.
-
-#### 3f. `payments.order_number` fallback
-
-The `orders` table has no `order_number` column, so every `payments` row stores `NULL` — `api.js:1105` states this explicitly. `apiToPayment` (`StoreContext.tsx:313`) reads the column directly and yields `""`, so the first column of the Payments table is always blank and the search filter on it (`Payments.tsx:30`) is a no-op.
-
-`Order.orderNumber` is already derived client-side as `MR-${id}` (`StoreContext.tsx:123`). Change `apiToPayment` to fall back to the same derivation. **No migration.** Existing `NULL` rows immediately display correctly.
-
-#### 3g. Honest copy on "Undo payment"
-
-`Orders.tsx:518-528` labels the action *"Mark this order as unpaid"* with the body *"The payment history will be kept for your records."* It does the opposite: `updateOrder` with `payment_status: 'unpaid'` deactivates **all** payments for the order (`api.js:950-953`), and `listPayments` filters `WHERE active = 1` (`api.js:2696`), so the history disappears from the UI.
-
-Behaviour is intentional as an explicit undo and is left unchanged. The copy is corrected to state that payment history is cleared, with a confirm dialog. Low risk, and it stops the app from claiming something it does not do.
-
-#### 3h. `QuoteConvertModal` deposit floor
-
-`QuoteConvertModal.tsx:42,44` hard-blocks any deposit below 50% of the quoted price. That floor enforces a business rule — *is this job firmly booked?* — but it is wrong for cash, where a customer handing over `$20` against a `$150` quote is a real event that should be recordable.
-
-- Floor relaxes to `$0.01`.
-- The 50% figure remains the prefill (`:36`).
-- Below 50%, show a non-blocking warning that the job is not yet firmly booked and the balance is due before baking.
-
----
+- The **Order → Invoice link** — a one-line mapping plus a rendered link, and the main reason the hub reads as one system.
+- The **`payments.order_number` fallback** — a one-line derivation from `orderId`, so the Payments table's blank first column and its no-op search filter start working.
+- The **"Undo payment" copy** — the label claims history is kept; it is deactivated. Correcting the words costs nothing, and the correctness spec adds the `include_voided` view that makes the corrected claim true.
+- The **`QuoteConvertModal` deposit floor** — relaxing a 50% hard block so a small cash deposit is recordable. This is a capability, not a fix, and belongs with the cash-deposit feature below.
 
 ## Cash deposits, end to end
 
 | Where | How it works | Status |
 |---|---|---|
-| Quote deposit, cash | `QuoteConvertModal` — already defaults to `cash` and excludes online-only methods (`:37`, `:46-48`), plus the §3h floor relaxation | Exists, needs 3h |
+| Quote deposit, cash | `QuoteConvertModal` — already defaults to `cash` and excludes online-only methods (`:37`, `:46-48`), plus the deposit-floor relaxation described above | Exists; needs the floor change |
 | **Order deposit or balance, cash** | **`RecordPaymentModal` with a partial amount and `replace: false`** | **New** |
 | Invoice settled in cash | Convert the invoice to an order, then record the cash payment against the order | Exists |
 
@@ -217,52 +132,58 @@ Behaviour is intentional as an explicit undo and is left unchanged. The copy is 
 
 ## Testing
 
-Follows the existing convention: pure logic in `*-lib.js` / `utils/*.ts`, unit-tested, no rendering required.
-
-**Worker — `orders/tests/payment-ledger-lib.test.js`** (new)
-- Recompute matrix: no payments → `unpaid`; partial sum → `partial`; exact total → `paid`; overpayment → `paid`; zero-amount total.
-- Cents conversion: `amount` is `REAL` dollars, `total_cents` is an integer — `12.34` dollars must equal `1234` cents, no float drift.
-- `replace: true` deactivates prior active rows; `replace: false` leaves them.
-- Multiple `replace: false` top-ups accumulate to the correct sum.
+Follows the existing convention: pure logic in `utils/*.ts`, unit-tested, no rendering required. The payment-ledger tests live in the correctness spec and are not repeated here.
 
 **SPA — `src/utils/salesAttention.test.ts`** (new)
-- Each of the five selectors, including the boundary cases: an invoice at `paidCents === totalCents` is *not* outstanding; a quote with a deposit and a `convertedOrderId` is *not* flagged; a `paid` order with a receipt is not flagged; `dueTier` overdue bucketing.
+- Each of the five selectors, including the boundary cases: an invoice at `paidCents === totalCents` is *not* outstanding; a quote with a deposit **and** a `convertedOrderId` is *not* flagged; a `paid` order with a receipt is not flagged; `dueTier` overdue bucketing; the sidebar badge total equals the sum of the card counts.
 
 **SPA — `src/components/RecordPaymentModal.test.tsx`** (new)
 - Remaining-balance default; live remaining-after readout; min validation; **Record** sends `replace: false` and **Settle in full** sends `replace: true` with the full remaining amount; `ONLINE_ONLY` methods absent; not rendered when remaining is `0`.
 
 **Regression**
-- `orders/tests/quote-deposit-lib.test.js` and `orders/tests/invoice-lib.test.js` must stay green. The `replace` default is what guarantees this.
-- `npm run typecheck` must pass — `ApiQuote` / `ApiOrder` / `Quote` / `Order` / `Payment` type changes ripple through `api.ts`, `types.ts`, and `StoreContext.tsx`.
+- The correctness spec's suites must be green before this work starts — the hub's queue reads the same ledger.
+- `npm run typecheck` must pass. The `ApiOrder` / `Order` additions ripple through `api.ts`, `types.ts`, and `StoreContext.tsx`.
+
+---
+
+## Dependency
+
+**This spec is blocked on `2026-09-28-payment-ledger-correctness-design.md` shipping first.** The `Deposits with no order` card cannot be computed at all until the server maps the deposit fields (Fix 7), `Unrecorded payments` is meaningless while the ledger loses rows, and the `RecordPaymentModal` needs the corrected `recordPayment` signature and the `replace` flag that spec introduces.
 
 ---
 
 ## Implementation order
 
-1. **Pure derivations + lib extraction** — `payment-ledger-lib.js` and `salesAttention.ts`, with full tests. Nothing user-visible.
-2. **Worker `createPayment` `replace` mode** + status recompute + `method_details` on insert. Tests green.
-3. **Mapping fixes** — `ApiOrder.invoice_id`, quote deposit fields, `payments.order_number` fallback. No migration, so trivially revertable.
-4. **`RecordPaymentModal`** + `recordPayment` resignature + retire both `Orders.tsx` inline flows.
-5. **`Sales.tsx`** — sub-tab state, hash deep-links, queue, sidebar/topbar rewiring, `focus` props on the four pages.
-6. **Copy and secondary polish** — §3g relabel, §3h floor relaxation, Quotes deposit badge, Receipts failure tile.
+1. **Pure derivations** — `salesAttention.ts` with full tests. Nothing user-visible. Can start immediately, in parallel with the correctness spec.
+2. **Mapping additions** — `ApiOrder.invoice_id` → `Order.invoiceId`, and the `payments.order_number` fallback. Two lines, no migration, trivially revertable.
+3. **`RecordPaymentModal`** + retire both `Orders.tsx` inline flows.
+4. **`Sales.tsx`** — sub-tab state, hash deep-links, queue, sidebar/topbar rewiring, `focus` props on the four pages.
+5. **Copy and secondary polish** — "Undo payment" relabel, `QuoteConvertModal` floor relaxation, Quotes deposit badge, Receipts failure tile.
 
-Steps 1–3 are independently shippable and touch no UI. If the queue turns out to be wrong, nothing has been spent that can't be discarded.
+**Change surface:** `home-bakery-management-system/src/{App.tsx, types.ts}`, `src/utils/{api.ts, salesAttention.ts}`, `src/context/StoreContext.tsx`, `src/pages/{Sales.tsx (new), Orders.tsx, Quotes.tsx, Invoices.tsx, Payments.tsx, Receipts.tsx}`, `src/components/{Sidebar.tsx, Topbar.tsx, RecordPaymentModal.tsx (new)}`, plus tests.
 
-**Change surface:** `orders/workers/api.js` (one handler + one new lib), `home-bakery-management-system/src/{App.tsx, types.ts}`, `src/utils/{api.ts, salesAttention.ts}`, `src/context/StoreContext.tsx`, `src/pages/{Sales.tsx (new), Orders.tsx, Quotes.tsx, Invoices.tsx, Payments.tsx, Receipts.tsx}`, `src/components/{Sidebar.tsx, Topbar.tsx, RecordPaymentModal.tsx (new)}`, plus tests.
-
-**No migrations. No changes to `workers/checkout.js`, `markOrderPaid`, `convertInvoiceToOrder`, or `convertQuoteToOrder`.**
+**No migrations. No changes to `orders/workers/` beyond the `recordPayment` call sites — all worker-side work is in the correctness spec.**
 
 ---
 
 ## Known issues deliberately not addressed
 
-Recorded so they are not lost, and explicitly out of scope for this pass:
+Recorded so they are not lost. Items marked **[fixed elsewhere]** are handled by `2026-09-28-payment-ledger-correctness-design.md`; the rest are open and are candidates for the third spec.
 
-- **`cake_quotes.status` has no server-side whitelist.** `updateQuote` writes any string the client sends (`api.js:3443-3446`). `invoices` is guarded by `assertInvoiceEditable` (`api.js:3133`); quotes are not. Worth fixing, but it is a validation bug rather than money accuracy, and the fix belongs with a status-vocabulary pass.
-- **Nothing prevents a double charge.** A quote-deposit link and an invoice can both be sent for the same cake, producing two payment rows and two orders. The only safeguard is a Telegram "refund needed" alert (`api.js:4273`, `api.js:3969`). A true fix needs the quote → invoice link this design defers.
-- **Deleting an order orphans its payments.** `payments.order_id` is `ON DELETE SET NULL` (`0006_server_storage.sql:22`) while `receipts` cascade (`0022_receipts.sql:5`). Orphaned payments remain on the Payments tab and in the revenue totals, which is arguably correct — the money was real — but the distinction is invisible.
-- **The 50% deposit rule is implemented four times** — `quote-deposit-lib.js:7`, `invoicePdf.ts:171`, `QuoteConvertModal.tsx:36,43`, and now a fifth in the `salesAttention` reasoning. The first is the only unit-tested one. Consolidating is a small, worthwhile follow-up.
-- **`DELETE /api/payments/:id` is unrouted.** The handler exists (`api.js:2742`) but no route reaches it, and the client wrapper (`api.ts:720-724`) calls a 404 and is never invoked. Payments are effectively immutable.
+- **The under-minimum deposit is a customer-facing lockout, not a visibility gap.** A customer who pays below the floor gets a green *"Your date is secured / We just emailed your confirmation"* screen (`pay-quote.html:122-123`) when no order exists and no email was sent; the PayPal path never verifies at all (`pay-quote.html:236-250`); and they cannot pay the remainder — the page shows the terminal "already paid" state, `checkout.js:763-765` returns 409, no second-payment endpoint exists. The sharpest case: a customer who paid **in full** whose quote is later revised upward trips `isDepositSufficient(10000, 25000)` and is classified as under-minimum with no order. **This spec's queue surfaces the state for the owner; it does not close the customer-facing loop.** The fifth queue card is the most it can do.
+- **The owner cannot enter the true amount when converting.** The convert modal is pre-filled to 50%; the client disables the button below the floor and `api.js:4659-4663` returns 400. Accepting the prefill records a payment the customer never made, over-counting revenue.
+- **`convertQuoteToOrder` drops the recorded deposit.** It never reads `quote.deposit_paid_cents`, so the true amount is neither carried onto the order nor double-counted — it is lost once the quote converts.
+- **The under-minimum alert is mislabelled** — it fires `notifyDuplicateDeposit`, whose template (`api.js:4274`) reads "Duplicate deposit payment … refund needed" for what is a first, under-sized payment needing a top-up invitation.
+- **The invoice path shares the under-payment bug with a stricter rule.** `matchedPayMode` (`invoice-lib.js:19-27`) demands exact equality, so *over*payment is rejected too. The invoice path self-heals on a provider retry (`api.js:4067-4072`); the quote path's claim-loser does not (`api.js:4360-4362`).
+- **Nothing prevents a double charge.** A quote-deposit link and an invoice can both be sent for the same cake, producing two orders and two payment rows that both count toward revenue. No cross-check exists between the two conversion paths, and `convertQuoteToOrder` sets neither `invoice_id` nor `quote_id`. Detection is possible with a join on `cake_quotes.converted_order_id` and `invoices.converted_order_id`, but no such query exists in the product. **[fix requires the `orders.quote_id` migration]**
+- **Neither conversion path sets `customer_id` on the order**, so `Quotes.tsx:192`'s "past orders" count reads 0 for converted quotes even when orders exist.
+- **`orders.payment_status` can be flipped back to `unpaid` and then re-synced by a provider retry**, inserting a second payment row for the same money (`api.js:952` plus the `alreadyPaid` flag at `api.js:1080`). **[fixed elsewhere — status is now derived from the ledger]**
+- **`convertQuoteToOrder` is not transactional** (`api.js:4596-4637`), unlike `convertInvoiceToOrder`. **[fixed elsewhere]**
+- **`updateOrder` rewrites `method` on the newest active payment in place** with no audit event (`api.js:958-965`), so "Edit method" on a cash-deposit-plus-card-balance order relabels the cash row. **[fixed elsewhere — an audit event is added]**
+- **`seedPayments` is `[]`** (`seedData.ts:406`), so a transient failure of `GET /api/payments` silently swaps in an empty array — blanking the Payments tab, both dashboard charts, revenue, and the owed total — with only a `console.warn` (`StoreContext.tsx:346-349`).
+- **Deleting an order orphans its payments.** `payments.order_id` is `ON DELETE SET NULL` (`0006_server_storage.sql:22`) while `receipts` cascade (`0022_receipts.sql:5`). Orphaned payments remain in revenue totals, which is arguably correct — the money was real — but the distinction is invisible.
+- **The 50% deposit rule is implemented four times** — `quote-deposit-lib.js:7`, `invoicePdf.ts:171`, `QuoteConvertModal.tsx:36,43`, and `invoice-lib.js:19`. Only the first two are unit-tested. Consolidating is a small, worthwhile follow-up.
 - **`/api/stats` is dead code** (`api.js:1446-1466`); no SPA caller. All dashboard analytics is computed client-side.
-- **A failed receipt send never alerts anyone.** `status: 'failed'` surfaces only as a red pill on the Receipts tab (`Receipts.tsx:98-102`). The attention queue improves visibility but does not notify.
-- **In the `insufficient_amount` branch the customer gets no confirmation email** (`api.js:4342-4347`) — money has left their account and the only notification goes to the owner. The queue surfaces the state for the owner but does not close the customer-facing loop.
+- **A failed receipt send never alerts anyone.** `status: 'failed'` surfaces only as a red pill on the Receipts tab (`Receipts.tsx:98-102`). The queue improves visibility but does not notify.
+- **`cake_quotes.status` accepts any string** (`api.js:3443-3446`), with no `CHECK` constraint and no `CHECK` anywhere in the schema. Not triggerable through the shipped UI — both call sites send hardcoded literals — but the client types are `status?: string`, so a future status editor passes through unchecked. Damage is fail-open and lands on the money paths. **[fixed elsewhere]**
+- **There is no unique index on `cake_quotes.converted_order_id`,** so quote conversion is not serialized against itself. Two concurrent converts can both insert. The invoice conversion has `idx_orders_invoice_id` (`0048:8`) as its explicit serialization point (`api.js:3924`); the quote side has no equivalent. **[fix requires a migration]**
