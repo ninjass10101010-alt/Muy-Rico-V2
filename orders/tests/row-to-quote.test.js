@@ -42,10 +42,16 @@ describe('rowToQuote deposit mapping', () => {
     expect(q.deposit_method).toBeNull();
   });
 
-  it('maps null when the columns are absent entirely', () => {
+  it('includes the deposit keys even when the row omits them', () => {
     const q = rowToQuote(BASE_ROW);
     expect(q).toHaveProperty('deposit_paid_cents');
     expect(q).toHaveProperty('public_token');
+  });
+
+  it('maps a SQL NULL deposit to null, distinct from a recorded 0', () => {
+    // The distinction matters: null means no deposit was taken, 0 means a
+    // zero-amount deposit was recorded. A `?? 0` mapping would collapse them.
+    expect(rowToQuote({ ...BASE_ROW, deposit_paid_cents: null }).deposit_paid_cents).toBeNull();
   });
 
   it('leaves existing fields untouched', () => {
