@@ -3,7 +3,13 @@ import worker from '../workers/api.js';
 
 // D1 stub with the batch() support the mark-paid stub lacks.
 // Follows the makeEnv pattern from tests/mark-paid.test.js:5-33.
-function makeEnv({ totalCents = 6000, activePayments = [], orderExists = true } = {}) {
+function makeEnv({
+  totalCents = 6000,
+  activePayments = [],
+  orderExists = true,
+  batchThrows = false,
+  throwOnAll = false,
+} = {}) {
   const calls = [];
   const record = (sql, binds, method) => calls.push({ sql, binds, method });
 
@@ -26,6 +32,7 @@ function makeEnv({ totalCents = 6000, activePayments = [], orderExists = true } 
         },
         async all() {
           record(sql, stmt._binds, 'all');
+          if (throwOnAll) throw new Error('D1_ERROR: something failed after the batch');
           if (/FROM payments WHERE order_id/.test(sql)) return { results: activePayments };
           return { results: [] };
         },
@@ -36,6 +43,7 @@ function makeEnv({ totalCents = 6000, activePayments = [], orderExists = true } 
       // A batch is one atomic unit. Record it as a single entry so a test can
       // assert the deactivate and the insert committed together.
       record('BATCH', stmts.map((s) => ({ sql: s._sql, binds: s._binds })), 'batch');
+      if (batchThrows) throw new Error('UNIQUE constraint failed: payments.id');
       return stmts.map(() => ({ meta: { changes: 1, last_row_id: 1 } }));
     },
   };
@@ -98,6 +106,47 @@ describe('createPayment replace mode', () => {
     expect(batch.binds[0].sql).toMatch(/INSERT INTO payments/);
     expect(sqlOf(calls)).not.toMatch(/UPDATE payments SET active = 0/);
   });
+
+  // The field arrives as JSON with no runtime validation, so the falsy
+  // spellings below all arrive as truthy-ish junk. Reading "false" as true
+  // deactivates the order's prior payments — the failure replace:false exists
+  // to prevent — so each spelling is pinned here.
+  it('treats an explicit string "false" as replace:false, not true', async () => {
+    const { env, ctx, calls } = makeEnv();
+    await worker.fetch(createPaymentRequest({ ...BASE, replace: 'false' }), env, ctx);
+    const batch = batchOf(calls);
+    expect(batch.binds).toHaveLength(1);
+  });
+
+  it('treats replace:0 as replace:false, not true', async () => {
+    const { env, ctx, calls } = makeEnv();
+    await worker.fetch(createPaymentRequest({ ...BASE, replace: 0 }), env, ctx);
+    const batch = batchOf(calls);
+    expect(batch.binds).toHaveLength(1);
+  });
+
+  it('binds the order id into the deactivate', async () => {
+    const { env, ctx, calls } = makeEnv();
+    await worker.fetch(createPaymentRequest({ ...BASE, order_id: 42 }), env, ctx);
+    const batch = batchOf(calls);
+    expect(batch.binds[0].binds).toEqual([42]);
+  });
+
+  it('binds the recorded fields into the insert positionally', async () => {
+    const { env, ctx, calls } = makeEnv();
+    await worker.fetch(
+      createPaymentRequest({ ...BASE, amount: 30, method: 'cash', method_details: '{"type":"cash"}' }),
+      env, ctx
+    );
+    const ins = batchOf(calls).binds[1].binds;
+    // id, order_id, order_number, customer_name, amount, method, method_details, date
+    expect(ins[0]).toBe('pay_test1');
+    expect(ins[1]).toBe(1);
+    expect(ins[3]).toBe('Ana');
+    expect(ins[4]).toBe(30);
+    expect(ins[5]).toBe('cash');
+    expect(ins[6]).toBe('{"type":"cash"}');
+  });
 });
 
 describe('createPayment safety', () => {
@@ -120,7 +169,39 @@ describe('createPayment safety', () => {
     const event = calls.find((c) => /INSERT INTO order_events/.test(c.sql));
     expect(event).toBeTruthy();
     expect(event.sql).toMatch(/order:payment_recorded/);
-    expect(event.binds).toContain('jeff');
+    expect(event.binds[1]).toBe('jeff');
+  });
+});
+
+describe('createPayment failure handling', () => {
+  it('returns 400 when the batch fails, having committed nothing on its own', async () => {
+    const { env, ctx, calls } = makeEnv({ batchThrows: true });
+    const res = await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    expect(res.status).toBe(400);
+
+    // The deactivate is a member of the batch, so a failed batch rolls the
+    // whole thing back. Nothing may run outside it.
+    const after = calls.slice(calls.findIndex((c) => c.method === 'batch') + 1);
+    expect(after, 'no statement may follow a failed batch').toHaveLength(0);
+  });
+
+  it('never issues a standalone deactivate when the batch fails', async () => {
+    const { env, ctx, calls } = makeEnv({ batchThrows: true });
+    await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    const standalone = calls.filter(
+      (c) => c.method === 'run' && /UPDATE payments SET active = 0/.test(c.sql)
+    );
+    expect(standalone).toHaveLength(0);
+  });
+});
+
+describe('createPayment read-after-write ordering', () => {
+  it('reads the ledger only after the batch has committed', async () => {
+    const { env, ctx, calls } = makeEnv({ activePayments: [{ amount: 60 }] });
+    await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    const batchIdx = calls.findIndex((c) => c.method === 'batch');
+    const readIdx = calls.findIndex((c) => c.method === 'all');
+    expect(readIdx, 'the ledger read must see the rows the batch just wrote').toBeGreaterThan(batchIdx);
   });
 });
 
@@ -152,12 +233,26 @@ describe('createPayment derived status', () => {
     const res = await worker.fetch(createPaymentRequest(BASE), env, ctx);
     expect(res.status).toBe(201);
     expect(sqlOf(calls)).not.toMatch(/UPDATE orders SET payment_status/);
+    // The DB write is skipped but the derived values are still reported.
+    const body = await res.json();
+    expect(body.paymentStatus).toBe('unpaid');
+    expect(body.balanceCents).toBe(0);
   });
 
   it('does not touch payment_status when the order no longer exists', async () => {
     const { env, ctx, calls } = makeEnv({ orderExists: false });
-    await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    const res = await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    expect(res.status).toBe(201);
     expect(sqlOf(calls)).not.toMatch(/UPDATE orders SET payment_status/);
+  });
+
+  it('still returns 201 when a post-commit step throws', async () => {
+    // The order_events insert is a real FK: the cron at api.js:445 deletes
+    // awaiting_payment orders, so one can vanish between the read and the
+    // insert. A 500 here would be returned for a payment that already landed.
+    const { env, ctx } = makeEnv({ throwOnAll: true });
+    const res = await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    expect(res.status).toBe(201);
   });
 });
 

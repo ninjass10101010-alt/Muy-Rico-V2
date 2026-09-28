@@ -2716,18 +2716,21 @@ async function createPayment(request, env, actor) {
   const orderId = getBodyField(body, 'order_id');
   const amount = Number(body.amount) || 0;
   const methodDetails = getBodyField(body, 'method_details') || null;
-  // replace defaults to TRUE so every pre-existing caller keeps its current
-  // semantics: a full re-record supersedes earlier rows. Callers recording a
-  // top-up (deposit then balance) must pass replace:false or they will erase
-  // the deposit they are settling.
-  const replace = body.replace === undefined ? true : body.replace !== false;
+  // `replace` defaults to TRUE so every pre-existing caller keeps today's exact
+  // semantics. The falsy spellings are enumerated explicitly: a client sending
+  // `replace: "false"` must not be read as true, because that deactivates the
+  // order's prior payments — the exact failure this parameter exists to prevent.
+  const replaceRaw = getBodyField(body, 'replace');
+  const replace = replaceRaw === undefined || replaceRaw === null
+    ? true
+    : ![false, 0, '', 'false'].includes(replaceRaw);
 
   const insert = () => env.DB.prepare(`
     INSERT INTO payments (id, order_id, order_number, customer_name, amount, method, method_details, date, created_at, active)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
   `).bind(
     body.id,
-    orderId == null ? null : orderId,
+    orderId, // null on the orphan path, which returns early below.
     getBodyField(body, 'order_number') || null,
     customerName,
     amount,
@@ -2763,42 +2766,48 @@ async function createPayment(request, env, actor) {
     return json({ error: String(err) }, 400);
   }
 
-  // Derive the order's payment status from the ledger. Never trust a
-  // client-supplied status — this is the single source of truth.
-  const order = await env.DB.prepare(
-    'SELECT total_cents FROM orders WHERE id = ?'
-  ).bind(orderId).first();
-  if (!order) {
-    // Order was deleted mid-flight; the payment row still stands on its own.
-    return json({ ok: true, id: body.id }, 201);
+  // Everything below runs AFTER the batch is durable. If it throws, the router
+  // would return 500 for a payment that already committed — the same failure
+  // class this handler exists to eliminate. The order_events insert alone can
+  // do that: order_id is a foreign key (migrations/0001_initial.sql:29) and the
+  // cron at api.js:445 deletes awaiting_payment orders, so one can disappear
+  // between the read below and the insert. Log and still report success.
+  let paymentStatus = null;
+  let balanceCents = 0;
+  try {
+    const order = await env.DB.prepare(
+      'SELECT total_cents FROM orders WHERE id = ?'
+    ).bind(orderId).first();
+    if (!order) {
+      // Order was deleted mid-flight; the payment row still stands on its own.
+      return json({ ok: true, id: body.id }, 201);
+    }
+
+    const active = await env.DB.prepare(
+      'SELECT amount FROM payments WHERE order_id = ? AND active = 1'
+    ).bind(orderId).all();
+    const collected = activePaymentsCents((active && active.results) || []);
+    const totalCents = Number(order.total_cents) || 0;
+    paymentStatus = derivePaymentStatus(collected, totalCents);
+    balanceCents = balanceCentsCents(collected, totalCents);
+
+    // Skip the status write for a zero-total order (a 100% discount). Deriving
+    // 'unpaid' from (0 collected, 0 total) would park it in the dashboard's
+    // awaiting-payment filter with a $0.00 balance, forever. Nothing is
+    // collectable, so there is nothing to derive.
+    if (totalCents > 0) {
+      await env.DB.prepare('UPDATE orders SET payment_status = ? WHERE id = ?')
+        .bind(paymentStatus, orderId).run();
+    }
+
+    await env.DB.prepare(`
+      INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_recorded')
+    `).bind(orderId, actor || 'unknown').run();
+  } catch (e) {
+    console.error('createPayment: payment committed but post-commit steps failed', e);
   }
 
-  const active = await env.DB.prepare(
-    'SELECT amount FROM payments WHERE order_id = ? AND active = 1'
-  ).bind(orderId).all();
-  const collected = activePaymentsCents((active && active.results) || []);
-  const totalCents = Number(order.total_cents) || 0;
-  const paymentStatus = derivePaymentStatus(collected, totalCents);
-
-  // Skip the status write for a zero-total order (a 100% discount). Deriving
-  // 'unpaid' from (0 collected, 0 total) would park it in the dashboard's
-  // awaiting-payment filter with a $0.00 balance, forever. Nothing is
-  // collectable, so there is nothing to derive.
-  if (totalCents > 0) {
-    await env.DB.prepare('UPDATE orders SET payment_status = ? WHERE id = ?')
-      .bind(paymentStatus, orderId).run();
-  }
-
-  await env.DB.prepare(`
-    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_recorded')
-  `).bind(orderId, actor || 'unknown').run();
-
-  return json({
-    ok: true,
-    id: body.id,
-    paymentStatus,
-    balanceCents: balanceCentsCents(collected, totalCents),
-  }, 201);
+  return json({ ok: true, id: body.id, paymentStatus, balanceCents }, 201);
 }
 
 async function deletePayment(id, env, actor) {
