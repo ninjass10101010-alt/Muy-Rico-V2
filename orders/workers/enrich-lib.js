@@ -84,6 +84,23 @@ function mod10CheckDigitValid(digits) {
   return sum % 10 === 0;
 }
 
+// Scan-lookup variants for a code, covering UPC-A ↔ EAN-13 ambiguity:
+// scanners may emit the 12-digit UPC-A ("644209307562") while the DB holds
+// the zero-padded EAN-13 ("0644209307562"), or vice versa. Returns the
+// candidate codes (input first) for an IN-list lookup; non-numeric / other
+// length codes get no variants.
+export function barcodeLookupVariants(raw) {
+  const input = String(raw == null ? '' : raw).trim();
+  if (!input) return [];
+  if (/^\d{12}$/.test(input)) return dedupeCodes([input, `0${input}`]);
+  if (/^0\d{12}$/.test(input)) return dedupeCodes([input, input.slice(1)]);
+  return [input];
+}
+
+function dedupeCodes(codes) {
+  return [...new Set(codes)];
+}
+
 export function normalizeAllergenTags(tags) {
   const out = [];
   for (const t of tags) {

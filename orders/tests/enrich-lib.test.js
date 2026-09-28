@@ -7,6 +7,7 @@ import {
   usdaCandidatesFromResponse,
   categoryAllergenHints,
   sanitizeBarcode,
+  barcodeLookupVariants,
 } from "../workers/enrich-lib.js";
 
 describe("sanitizeBarcode", () => {
@@ -37,6 +38,28 @@ describe("sanitizeBarcode", () => {
   });
   it("flags short numeric codes as unvalidatable, not valid", () => {
     expect(sanitizeBarcode("12345")).toMatchObject({ code: "12345", valid: false, format: "unknown" });
+  });
+});
+
+describe("barcodeLookupVariants", () => {
+  it("pairs a 12-digit UPC-A with its zero-padded EAN-13 form", () => {
+    expect(barcodeLookupVariants("644209307562")).toEqual(["644209307562", "0644209307562"]);
+  });
+  it("pairs a 13-digit zero-prefixed EAN-13 with its UPC-A form", () => {
+    expect(barcodeLookupVariants("0644209307562")).toEqual(["0644209307562", "644209307562"]);
+  });
+  it("does not strip the prefix from a non-zero-leading 13-digit code", () => {
+    expect(barcodeLookupVariants("5901234123457")).toEqual(["5901234123457"]);
+  });
+  it("returns only the raw code for internal slugs", () => {
+    expect(barcodeLookupVariants("inv_betty_crocker_vanilla")).toEqual(["inv_betty_crocker_vanilla"]);
+  });
+  it("trims whitespace and still pairs 12-digit codes with the padded form", () => {
+    expect(barcodeLookupVariants(" 016000207523 ")).toEqual(["016000207523", "0016000207523"]);
+  });
+  it("returns [] for empty input", () => {
+    expect(barcodeLookupVariants("")).toEqual([]);
+    expect(barcodeLookupVariants(null)).toEqual([]);
   });
 });
 

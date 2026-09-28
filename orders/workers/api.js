@@ -77,7 +77,7 @@ function hasValidWebhookSecret(request, env) {
 }
 
 import { normalizeEmail, normalizePhone, matchCustomer, findDuplicates } from './customer-match.js';
-import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode } from './enrich-lib.js';
+import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarcode, barcodeLookupVariants } from './enrich-lib.js';
 import { validatePickupDate, pickupChangeEvent } from './order-date.js';
 import { validateOrderItems, computeOrderTotals } from './order-edit-lib.js';
 import { rewriteRecipeForGroup } from './groups-lib.js';
@@ -2075,9 +2075,13 @@ async function getInventoryItem(id, env) {
 async function lookupInventoryByCode(request, env, actor) {
   const code = (new URL(request.url).searchParams.get('code') || '').trim();
   if (!code) return json({ error: 'Missing code parameter' }, 400);
+  // UPC-A vs zero-padded EAN-13 ambiguity: a gun can emit either form for the
+  // same box, so try all equivalent codes before declaring a miss.
+  const variants = barcodeLookupVariants(code);
+  const placeholders = variants.map(() => '?').join(', ');
   const row = await env.DB.prepare(
-    'SELECT * FROM inventory WHERE active = 1 AND LOWER(barcode) = LOWER(?) LIMIT 1'
-  ).bind(code).first();
+    `SELECT * FROM inventory WHERE active = 1 AND LOWER(barcode) IN (${placeholders}) LIMIT 1`
+  ).bind(...variants.map((v) => v.toLowerCase())).first();
   if (!row) {
     logScanEvent(env, { inventory_id: null, code, action: 'miss', source: 'manual', actor });
     return json({ error: 'Not found' }, 404);
