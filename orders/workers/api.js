@@ -3256,6 +3256,13 @@ function rowToQuote(r) {
     quoted_price: r.quoted_price,
     admin_notes: r.admin_notes,
     converted_order_id: r.converted_order_id,
+    // These are selected by QUOTE_FIELDS (api.js:3140-3149) but were never
+    // mapped, which made them write-only across the whole codebase: a quote
+    // deposit could be taken and never displayed, filtered, or surfaced.
+    public_token: r.public_token,
+    deposit_paid_cents: r.deposit_paid_cents,
+    deposit_paid_at: r.deposit_paid_at,
+    deposit_method: r.deposit_method,
     created_at: r.created_at,
     updated_at: r.updated_at,
     items: [], // placeholder, populated by getQuoteItems()
@@ -5043,3 +5050,6 @@ async function getPublicPaymentOptions(env) {
     return json({ error: String(err) }, 500);
   }
 }
+
+// Exported for unit tests — see tests/row-to-quote.test.js
+export { rowToQuote };
