@@ -1,4 +1,4 @@
-import type { BusinessProfile, FlavorGroup, PackSize, PaymentMethod, PaymentStatus, RecipeLine, Invoice, PaymentOptions } from "../types";
+import type { BusinessProfile, FlavorGroup, PackSize, Payment, PaymentMethod, PaymentStatus, RecipeLine, Invoice, PaymentOptions } from "../types";
 import { getDeviceToken, clearDeviceToken } from "./tokenStore";
 
 const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -796,6 +796,37 @@ export async function createPayment(p: PaymentCreate): Promise<PaymentResult> {
     method: "POST",
     body: JSON.stringify(p),
   });
+}
+
+/**
+ * Cents already collected on an order, from rows that were just read.
+ *
+ * `amount` is a REAL column (migrations/0006), so each row is rounded to cents
+ * individually rather than summing floats and rounding once at the end.
+ */
+export function paidCentsForOrder(rows: Payment[], orderId: string): number {
+  return rows
+    .filter((p) => p.orderId === orderId)
+    .reduce((sum, p) => sum + Math.round(p.amount * 100), 0);
+}
+
+/**
+ * Cents still owed on an order, read through a caller-supplied ledger read.
+ *
+ * The read is a parameter on purpose: the balance must be totalled from rows
+ * fetched inside this call, never from a `payments` array captured at render
+ * time. OrderModal records the new-order deposit *after* the order-creation
+ * refresh has already run, so a render-time array is missing the deposit and
+ * `total - 0` charges the whole order on top of it — order 52, $13.00
+ * collected against a $1.30 deposit.
+ */
+export async function remainingBalanceCents(
+  readPayments: () => Promise<Payment[]>,
+  orderId: string,
+  totalCents: number,
+): Promise<number> {
+  const rows = await readPayments();
+  return Math.max(0, totalCents - paidCentsForOrder(rows, orderId));
 }
 
 export async function deletePayment(id: string): Promise<{ ok: boolean }> {

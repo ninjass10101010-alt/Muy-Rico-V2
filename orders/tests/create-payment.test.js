@@ -252,6 +252,46 @@ describe('createPayment derived status', () => {
     expect(sqlOf(calls)).not.toMatch(/UPDATE orders SET payment_status/);
   });
 
+  // receipts are rendered from the ORDER row (receipt-html.js:15), and
+  // Orders.tsx shows a bare "Paid" when order.payment_method is empty, so the
+  // method has to live on both rows or it is lost the moment it is recorded.
+  it('mirrors the payment method onto the order it was collected for', async () => {
+    const { env, ctx, calls } = makeEnv({ totalCents: 6000, activePayments: [{ amount: 60 }] });
+    await worker.fetch(createPaymentRequest({ ...BASE, method: 'cash' }), env, ctx);
+    const update = calls.find((c) => /UPDATE orders SET payment_method/.test(c.sql));
+    expect(update, 'the order must record how it was paid').toBeTruthy();
+    expect(update.binds).toEqual(['cash', null, 1]);
+  });
+
+  it('mirrors payment_sub_method from method_details onto the order', async () => {
+    const { env, ctx, calls } = makeEnv({ totalCents: 6000, activePayments: [{ amount: 60 }] });
+    await worker.fetch(
+      createPaymentRequest({ ...BASE, method: 'venmo', method_details: '{"type":"cash"}' }),
+      env, ctx
+    );
+    const update = calls.find((c) => /UPDATE orders SET payment_method/.test(c.sql));
+    expect(update.binds).toEqual(['venmo', '{"type":"cash"}', 1]);
+  });
+
+  it('still records the method on a zero-total order, without deriving a status', async () => {
+    // The totalCents > 0 guard exists because 'unpaid' on a $0.00 order is a
+    // lie. The method is not derived, so it is written either way — a
+    // 100%-discount order that took a tip still needs a receipt naming it.
+    const { env, ctx, calls } = makeEnv({ totalCents: 0, activePayments: [] });
+    await worker.fetch(createPaymentRequest({ ...BASE, method: 'cash' }), env, ctx);
+    expect(sqlOf(calls)).not.toMatch(/UPDATE orders SET payment_status/);
+    const update = calls.find((c) => /UPDATE orders SET payment_method/.test(c.sql));
+    expect(update, 'a zero-total order that took a payment must still record the method').toBeTruthy();
+    expect(update.binds).toEqual(['cash', null, 1]);
+  });
+
+  it('does not mirror the method when the order no longer exists', async () => {
+    // There is no order row to update, and the ledger row stands on its own.
+    const { env, ctx, calls } = makeEnv({ orderExists: false });
+    await worker.fetch(createPaymentRequest(BASE), env, ctx);
+    expect(sqlOf(calls)).not.toMatch(/UPDATE orders SET payment_method/);
+  });
+
   it('still returns 201 when a post-commit step throws', async () => {
     // throwOnAll fails the ledger `all()` read, one of the four post-commit
     // statements; the handler must swallow a throw from any of them rather than

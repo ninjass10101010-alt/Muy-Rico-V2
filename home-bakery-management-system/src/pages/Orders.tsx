@@ -6,12 +6,26 @@ import ProductIcon from "../components/ProductIcon";
 import Modal from "../components/ui/Modal";
 import EditOrderModal from "../components/EditOrderModal";
 import { formatCurrency, formatDate, formatDateTime, PAYMENT_METHOD_LABELS, ONLINE_ONLY, formatPaymentSubMethod, dueTier, urgencyRank, DUE_TIER_LABELS } from "../utils/format";
-import { generateOrderLabels, receiptHtmlUrl, fetchOrder } from "../utils/api";
+import { generateOrderLabels, receiptHtmlUrl, fetchOrder, paidCentsForOrder, remainingBalanceCents } from "../utils/api";
 import type { ApiOrderEvent } from "../utils/api";
 import type { Order, OrderStatus, PaymentMethod } from "../types";
 import type { Page } from "../App";
 
 const STATUS_FLOW: OrderStatus[] = ["pending", "in-progress", "ready", "completed", "cancelled"];
+
+/**
+ * The payment row committed but the server omitted the derived status and
+ * balance (the order was deleted mid-flight, or a post-commit step failed). The
+ * receipt is suppressed in that case: a receipt is a claim that the payment is
+ * reconciled, and nothing here can show that.
+ */
+const UNDETERMINED_PAYMENT =
+  "Payment recorded, but its balance could not be confirmed. Check the payment ledger before collecting again.";
+
+// "Could not" is checked alongside "failed" because the payment failures say
+// what went wrong in the owner's words, not the word "failed". Matching on
+// "failed" alone rendered "Could not confirm the payment." in success green.
+const isFailureMsg = (msg: string) => /failed|Could not|could not/.test(msg);
 
 export default function Orders({ search, setPage, setLabelFilter }: {
   search: string;
@@ -28,6 +42,11 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [payError, setPayError] = useState("");
   const [markPayFor, setMarkPayFor] = useState<Order | null>(null);
   const [markPayMethod, setMarkPayMethod] = useState<PaymentMethod>("cash");
+  const [markPayBusy, setMarkPayBusy] = useState(false);
+  // Rendered inside the order modal: the page-level receiptMsg banner sits
+  // behind the modal's blurred backdrop, so a failure raised while the modal is
+  // open must be shown in the modal to be seen at all.
+  const [markPayError, setMarkPayError] = useState("");
   const [editPayFor, setEditPayFor] = useState<Order | null>(null);
   const [editPayMethod, setEditPayMethod] = useState<PaymentMethod>("cash");
   const [editPaySub, setEditPaySub] = useState("");
@@ -108,13 +127,18 @@ export default function Orders({ search, setPage, setLabelFilter }: {
     setPayError("");
     const orderId = Number(payFor.id);
     try {
-      await recordPayment({
+      const outcome = await recordPayment({
         orderId,
+        orderNumber: payFor.orderNumber,
         customerName: payFor.customerName,
         amountCents: Math.round(payFor.total * 100),
         method: payMethod,
         replace: true,
       });
+      if (!outcome.determined) {
+        setPayError(UNDETERMINED_PAYMENT);
+        return;
+      }
       setPayFor(null);
       setReceiptMsg("");
       try {
@@ -156,7 +180,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
       </div>
 
       {receiptMsg && (
-        <div className={`rounded-xl p-3 text-sm ${receiptMsg.includes("failed") ? "bg-hibiscus-light/10 text-hibiscus" : "bg-mid-green-light/10 text-mid-green"}`}>
+        <div className={`rounded-xl p-3 text-sm ${isFailureMsg(receiptMsg) ? "bg-hibiscus-light/10 text-hibiscus" : "bg-mid-green-light/10 text-mid-green"}`}>
           {receiptMsg}
           <button onClick={() => setReceiptMsg("")} className="ml-2 text-xs underline">Dismiss</button>
         </div>
@@ -223,7 +247,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   tier === "tomorrow" ? "#fad9d4" :
                   "transparent";
                 return (
-                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setOrderEvents([]); eventsFetchId.current = Number(o.id); fetchOrder(Number(o.id)).then((r) => { if (eventsFetchId.current !== Number(o.id)) return; setOrderEvents(r.events); }).catch(() => {}); }}>
+                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setMarkPayError(""); setOrderEvents([]); eventsFetchId.current = Number(o.id); fetchOrder(Number(o.id)).then((r) => { if (eventsFetchId.current !== Number(o.id)) return; setOrderEvents(r.events); }).catch(() => {}); }}>
                   <td className="px-4 py-3 font-medium text-cocoa">{o.orderNumber}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{o.customerName}</td>
                   <td className="px-4 py-3">
@@ -312,7 +336,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         </div>
       </div>
 
-      <Modal open={!!selected} onClose={() => { setSelected(null); setLabelGenResult(null); setRelinkOrderId(null); setRelinkSearch(""); }} title={selected ? `Order ${selected.orderNumber}` : ""}>
+      <Modal open={!!selected} onClose={() => { setSelected(null); setLabelGenResult(null); setRelinkOrderId(null); setRelinkSearch(""); setMarkPayError(""); }} title={selected ? `Order ${selected.orderNumber}` : ""}>
         {selected && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -450,9 +474,9 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               ) : selected.paymentStatus === "partial" ? (
                 <div className="space-y-2">
                   {(() => {
-                    const totalPaid = payments
-                      .filter((p) => p.orderId === selected.id)
-                      .reduce((sum, p) => sum + p.amount, 0);
+                    // `payments` is refreshed when this panel opens, so these are
+                    // the rows that Collect Balance will be totalled against.
+                    const totalPaid = paidCentsForOrder(payments, selected.id) / 100;
                     const remaining = Math.max(0, selected.total - totalPaid);
                     return (
                       <>
@@ -480,19 +504,43 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       </select>
                       <div className="flex gap-2">
                         <button
+                          disabled={markPayBusy}
                           onClick={async () => {
-                            const totalPaid = payments
-                              .filter((p) => p.orderId === selected.id)
-                              .reduce((sum, p) => sum + p.amount, 0);
-                            const remaining = Math.max(0, selected.total - totalPaid);
+                            // replace:false appends, so a second click would
+                            // commit the same balance twice. The guard must cover
+                            // the POST and the receipt round-trip, not just the POST.
+                            if (markPayBusy) return;
+                            setMarkPayBusy(true);
+                            setMarkPayError("");
                             try {
-                              await recordPayment({
+                              // Read the balance from a fresh ledger fetch, never
+                              // from the render-time `payments` array: the deposit
+                              // is recorded by OrderModal after
+                              // handleApiCreateOrder's refresh has already run, so
+                              // that array is missing it and `total - 0` would
+                              // charge the full order on top of the deposit.
+                              const amountCents = await remainingBalanceCents(
+                                refreshPayments,
+                                selected.id,
+                                Math.round(selected.total * 100),
+                              );
+                              const outcome = await recordPayment({
                                 orderId: Number(selected.id),
+                                orderNumber: selected.orderNumber,
                                 customerName: selected.customerName,
-                                amountCents: Math.round(remaining * 100),
+                                amountCents,
                                 method: markPayMethod,
                                 replace: false,
                               });
+                              if (!outcome.determined) {
+                                // The ledger row landed; the derived balance did
+                                // not come back. Collapse the panel rather than
+                                // leave a live "Collect Balance" button next to
+                                // an unverified collection.
+                                setMarkPayError(UNDETERMINED_PAYMENT);
+                                setMarkPayFor(null);
+                                return;
+                              }
                               setReceiptMsg("");
                               try {
                                 await generateReceipt(Number(selected.id));
@@ -509,16 +557,19 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                               // through to a receipt and a closed modal as if the
                               // money had been taken. Leave the modal open.
                               console.error("Failed to record payment:", err);
-                              setReceiptMsg("Could not confirm the payment. Check the payment ledger before trying again.");
+                              setMarkPayError("Could not confirm the payment. Check the payment ledger before trying again.");
+                            } finally {
+                              setMarkPayBusy(false);
                             }
                           }}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md disabled:opacity-60"
                         >
-                          <CheckCircle2 size={16} /> Collect Balance
+                          <CheckCircle2 size={16} /> {markPayBusy ? "Collecting…" : "Collect Balance"}
                         </button>
                         <button
+                          disabled={markPayBusy}
                           onClick={() => setMarkPayFor(null)}
-                          className="rounded-xl border border-sand-200 px-4 py-2.5 text-sm text-cocoa-muted hover:bg-sand-50"
+                          className="rounded-xl border border-sand-200 px-4 py-2.5 text-sm text-cocoa-muted hover:bg-sand-50 disabled:opacity-60"
                         >
                           Cancel
                         </button>
@@ -526,7 +577,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); }}
+                      onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); setMarkPayError(""); void refreshPayments(); }}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                     >
                       <CheckCircle2 size={16} /> Collect Balance
@@ -560,15 +611,28 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       </select>
                       <div className="flex gap-2">
                         <button
+                          disabled={markPayBusy}
                           onClick={async () => {
+                            // Guarded like Collect Balance: replace:true makes a
+                            // duplicate safe on the ledger, but it would still
+                            // generate a second receipt and re-bill nothing.
+                            if (markPayBusy) return;
+                            setMarkPayBusy(true);
+                            setMarkPayError("");
                             try {
-                              await recordPayment({
+                              const outcome = await recordPayment({
                                 orderId: Number(selected.id),
+                                orderNumber: selected.orderNumber,
                                 customerName: selected.customerName,
                                 amountCents: Math.round(selected.total * 100),
                                 method: markPayMethod,
                                 replace: true,
                               });
+                              if (!outcome.determined) {
+                                setMarkPayError(UNDETERMINED_PAYMENT);
+                                setMarkPayFor(null);
+                                return;
+                              }
                               setReceiptMsg("");
                               try {
                                 await generateReceipt(Number(selected.id));
@@ -582,16 +646,19 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                               await refreshOrders();
                             } catch (err) {
                               console.error("Failed to record payment:", err);
-                              setReceiptMsg("Could not confirm the payment. Check the payment ledger before trying again.");
+                              setMarkPayError("Could not confirm the payment. Check the payment ledger before trying again.");
+                            } finally {
+                              setMarkPayBusy(false);
                             }
                           }}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md disabled:opacity-60"
                         >
-                          <CheckCircle2 size={16} /> Confirm Payment
+                          <CheckCircle2 size={16} /> {markPayBusy ? "Collecting…" : "Confirm Payment"}
                         </button>
                         <button
+                          disabled={markPayBusy}
                           onClick={() => setMarkPayFor(null)}
-                          className="rounded-xl border border-sand-200 px-4 py-2.5 text-sm text-cocoa-muted hover:bg-sand-50"
+                          className="rounded-xl border border-sand-200 px-4 py-2.5 text-sm text-cocoa-muted hover:bg-sand-50 disabled:opacity-60"
                         >
                           Cancel
                         </button>
@@ -599,13 +666,19 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); }}
+                      onClick={() => { setMarkPayFor(selected); setMarkPayMethod(selected.paymentMethod || "cash"); setMarkPayError(""); void refreshPayments(); }}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-palm py-2.5 text-sm font-semibold text-white transition hover:shadow-md"
                     >
                       <CheckCircle2 size={16} /> Mark as Paid
                     </button>
                   )}
                 </div>
+              )}
+              {/* Inside the modal on purpose: the page-level receiptMsg banner
+                  renders behind this modal's blurred backdrop, and every failure
+                  on this path leaves the modal open. */}
+              {markPayError && (
+                <p className="rounded-xl bg-hibiscus-light/10 p-3 text-sm text-hibiscus">{markPayError}</p>
               )}
               {/* Payment history */}
               {payments.filter((p) => p.orderId === selected.id).length > 0 && (
@@ -819,6 +892,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             setLabelGenResult(null);
             setDueEdit(null);
             setDueError(null);
+            setMarkPayError("");
             setOrderEvents([]);
             eventsFetchId.current = Number(next.id);
             fetchOrder(Number(next.id)).then((r) => {

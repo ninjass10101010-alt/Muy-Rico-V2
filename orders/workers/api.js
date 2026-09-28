@@ -2805,6 +2805,18 @@ async function createPayment(request, env, actor) {
         .bind(paymentStatus, orderId).run();
     }
 
+    // Mirror the ledger row onto the order itself: receipt-html.js:15 reads
+    // order.payment_method, and Orders.tsx falls back to a bare "Paid" without
+    // it, so an order whose method lives only on `payments` produces a receipt
+    // with no payment method on it. Written outside the totalCents guard on
+    // purpose — that guard exists because a *derived* status of 'unpaid' on a
+    // $0.00 order is a lie, but the method is not derived: it is simply how a
+    // payment that did land was paid, which stays true at any order total. It is
+    // also the same value markPaid writes (api.js:1098), so the two paths leave
+    // an order in the same shape.
+    await env.DB.prepare('UPDATE orders SET payment_method = ?, payment_sub_method = ? WHERE id = ?')
+      .bind(body.method, methodDetails, orderId).run();
+
     await env.DB.prepare(`
       INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_recorded')
     `).bind(orderId, actor || 'unknown').run();

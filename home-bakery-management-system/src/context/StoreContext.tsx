@@ -3,7 +3,6 @@ import {
   seedCustomers,
   seedInventory,
   seedLabelTemplates,
-  seedPayments,
   seedProducts,
   seedProfile,
 } from "../data/seedData";
@@ -52,7 +51,7 @@ interface StoreContextValue {
   orders: Order[];
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   payments: Payment[];
-  refreshPayments: () => Promise<void>;
+  refreshPayments: () => Promise<Payment[]>;
   receipts: Receipt[];
   refreshReceipts: () => Promise<void>;
   resendReceipt: (id: string) => Promise<void>;
@@ -66,6 +65,7 @@ interface StoreContextValue {
   handleUpdateProfile: (draft: BusinessProfile) => Promise<void>;
   recordPayment: (input: {
     orderId: number;
+    orderNumber: string;
     customerName: string;
     amountCents: number;
     method: PaymentMethod;
@@ -348,13 +348,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }
 
-  const refreshPayments = useCallback(async () => {
+  // Returns the rows it read so a caller that is about to CHARGE can total
+  // against the same fetch. A failed read returns an empty list rather than the
+  // seed rows it used to substitute: handing a caller rows nobody paid would
+  // let it sum a balance that does not exist.
+  const refreshPayments = useCallback(async (): Promise<Payment[]> => {
     try {
       const rows = await fetchPayments();
-      setPayments(rows.map(apiToPayment));
+      const mapped = rows.map(apiToPayment);
+      setPayments(mapped);
+      return mapped;
     } catch (err) {
-      console.warn("Failed to fetch payments from API, falling back to seeds:", err);
-      setPayments(seedPayments);
+      console.warn("Failed to fetch payments from API:", err);
+      setPayments([]);
+      return [];
     }
   }, []);
 
@@ -590,12 +597,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const handleApiCreateOrder = useCallback(async (order: Parameters<typeof apiCreateOrder>[0]) => {
     const result = await apiCreateOrder(order);
-    // OrderModal records the new-order deposit by calling createPayment
-    // directly (to avoid a circular import), so payments must be refreshed
-    // here or "Collect Balance" will read a stale array and over-collect.
-    await Promise.all([refreshOrders(), refreshPayments()]);
+    // Payments are deliberately NOT refreshed here. OrderModal records the
+    // new-order deposit by calling createPayment directly (to avoid a circular
+    // import) and only does so AFTER this resolves, so a refresh at this point
+    // reads a ledger that does not contain the deposit yet. The balance is
+    // therefore read fresh where it is charged — see Orders.tsx "Collect
+    // Balance", which awaits refreshPayments() instead of reading the
+    // render-time `payments` array.
+    await refreshOrders();
     return result;
-  }, [refreshOrders, refreshPayments]);
+  }, [refreshOrders]);
 
   const handleApiUpdateOrder = useCallback(async (id: number, patch: { status?: string; payment_status?: string; payment_method?: string; payment_sub_method?: string | null; pickup_date?: string }) => {
     await apiUpdateOrder(id, patch);
@@ -696,6 +707,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const recordPayment = useCallback(async (input: {
     orderId: number;
+    orderNumber: string;
     customerName: string;
     amountCents: number;
     method: PaymentMethod;
@@ -709,7 +721,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const result = await apiCreatePayment(buildPaymentCreate({
       id: newId("pay"),
       orderId: input.orderId,
-      orderNumber: null,
+      // The ledger's Order column is searchable (Payments.tsx), so a null here
+      // would make the row unfindable by order number.
+      orderNumber: input.orderNumber,
       customerName: input.customerName,
       amountCents: input.amountCents,
       method: input.method,
