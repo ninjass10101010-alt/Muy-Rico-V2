@@ -3512,10 +3512,14 @@ async function updateQuote(id, request, env, ctx, actor) {
     ).bind(id).first();
     if (!existing) return json({ error: 'Not found' }, 404);
 
-    // Converted and archived quotes are terminal. Mirrors the guard
-    // updateInvoice applies at api.js:3722.
-    const guard = assertQuoteEditable(existing, 'it cannot be changed');
-    if (guard) return guard;
+    // A terminal quote's price is frozen: a converted quote's price is the
+    // price of the order it produced, so rewriting it makes the two disagree.
+    // Notes stay editable and the unarchive transition stays permitted.
+    // Mirrors the guard assertInvoiceEditable applies in updateInvoice.
+    if (body.quoted_price !== undefined) {
+      const guard = assertQuoteEditable(existing, 'its price can no longer be changed');
+      if (guard) return guard;
+    }
 
     // Validate BEFORE the `sets.length === 0` early return, otherwise a bad
     // status would be silently swallowed into a successful no-op.

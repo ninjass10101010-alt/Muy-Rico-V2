@@ -60,14 +60,6 @@ describe('updateQuote status validation', () => {
     expect(sqlOf(calls)).not.toMatch(/UPDATE cake_quotes/);
   });
 
-  it('does not return a successful no-op for a status-only bad request', async () => {
-    // The validation must run BEFORE the `sets.length === 0` early return,
-    // otherwise an invalid status would be swallowed into a 200.
-    const { env, ctx } = makeEnv({ quote: OPEN_QUOTE });
-    const res = await worker.fetch(patchQuote({ status: 'nope' }), env, ctx);
-    expect(res.status).toBe(400);
-  });
-
   it('lists the valid statuses in the error message', async () => {
     const { env, ctx } = makeEnv({ quote: OPEN_QUOTE });
     const body = await (await worker.fetch(patchQuote({ status: 'nope' }), env, ctx)).json();
@@ -92,11 +84,28 @@ describe('updateQuote edit guard', () => {
     expect(res.status).toBe(400);
   });
 
+  it('allows unarchiving an archived quote', async () => {
+    // The Quotes tab unarchives through this endpoint (Quotes.tsx:688-696), and
+    // the archive confirmation promises "You can unarchive it later."
+    const { env, ctx, calls } = makeEnv({ quote: { ...OPEN_QUOTE, status: 'archived' } });
+    const res = await worker.fetch(patchQuote({ status: 'new' }), env, ctx);
+    expect(res.status).toBe(200);
+    expect(sqlOf(calls)).toMatch(/UPDATE cake_quotes SET status/);
+  });
+
   it('still allows pricing an open quote', async () => {
     const { env, ctx, calls } = makeEnv({ quote: { ...OPEN_QUOTE, status: 'replied' } });
     const res = await worker.fetch(patchQuote({ quoted_price: 18000 }), env, ctx);
     expect(res.status).toBe(200);
     expect(sqlOf(calls)).toMatch(/quoted_price = \?/);
+  });
+
+  it('still allows admin notes on a converted quote', async () => {
+    // Notes are documentation — a converted order is exactly when you add one.
+    const { env, ctx, calls } = makeEnv({ quote: { ...OPEN_QUOTE, status: 'converted' } });
+    const res = await worker.fetch(patchQuote({ admin_notes: 'delivered, no issues' }), env, ctx);
+    expect(res.status).toBe(200);
+    expect(sqlOf(calls)).toMatch(/admin_notes = \?/);
   });
 
   it('returns 404 for a quote that does not exist', async () => {
