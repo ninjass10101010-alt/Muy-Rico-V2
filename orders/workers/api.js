@@ -346,8 +346,10 @@ export default {
 
       if (path === '/api/customers' && method === 'GET') return await listCustomers(env);
       if (path === '/api/customers' && method === 'POST') return await createCustomer(request, env, actorName);
-      if (path === '/api/payments' && method === 'GET') return await listPayments(env);
+      if (path === '/api/payments' && method === 'GET') return await listPayments(request, env);
       if (path === '/api/payments' && method === 'POST') return await createPayment(request, env, actorName);
+      const payDelete = path.match(/^\/api\/payments\/([^/]+)$/);
+      if (payDelete && method === 'DELETE') return await deletePayment(payDelete[1], env, actorName);
 
       if (path === '/api/quotes' && method === 'POST') return await createQuote(request, env, ctx, actorName);
       if (path === '/api/quotes' && method === 'GET')  return await listQuotes(env);
@@ -965,6 +967,9 @@ async function updateOrder(id, request, env, ctx, actor) {
       await env.DB.prepare(
         `UPDATE payments SET method = ?, method_details = COALESCE(?, method_details) WHERE id = ?`
       ).bind(body.payment_method, body.payment_sub_method ?? null, latest.id).run();
+      await env.DB.prepare(
+        `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_method_corrected')`
+      ).bind(id, actor).run();
     }
   }
 
@@ -2695,9 +2700,15 @@ async function reverseMerge(mergeId, request, env, actor) {
 
 // ─── Payments ───────────────────────────────────────────────────────────────
 
-async function listPayments(env) {
+async function listPayments(request, env) {
+  // Default stays active-only: eleven frontend consumers (Dashboard revenue,
+  // both charts, the owed total, Payments totals, Orders balance maths) assume
+  // the array is pre-filtered and none of them filter on `active` themselves.
+  // Widening the default would silently change all of them at once.
+  const includeVoided = new URL(request.url).searchParams.get('include_voided') === '1';
+  const where = includeVoided ? '' : 'WHERE active = 1';
   const { results } = await env.DB.prepare(`
-    SELECT * FROM payments WHERE active = 1 ORDER BY date DESC, created_at DESC
+    SELECT * FROM payments ${where} ORDER BY date DESC, created_at DESC
   `).all();
   return json({ payments: results.map(snakeToCamelObject) }, 200);
 }

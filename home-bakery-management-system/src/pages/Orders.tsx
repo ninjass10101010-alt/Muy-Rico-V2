@@ -459,7 +459,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       </button>
                        <button
                         onClick={async () => {
-                          if (!window.confirm("Mark this order as unpaid? The payment history will be kept for your records.")) return;
+                          if (!window.confirm("This will void every payment recorded for this order. They stay in the database but will no longer count toward revenue. Continue?")) return;
                           await apiUpdateOrder(Number(selected.id), { payment_status: "unpaid" });
                           await Promise.all([refreshOrders(), refreshPayments()]);
                           setSelected(null);
@@ -595,7 +595,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   )}
                   <button
                     onClick={async () => {
-                      if (!window.confirm("Mark this order as unpaid? The payment history will be kept for your records.")) return;
+                      if (!window.confirm("This will void every payment recorded for this order. They stay in the database but will no longer count toward revenue. Continue?")) return;
                       await apiUpdateOrder(Number(selected.id), { payment_status: "unpaid" });
                       await Promise.all([refreshOrders(), refreshPayments()]);
                       setSelected(null);

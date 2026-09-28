@@ -786,8 +786,10 @@ export function readPaymentResult(
   };
 }
 
-export async function fetchPayments(): Promise<ApiPayment[]> {
-  const data = await apiFetch<{ payments: ApiPayment[] }>("/api/payments");
+export async function fetchPayments(includeVoided = false): Promise<ApiPayment[]> {
+  const data = await apiFetch<{ payments: ApiPayment[] }>(
+    `/api/payments${includeVoided ? "?include_voided=1" : ""}`
+  );
   return data.payments;
 }
 
