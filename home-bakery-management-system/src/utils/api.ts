@@ -1238,7 +1238,7 @@ export async function convertQuote(
   id: number,
   deposit_amount_cents: number,
   payment_method: string
-): Promise<{ ok: boolean; order_id: number; payment_status: string }> {
+): Promise<{ ok: boolean; order_id: number; payment_status: string; already?: boolean }> {
   return apiFetch(`/api/quotes/${id}/convert`, {
     method: "POST",
     body: JSON.stringify({ deposit_amount_cents, payment_method }),

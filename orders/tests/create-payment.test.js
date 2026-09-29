@@ -9,6 +9,7 @@ function makeEnv({
   orderExists = true,
   batchThrows = false,
   throwOnAll = false,
+  orderChanges = 1,
 } = {}) {
   const calls = [];
   const record = (sql, binds, method) => calls.push({ sql, binds, method });
@@ -44,7 +45,10 @@ function makeEnv({
       // assert the deactivate and the insert committed together.
       record('BATCH', stmts.map((s) => ({ sql: s._sql, binds: s._binds })), 'batch');
       if (batchThrows) throw new Error('UNIQUE constraint failed: payments.id');
-      return stmts.map(() => ({ meta: { changes: 1, last_row_id: 1 } }));
+      // orderChanges lets a test drive updateOrder's `if (!r.meta.changes) 404`,
+      // which reads the FIRST result of the order-update + void batch.
+      return stmts.map(() => ({ meta: { changes: 1, last_row_id: 1 } }))
+        .map((r, i) => (i === 0 ? { meta: { changes: orderChanges, last_row_id: 1 } } : r));
     },
   };
 
@@ -362,5 +366,64 @@ describe('createPayment validation (unchanged behaviour)', () => {
     const { env, ctx } = makeEnv();
     const res = await worker.fetch(createPaymentRequest({ ...BASE, order_id: null }), env, ctx);
     expect(res.status).toBe(201);
+  });
+});
+
+/**
+ * The other end of the same ledger: PATCH /api/orders/:id with
+ * payment_status='unpaid' voids the order's payments. Two separate committed
+ * statements meant a failure between them left the order 'unpaid' while its
+ * payments stayed active=1 — revenue still counted them, so the dashboard
+ * reported the number the owner was trying to void, and the confirm dialog's
+ * promise that they "will no longer count toward revenue" was false. That is the
+ * mirror image of the over-collection this branch fixed.
+ */
+const markUnpaidRequest = () =>
+  new Request('https://orders-api.test/api/orders/1', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'cf-access-authenticated-user-email': 'jeff@example.test',
+    },
+    body: JSON.stringify({ payment_status: 'unpaid' }),
+  });
+
+describe('updateOrder voiding an order payments', () => {
+  it('commits the status change and the deactivate as one batch', async () => {
+    const { env, ctx, calls } = makeEnv();
+    const res = await worker.fetch(markUnpaidRequest(), env, ctx);
+    expect(res.status).toBe(200);
+
+    const batch = batchOf(calls);
+    expect(batch, 'the void must commit with the status it belongs to').toBeTruthy();
+    expect(batch.binds).toHaveLength(2);
+    expect(batch.binds[0].sql).toMatch(/UPDATE orders SET .*payment_status = \?/);
+    expect(batch.binds[1].sql).toMatch(/UPDATE payments SET active = 0/);
+
+    const stray = calls.filter(
+      (c) => c.method === 'run' && /UPDATE orders SET .*payment_status/.test(c.sql),
+    );
+    expect(stray, 'a standalone order update can commit without its deactivate').toHaveLength(0);
+  });
+
+  it('does not void payments when the status is not being marked unpaid', async () => {
+    const { env, ctx, calls } = makeEnv();
+    const req = new Request('https://orders-api.test/api/orders/1', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'cf-access-authenticated-user-email': 'jeff@example.test',
+      },
+      body: JSON.stringify({ status: 'ready' }),
+    });
+    const res = await worker.fetch(req, env, ctx);
+    expect(res.status).toBe(200);
+    expect(sqlOf(calls)).not.toMatch(/UPDATE payments SET active = 0/);
+  });
+
+  it('404s when the order does not exist', async () => {
+    const { env, ctx } = makeEnv({ orderChanges: 0 });
+    const res = await worker.fetch(markUnpaidRequest(), env, ctx);
+    expect(res.status).toBe(404);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   derivePaymentStatus,
+  deriveConversionStatus,
   activePaymentsCents,
   balanceCentsCents,
 } from '../workers/payment-ledger-lib.js';
@@ -86,6 +87,53 @@ describe('derivePaymentStatus', () => {
     // Number(null) is 0, which is finite, so it falls through the isFinite
     // guard and reaches the >= comparison instead.
     expect(derivePaymentStatus(100, null)).toBe('paid');
+  });
+});
+
+/**
+ * The conversion rule, kept distinct from the ledger rule.
+ *
+ * Both writers (convertQuoteToOrder and convertInvoiceToOrder) used to hand-roll
+ * `collected >= total ? 'paid' : 'partial'` inline, duplicating a rule that has
+ * a boundary the ledger rule answers differently. deriveConversionStatus exists
+ * so the deposit rule is stated once, and so nobody "unifies" it with
+ * derivePaymentStatus by accident: they answer different questions.
+ */
+describe('deriveConversionStatus', () => {
+  it('is partial when a deposit leaves a balance outstanding', () => {
+    expect(deriveConversionStatus(7500, 15000)).toBe('partial');
+    expect(deriveConversionStatus(1, 15000)).toBe('partial');
+    expect(deriveConversionStatus(14999, 15000)).toBe('partial');
+  });
+
+  it('is paid at exactly the total', () => {
+    expect(deriveConversionStatus(15000, 15000)).toBe('paid');
+  });
+
+  it('is paid when over-collected', () => {
+    expect(deriveConversionStatus(15001, 15000)).toBe('paid');
+    expect(deriveConversionStatus(20000, 15000)).toBe('paid');
+  });
+
+  it('is partial for a zero deposit on a real total, never unpaid', () => {
+    // Reaching a conversion at all means the customer committed to the order, so
+    // there is a balance owing. derivePaymentStatus(0, 15000) says 'unpaid' —
+    // "nothing was ever promised" — which is the wrong question here.
+    expect(deriveConversionStatus(0, 15000)).toBe('partial');
+    expect(derivePaymentStatus(0, 15000)).toBe('unpaid');
+  });
+
+  it('is paid for a zero quote with a zero deposit, which the ledger rule calls unpaid', () => {
+    // The boundary where the two rules disagree. Nothing is outstanding, so the
+    // deposit rule says paid. Pinned so a refactor cannot flip it to 'unpaid'.
+    expect(deriveConversionStatus(0, 0)).toBe('paid');
+    expect(derivePaymentStatus(0, 0)).toBe('unpaid');
+  });
+
+  it('coerces absent cents to zero rather than NaN', () => {
+    expect(deriveConversionStatus(undefined, 15000)).toBe('partial');
+    expect(deriveConversionStatus(null, null)).toBe('paid');
+    expect(deriveConversionStatus(NaN, 15000)).toBe('partial');
   });
 });
 

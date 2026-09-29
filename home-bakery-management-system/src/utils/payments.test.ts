@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Order, Payment, Product } from "../types";
 import type { PaymentOutcome } from "./api";
-import { StoreProvider } from "../context/StoreContext";
+import { StoreProvider, useStore } from "../context/StoreContext";
 import OrderModal from "../components/OrderModal";
 import Orders from "../pages/Orders";
 
@@ -615,6 +615,201 @@ describe("OrderModal new-order deposit", () => {
     // reads a ledger that still does not contain it.
     expect(order, "the refresh must follow the deposit POST").toEqual(["deposit", "refresh"]);
     expect(store.refreshPayments).toHaveBeenCalled();
+    teardown(root, container);
+  });
+});
+
+/**
+ * The charging read was hardened to reject; the DISPLAY read was not, and it is
+ * the one the revenue figure is drawn from. `refreshPayments` caught a failure
+ * and did `setPayments([])`, and Payments.tsx sums that array into the per-method
+ * tiles and the "Total collected" grand total. So one 5xx, one offline blip or
+ * the 401-after-token-clear path in apiFetch rendered the owner's revenue as
+ * $0.00 — with no error styling, because the only signal was a console.warn in a
+ * devtools tab nobody has open.
+ *
+ * Stale is wrong; zero is a lie indistinguishable from the truth. The lenient
+ * read must keep what it holds.
+ */
+const PAYMENT_ROW = {
+  id: "pay_1",
+  orderId: 52,
+  orderNumber: "MR-52",
+  customerName: "Ana",
+  amount: 1.3,
+  method: "cash" as const,
+  methodDetails: null,
+  date: "2026-09-01T00:00:00.000Z",
+  createdAt: "2026-09-01T00:00:00.000Z",
+  active: true,
+};
+
+/** Empty bodies for every endpoint the provider's mount refresh hits. */
+const EMPTY_BODY = {
+  orders: [], products: [], inventory: [], customers: [], receipts: [],
+  labelTemplates: [], quotes: [], groups: [], invoices: [], profile: {},
+};
+
+/** The ledger read succeeds on mount, then starts answering 500. */
+function ledgerThenFailing() {
+  let broken = false;
+  const spy = vi.fn(async (input: unknown) => {
+    const url = String(input);
+    if (url.includes("/api/payments")) {
+      if (broken) {
+        return { ok: false, status: 500, json: async () => ({ error: "ledger unavailable" }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ payments: [PAYMENT_ROW] }) };
+    }
+    return { ok: true, status: 200, json: async () => EMPTY_BODY };
+  });
+  return { spy, breakLedger: () => { broken = true; } };
+}
+
+type Store = NonNullable<ReturnType<typeof useStore>>;
+
+function Probe({ capture }: { capture: (s: Store) => void }) {
+  capture(useStore());
+  return null;
+}
+
+async function renderStoreWithProbe(fetchSpy: ReturnType<typeof vi.fn>) {
+  vi.stubGlobal("fetch", fetchSpy);
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  // A holder, not a captured value: the probe re-runs on every render, and each
+  // assertion has to read the store as it is NOW. A snapshot taken at mount would
+  // make "the rows survived the failure" pass without anything surviving.
+  const holder: { store: Store | null } = { store: null };
+  await act(async () => {
+    root.render(
+      createElement(
+        StoreProvider,
+        null,
+        createElement(Probe, { capture: (s: Store) => { holder.store = s; } }),
+      ),
+    );
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  if (!holder.store) throw new Error("the probe never captured a store");
+  return { container, root, holder };
+}
+
+/** The store as of right now, not as of mount. */
+const storeNow = (holder: { store: Store | null }): Store => {
+  if (!holder.store) throw new Error("the probe has no store");
+  return holder.store;
+};
+
+describe("refreshPayments display read", () => {
+  it("keeps the rows it holds when the read fails, instead of blanking revenue to zero", async () => {
+    const { spy, breakLedger } = ledgerThenFailing();
+    const { container, root, holder } = await renderStoreWithProbe(spy);
+
+    // The mount read succeeded, so the store is holding the $1.30 deposit.
+    expect(storeNow(holder).payments.map((p) => p.id)).toEqual(["pay_1"]);
+
+    breakLedger();
+    let returned: Payment[] = [];
+    await act(async () => {
+      returned = await storeNow(holder).refreshPayments();
+    });
+
+    // Payments.tsx renders grandTotal = payments.reduce((s, p) => s + p.amount, 0).
+    // Clearing to [] is what made this $0.00.
+    expect(storeNow(holder).payments, "a failed display read must not blank the ledger").toHaveLength(1);
+    expect(storeNow(holder).payments.reduce((s, p) => s + p.amount, 0)).toBe(1.3);
+    // The lenient caller gets the held rows too, so a later total is not `0`.
+    expect(returned.map((p) => p.id)).toEqual(["pay_1"]);
+    teardown(root, container);
+  });
+
+  it("still rethrows a strict read, so the charging path fails loudly", async () => {
+    const { spy, breakLedger } = ledgerThenFailing();
+    const { container, root, holder } = await renderStoreWithProbe(spy);
+    breakLedger();
+
+    await act(async () => {
+      await expect(storeNow(holder).refreshPayments({ strict: true })).rejects.toThrow("ledger unavailable");
+    });
+    teardown(root, container);
+  });
+
+  it("does report a genuinely empty ledger, so stale is not the same as zero rows forever", async () => {
+    let empty = false;
+    const spy = vi.fn(async (input: unknown) => {
+      if (String(input).includes("/api/payments")) {
+        return { ok: true, status: 200, json: async () => ({ payments: empty ? [] : [PAYMENT_ROW] }) };
+      }
+      return { ok: true, status: 200, json: async () => EMPTY_BODY };
+    });
+    const { container, root, holder } = await renderStoreWithProbe(spy);
+    expect(storeNow(holder).payments).toHaveLength(1);
+
+    // The ledger really was emptied server-side. Only a FAILURE keeps the old
+    // rows; a successful read of zero rows is real information and replaces them.
+    empty = true;
+    await act(async () => {
+      await storeNow(holder).refreshPayments();
+    });
+    expect(storeNow(holder).payments).toHaveLength(0);
+    teardown(root, container);
+  });
+});
+
+/**
+ * The lost conversion race, on the dashboard side.
+ *
+ * The server answers 200 { already: true } when the orders.quote_id index made
+ * another caller the winner. QuoteConvertModal renders
+ * `paymentStatus === "paid" ? "Full" : "Partial"`, so handing it a loser's
+ * `undefined` status produced a green success screen reading "Partial payment of
+ * $75.00 via cash" for an order the owner did not create — with the winner's
+ * order id going to onDone. `handleConvertQuote` is the one place that can
+ * refuse it without touching the modal, since its only consumer catches.
+ */
+describe("handleConvertQuote on a lost conversion race", () => {
+  const convertSpy = (body: unknown) =>
+    vi.fn(async (input: unknown) => {
+      if (String(input).includes("/api/quotes/18/convert")) {
+        return { ok: true, status: 200, json: async () => body };
+      }
+      if (String(input).includes("/api/payments")) {
+        return { ok: true, status: 200, json: async () => ({ payments: [] }) };
+      }
+      return { ok: true, status: 200, json: async () => EMPTY_BODY };
+    });
+
+  it("refuses to report a payment status for an order it did not create", async () => {
+    const spy = convertSpy({ ok: true, already: true, order_id: 77 });
+    const { container, root, holder } = await renderStoreWithProbe(spy);
+
+    await expect(
+      storeNow(holder).handleConvertQuote(18, 7500, "cash"),
+    ).rejects.toThrow(/already converted/);
+    teardown(root, container);
+  });
+
+  it("still refreshes the lists, because the winner's order really did land", async () => {
+    const spy = convertSpy({ ok: true, already: true, order_id: 77 });
+    const { container, root, holder } = await renderStoreWithProbe(spy);
+
+    await expect(
+      storeNow(holder).handleConvertQuote(18, 7500, "cash"),
+    ).rejects.toThrow();
+    expect(spy.mock.calls.some(([input]) => String(input).includes("/api/orders"))).toBe(true);
+    teardown(root, container);
+  });
+
+  it("passes the derived status straight through when this caller wins", async () => {
+    const spy = convertSpy({ ok: true, order_id: 79, payment_status: "partial" });
+    const { container, root, holder } = await renderStoreWithProbe(spy);
+
+    const result = await act(async () => storeNow(holder).handleConvertQuote(18, 7500, "cash"));
+    expect(result).toEqual({ orderId: 79, paymentStatus: "partial" });
     teardown(root, container);
   });
 });

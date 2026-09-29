@@ -21,17 +21,24 @@ export function buildMethodLabel(order, isEn) {
   else if (method === 'applepay') label = 'Apple Pay';
   else if (method === 'cash') label = isEn ? 'Cash' : 'Efectivo';
   else label = method || '—';
-  // Append sub-method details for Stripe/PayPal
+  // Append sub-method details for Stripe/PayPal — but ONLY for the method the
+  // sub-method describes. payment_sub_method is deliberately preserved when a
+  // later collection uses a different method (createPayment's
+  // COALESCE(?, payment_sub_method)), so the blob is history, not the current
+  // tender: a $1.30 card deposit later settled in cash leaves the row reading
+  // `cash` + a Visa blob. Overriding unconditionally printed "Visa (…4242)" on
+  // the customer's receipt for a balance collected in cash. Gate on the method
+  // and the stale blob is inert.
   const sub = order.payment_sub_method;
   if (sub) {
     try {
       const parsed = JSON.parse(sub);
-      if (parsed.type === 'card' && parsed.brand) {
+      if (method === 'stripe' && parsed.type === 'card' && parsed.brand) {
         const brand = parsed.brand.charAt(0).toUpperCase() + parsed.brand.slice(1).toLowerCase();
         const funding = parsed.funding ? ' ' + parsed.funding.charAt(0).toUpperCase() + parsed.funding.slice(1).toLowerCase() : '';
         const last4 = parsed.last4 ? ' (…' + parsed.last4 + ')' : '';
         label = `${brand}${funding}${last4}`;
-      } else if (parsed.type === 'paypal_wallet') {
+      } else if (method === 'paypal' && parsed.type === 'paypal_wallet') {
         label = 'PayPal Wallet';
       }
     } catch { /* keep base label */ }

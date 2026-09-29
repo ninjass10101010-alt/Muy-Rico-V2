@@ -35,6 +35,30 @@ export function derivePaymentStatus(activeCents, totalCents) {
   return 'partial';
 }
 
+/**
+ * Payment status for an order created by converting a quote or an invoice.
+ *
+ * DELIBERATELY NOT derivePaymentStatus. The two answer different questions:
+ *
+ *   - derivePaymentStatus is the LEDGER rule: "given what has been collected
+ *     against this order's total, what is its status?" Three outcomes, and
+ *     nothing collected reads 'unpaid'.
+ *   - This is the DEPOSIT rule: "a customer committed to this order and paid a
+ *     deposit, so is it settled or still owing a balance?" Two outcomes, and it
+ *     has no 'unpaid' on purpose — reaching a conversion at all implies a
+ *     commitment, so a $0 deposit on a $150 quote reads 'partial' (a balance is
+ *     outstanding), not 'unpaid' (nothing was ever promised).
+ *
+ * Swapping derivePaymentStatus in would make the boundary case worse, not
+ * better: for a $0.00 quote with a $0.00 deposit this returns 'paid' (nothing
+ * is outstanding) while derivePaymentStatus(0, 0) returns 'unpaid'.
+ */
+export function deriveConversionStatus(collectedCents, totalCents) {
+  const collected = Number(collectedCents) || 0;
+  const total = Number(totalCents) || 0;
+  return collected >= total ? 'paid' : 'partial';
+}
+
 /** Unpaid remainder, floored at zero so an overpayment reports 0, never negative. */
 export function balanceCentsCents(activeCents, totalCents) {
   const remaining = (Number(totalCents) || 0) - (Number(activeCents) || 0);

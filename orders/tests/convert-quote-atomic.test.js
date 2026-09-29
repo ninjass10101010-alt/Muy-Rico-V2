@@ -179,3 +179,60 @@ describe('convertQuoteToOrder atomicity', () => {
     ).toBeFalsy();
   });
 });
+
+/**
+ * The admin convert endpoint is the second consumer of the `already` flag, and
+ * it had none: it destructured only { orderId, paymentStatus } and answered 201
+ * { payment_status: null }. QuoteConvertModal renders
+ * `paymentStatus === "paid" ? "Full" : "Partial"`, so a lost race showed the
+ * owner a green success screen reading "Partial payment of $X via Y" for an
+ * order they did not create, and handed the winner's order id to onDone.
+ */
+describe('convertQuote (admin) lost conversion race', () => {
+  const adminRequest = (body) =>
+    new Request('https://orders-api.test/api/quotes/18/convert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'cf-access-authenticated-user-email': 'jeff@example.test',
+      },
+      body: JSON.stringify(body),
+    });
+
+  const convertRequest = () =>
+    adminRequest({ deposit_amount_cents: 7500, payment_method: 'cash' });
+
+  it('answers 201 with a payment status when this caller wins', async () => {
+    const { env, ctx } = makeEnv();
+    const res = await worker.fetch(convertRequest(), env, ctx);
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    // 7500 of a 15000 quote: a deposit was taken, so a balance is outstanding.
+    expect(body.payment_status).toBe('partial');
+    expect(body.already).toBeUndefined();
+  });
+
+  it('answers 200 already:true and no payment status when it loses the race', async () => {
+    const { env, calls } = makeEnv({
+      winner: { converted_order_id: 77 },
+      batchError: new Error('D1_ERROR: UNIQUE constraint failed: orders.quote_id'),
+    });
+    const waited = [];
+    const ctx = { waitUntil: (p) => { waited.push(p); } };
+    const res = await worker.fetch(convertRequest(), env, ctx);
+
+    // Not 201: nothing was created here. The invoice callers already use this
+    // exact shape for the same event.
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.already).toBe(true);
+    expect(body.order_id, 'the owner is pointed at the order that does exist').toBe(77);
+    // The absent field, not a null one: the dashboard's "Full"/"Partial" ternary
+    // has nothing to render, and a status that reads like a real one is what
+    // made this screen lie.
+    expect(body, 'a loser has no payment status of its own to report').not.toHaveProperty('payment_status');
+    expect(waited, 'a loser must not announce a conversion that did not happen').toHaveLength(0);
+    expect(batchOf(calls).binds, 'no second order is written on the loser path').toHaveLength(4);
+  });
+});

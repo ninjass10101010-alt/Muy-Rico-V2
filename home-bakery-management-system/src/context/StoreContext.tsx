@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useEffect, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   seedCustomers,
   seedInventory,
@@ -114,6 +114,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  // Mirrors `payments` so refreshPayments' catch can hand back the rows it
+  // already holds without reading state that may not have committed yet.
+  const paymentsRef = useRef<Payment[]>([]);
   const [labelTemplates, setLabelTemplates] = useState<LabelTemplate[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [profile, setProfile] = useState<BusinessProfile>(seedProfile);
@@ -359,17 +362,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // passes { strict: true } and the rejection reaches the handler's catch. In
   // strict mode the state is left untouched too: a failed *charging* read says
   // nothing about what the ledger holds.
+  //
+  // The lenient path leaves the state untouched for the same reason and returns
+  // the rows it already holds. Clearing to [] is the one answer a display read
+  // must never give: Payments.tsx sums this array into the per-method tiles and
+  // the "Total collected" grand total, so one 5xx, one offline blip or the
+  // 401-after-token-clear path in apiFetch rendered the owner's revenue as
+  // $0.00 — with no error styling, because the only signal was a console.warn.
+  // Stale is wrong; zero is a lie the owner has no way to tell from the truth.
   const refreshPayments = useCallback(async (opts?: { strict?: boolean }): Promise<Payment[]> => {
     try {
       const rows = await fetchPayments();
       const mapped = rows.map(apiToPayment);
+      paymentsRef.current = mapped;
       setPayments(mapped);
       return mapped;
     } catch (err) {
       if (opts?.strict) throw err;
       console.warn("Failed to fetch payments from API:", err);
-      setPayments([]);
-      return [];
+      // Deliberately not setPayments([]): the rows already held are the best
+      // answer available, and [] would be indistinguishable from "no revenue".
+      return paymentsRef.current;
     }
   }, []);
 
@@ -786,7 +799,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const handleConvertQuote = useCallback(async (id: number, depositAmountCents: number, paymentMethod: string) => {
     const result = await apiConvertQuote(id, depositAmountCents, paymentMethod);
+    // The server answers `already: true` when another caller won the conversion
+    // race: no order was created here and there is no payment status of our own.
+    // Returning it would let the modal render "Partial payment of $X via Y" over
+    // an order this owner did not create, so it surfaces as a failure instead.
+    // The lists are refreshed either way — the winner's order really did land.
     await Promise.all([refreshQuotes(), refreshOrders()]);
+    if (result.already) {
+      throw new Error(
+        "This quote was already converted by another action — the existing order was kept."
+      );
+    }
     return { orderId: result.order_id, paymentStatus: result.payment_status };
   }, [refreshQuotes, refreshOrders]);
 

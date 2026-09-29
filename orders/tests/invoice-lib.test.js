@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import worker from '../workers/api.js';
 import {
   depositCentsFor, balanceCentsFor, allowedPayModes, matchedPayMode,
   invoiceNumberFor, computeTotalCents, buildPayUrl,
@@ -122,5 +123,130 @@ describe('generateInvoiceToken', () => {
     const t = generateInvoiceToken();
     expect(t).toMatch(/^[0-9a-f]{32}$/);
     expect(generateInvoiceToken()).not.toBe(t);
+  });
+});
+
+/**
+ * convertInvoiceToOrder's lost-race catch, driven through the real router.
+ *
+ * The batch's only other UNIQUE is payments.id (TEXT PRIMARY KEY, statement 4).
+ * A wide /UNIQUE constraint failed/ swallowed a collision there as "another
+ * caller won the race", so a batch that rolled back committed nothing answered
+ * 200 { order_id: null } — a paid invoice with no order, and a 2xx that stops
+ * the provider from retrying. Byte-for-byte the failure the quote side was
+ * already fixed for; the invoice catch still matched any UNIQUE.
+ */
+const INVOICE = {
+  id: 7,
+  number: 'INV-1007',
+  status: 'sent',
+  customer_name: 'Maria Lopez',
+  email: 'maria@example.test',
+  phone: null,
+  language: 'es',
+  customer_id: null,
+  issue_date: '2026-09-16',
+  due_date: '2026-09-30',
+  payment_options: 'both',
+  total_cents: 18000,
+  notes: null,
+  admin_notes: null,
+  public_token: 'a'.repeat(32),
+  paid_cents: null,
+  paid_at: null,
+  payment_method: null,
+  payment_sub_method: null,
+  payment_ref: null,
+  converted_order_id: null,
+  created_at: '2026-09-16 00:00:00',
+  updated_at: '2026-09-16 00:00:00',
+  created_by: 'owner',
+};
+
+function makeInvoiceEnv({ winner = null, batchError = null } = {}) {
+  const calls = [];
+  const db = {
+    prepare(sql) {
+      const stmt = {
+        _sql: sql,
+        _binds: [],
+        bind(...args) { stmt._binds = args; return stmt; },
+        async first() {
+          calls.push({ sql, binds: stmt._binds, method: 'first' });
+          if (/SELECT converted_order_id FROM invoices/.test(sql)) return winner;
+          if (/FROM invoices WHERE id/.test(sql)) return INVOICE;
+          return null;
+        },
+        async run() {
+          calls.push({ sql, binds: stmt._binds, method: 'run' });
+          return { meta: { changes: 1, last_row_id: 55 } };
+        },
+        async all() {
+          calls.push({ sql, binds: stmt._binds, method: 'all' });
+          return { results: [] };
+        },
+      };
+      return stmt;
+    },
+    async batch(stmts) {
+      calls.push({ sql: 'BATCH', binds: stmts.map((s) => ({ sql: s._sql, binds: s._binds })), method: 'batch' });
+      if (batchError) throw batchError;
+      return stmts.map((_, i) => ({ meta: { changes: 1, last_row_id: 200 + i } }));
+    },
+  };
+  const env = { DB: db, PAYMENT_WEBHOOK_SECRET: 's3cret' };
+  const ctx = { waitUntil: (p) => { if (p && typeof p.catch === 'function') p.catch(() => {}); } };
+  return { env, ctx, calls };
+}
+
+const invoicePaidRequest = () =>
+  new Request('https://orders-api.test/api/invoices/7/paid', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': 's3cret' },
+    body: JSON.stringify({ token: 'a'.repeat(32), method: 'stripe', ref: 'cs_test_9', amount_cents: 18000 }),
+  });
+
+describe('convertInvoiceToOrder unique-violation narrowing', () => {
+  it('returns the winner order id when the real orders.invoice_id index fires', async () => {
+    const { env, ctx, calls } = makeInvoiceEnv({
+      winner: { converted_order_id: 66 },
+      batchError: new Error('D1_ERROR: UNIQUE constraint failed: orders.invoice_id'),
+    });
+    const res = await worker.fetch(invoicePaidRequest(), env, ctx);
+
+    expect(res.status, 'a lost race is not a server error').toBe(200);
+    const body = await res.json();
+    expect(body.already).toBe(true);
+    expect(body.order_id).toBe(66);
+    expect(
+      calls.find((c) => c.method === 'first' && /SELECT converted_order_id FROM invoices/.test(c.sql)),
+      'the loser must read the winning order id'
+    ).toBeTruthy();
+  });
+
+  it('propagates a payments.id collision as an error instead of a lost race', async () => {
+    // payments.id is a TEXT PRIMARY KEY and statement 4 inserts a generated
+    // payId. Swallowed as a lost race, a rolled-back batch answers 200 with
+    // order_id: null — the customer's money is marked paid, no order exists,
+    // and the 2xx stops the provider from retrying.
+    const { env, ctx, calls } = makeInvoiceEnv({
+      winner: { converted_order_id: null },
+      batchError: new Error('D1_ERROR: UNIQUE constraint failed: payments.id'),
+    });
+    const res = await worker.fetch(invoicePaidRequest(), env, ctx);
+
+    expect(res.status, 'nothing committed, so the provider must be told to retry').toBe(500);
+    const body = await res.json();
+    expect(body.already, 'this was not a lost race').toBeUndefined();
+    expect(body.order_id, 'no order exists, so no order id may be reported').toBeUndefined();
+    expect(
+      calls.find((c) => c.method === 'first' && /SELECT converted_order_id FROM invoices/.test(c.sql)),
+      'a rolled-back batch must not be treated as a lost race'
+    ).toBeFalsy();
+  });
+
+  it('rethrows a batch failure that names no constraint at all', async () => {
+    const { env, ctx } = makeInvoiceEnv({ batchError: new Error('D1_ERROR: disk exploded') });
+    expect((await worker.fetch(invoicePaidRequest(), env, ctx)).status).toBe(500);
   });
 });

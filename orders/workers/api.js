@@ -87,7 +87,7 @@ import {
   depositCentsFor, isDepositSufficient, buildPayUrl, generateQuoteToken,
 } from './quote-deposit-lib.js';
 import {
-  derivePaymentStatus, activePaymentsCents, balanceCentsCents,
+  derivePaymentStatus, deriveConversionStatus, activePaymentsCents, balanceCentsCents,
 } from './payment-ledger-lib.js';
 import {
   depositCentsFor as invoiceDepositCentsFor,
@@ -954,13 +954,23 @@ async function updateOrder(id, request, env, ctx, actor) {
   }
 
   binds.push(id);
-  const r = await env.DB.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
-  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+  const updateStmt = env.DB.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).bind(...binds);
 
-  // When marking unpaid, deactivate all payments so they don't inflate totals
-  if (body.payment_status === 'unpaid') {
-    await env.DB.prepare(`UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1`).bind(id).run();
-  }
+  // When marking unpaid, deactivate all payments so they don't inflate totals.
+  // Batched WITH the order update, never after it. As two separate committed
+  // statements a failure in between left the order 'unpaid' while its payments
+  // stayed active=1: revenue still counted them, so the dashboard reported the
+  // number the owner was trying to void, and the confirm dialog's promise that
+  // they "will no longer count toward revenue" was false. That is the mirror
+  // image of the over-collection this branch fixed.
+  const voidPayments = body.payment_status === 'unpaid'
+    ? env.DB.prepare(`UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1`).bind(id)
+    : null;
+
+  const r = voidPayments
+    ? (await env.DB.batch([updateStmt, voidPayments]))[0]
+    : await updateStmt.run();
+  if (!r.meta.changes) return json({ error: 'Not found' }, 404);
 
   // Keep the latest recorded payment in sync when the method is corrected
   if (body.payment_method !== undefined) {
@@ -4093,7 +4103,7 @@ async function getInvoicePayable(id, request, env) {
 
 // Shared invoice → order conversion. `invoice` is an invoices row.
 async function convertInvoiceToOrder(env, id, invoice, { amountCents, method, subMethod = null, actor }) {
-  const paymentStatus = amountCents >= invoice.total_cents ? 'paid' : 'partial';
+  const paymentStatus = deriveConversionStatus(amountCents, invoice.total_cents);
 
   const invoiceItems = await getInvoiceItems(env, id);
   const itemsJson = JSON.stringify(
@@ -4151,8 +4161,14 @@ async function convertInvoiceToOrder(env, id, invoice, { amountCents, method, su
 
     return { orderId: results[0].meta.last_row_id, paymentStatus };
   } catch (e) {
-    if (/UNIQUE constraint failed/i.test(String(e))) {
-      // Another caller won the conversion race; return their order id.
+    if (/UNIQUE constraint failed: orders\.invoice_id/i.test(String(e))) {
+      // Match only idx_orders_invoice_id. A wider /UNIQUE constraint failed/
+      // also catches payments.id (TEXT PRIMARY KEY, statement 4) and would
+      // report a lost race for a rolled-back batch that committed nothing: the
+      // caller would answer 200 with order_id: null — a paid invoice with no
+      // order — and the 2xx would stop the provider from retrying. Here the
+      // winner is guaranteed committed, so orderId is never null on this path.
+      // Same narrowing as convertQuoteToOrder's orders.quote_id catch.
       const winner = await env.DB.prepare(
         'SELECT converted_order_id FROM invoices WHERE id = ?'
       ).bind(id).first();
@@ -4711,7 +4727,7 @@ function buildQuoteDocumentHtml(quote, items, lang) {
 // Shared quote → order conversion. `quote` is a cake_quotes row (QUOTE_FIELDS).
 // `subMethod` is an optional JSON string describing the instrument (e.g. card brand/last4).
 async function convertQuoteToOrder(env, id, quote, { depositCents, method, subMethod = null, actor }) {
-  const paymentStatus = depositCents >= quote.quoted_price ? 'paid' : 'partial';
+  const paymentStatus = deriveConversionStatus(depositCents, quote.quoted_price);
 
   const quoteItems = (await getQuoteItems(env, [id]))[id] || [];
   const hasItems = quoteItems.length > 0;
@@ -4893,13 +4909,24 @@ async function convertQuote(id, request, env, ctx, actor) {
       }, 400);
     }
 
-    const { orderId, paymentStatus } = await convertQuoteToOrder(env, id, quote, {
+    const converted = await convertQuoteToOrder(env, id, quote, {
       depositCents, method: body.payment_method, actor,
     });
 
-    ctx.waitUntil(notifyQuoteConverted(env, id, quote.customer_name, orderId, depositCents, quote.quoted_price, body.payment_method));
+    // A lost conversion race is not a 201. The orders.quote_id index made
+    // another caller the winner, so this one created nothing and knows no
+    // payment status of its own — answering 201 { payment_status: null } let the
+    // dashboard render "Partial payment of $X via Y" for an order this owner
+    // did not just create, with the winner's order id handed to onDone. Same
+    // shape convertInvoiceToOrder's callers use: 200, already: true, the
+    // winner's id, no status.
+    if (converted.already) {
+      return json({ ok: true, already: true, order_id: converted.orderId }, 200);
+    }
 
-    return json({ ok: true, order_id: orderId, payment_status: paymentStatus }, 201);
+    ctx.waitUntil(notifyQuoteConverted(env, id, quote.customer_name, converted.orderId, depositCents, quote.quoted_price, body.payment_method));
+
+    return json({ ok: true, order_id: converted.orderId, payment_status: converted.paymentStatus }, 201);
   } catch (e) {
     return json({ error: String(e) }, 500);
   }

@@ -135,4 +135,53 @@ describe('buildMethodLabel / formatStatusLabel', () => {
     expect(formatStatusLabel('pending', true)).toBe('Pending');
     expect(formatStatusLabel('pending', false)).toBe('Pendiente');
   });
+
+  /**
+   * payment_sub_method is preserved by design when a later collection uses a
+   * different method (createPayment's COALESCE), so the blob is the ledger's
+   * history rather than the order's current tender. The label must follow
+   * payment_method; a customer settling an $11.70 cash balance on a $1.30 card
+   * deposit was reading "Visa (…4242)" on the receipt for money handed over in
+   * cash.
+   */
+  const cardBlob = JSON.stringify({ type: 'card', brand: 'visa', last4: '4242' });
+
+  it('labels a cash order carrying a card blob as cash', () => {
+    expect(buildMethodLabel({ payment_method: 'cash', payment_sub_method: cardBlob }, true)).toBe('Cash');
+    expect(buildMethodLabel({ payment_method: 'cash', payment_sub_method: cardBlob }, false)).toBe('Efectivo');
+  });
+
+  it('still labels a stripe order with a card blob as the brand', () => {
+    expect(buildMethodLabel({ payment_method: 'stripe', payment_sub_method: cardBlob }, true))
+      .toBe('Visa (…4242)');
+  });
+
+  it('still labels a paypal order with paypal_wallet as PayPal Wallet', () => {
+    const blob = JSON.stringify({ type: 'paypal_wallet' });
+    expect(buildMethodLabel({ payment_method: 'paypal', payment_sub_method: blob }, true))
+      .toBe('PayPal Wallet');
+  });
+
+  it('does not let a stale card blob relabel a paypal order', () => {
+    expect(buildMethodLabel({ payment_method: 'paypal', payment_sub_method: cardBlob }, true))
+      .toBe('PayPal');
+  });
+
+  it('does not let a stale paypal_wallet blob relabel a stripe order', () => {
+    const blob = JSON.stringify({ type: 'paypal_wallet' });
+    expect(buildMethodLabel({ payment_method: 'stripe', payment_sub_method: blob }, true))
+      .toBe('Card');
+  });
+
+  it('does not print the stale card on the receipt a customer is actually emailed', () => {
+    // The same helper feeds the emailed/printed receipt, so the gate has to
+    // hold on the rendered document and not only on the label in isolation.
+    const html = buildReceiptHtml(
+      { ...baseOrder, payment_method: 'cash', payment_sub_method: cardBlob },
+      true,
+    );
+    expect(html).toContain('Cash');
+    expect(html, 'the receipt must not name a card that was not the tender').not.toContain('4242');
+    expect(html).not.toContain('Visa');
+  });
 });
