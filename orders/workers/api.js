@@ -4839,10 +4839,18 @@ async function convertQuoteToOrder(env, id, quote, { depositCents, method, subMe
 
     return { orderId: results[0].meta.last_row_id, paymentStatus };
   } catch (e) {
-    if (/UNIQUE constraint failed/i.test(String(e))) {
+    if (/UNIQUE constraint failed: orders\.quote_id/i.test(String(e))) {
       // Another caller won the conversion race; return their order id. The
       // winner has committed, so its order row and converted_order_id are
       // already visible to this read.
+      //
+      // Match only idx_orders_quote_id. A wider /UNIQUE constraint failed/
+      // also catches payments.id (TEXT PRIMARY KEY) and would report a
+      // lost race for a rolled-back batch that committed nothing: the
+      // deposit is already claimed on the quote, so the caller would get
+      // order_id: null with no order and no payment row, and a 2xx would
+      // stop the provider from retrying. Here the winner is guaranteed
+      // committed, so orderId is never null on this path.
       const winner = await env.DB.prepare(
         'SELECT converted_order_id FROM cake_quotes WHERE id = ?'
       ).bind(id).first();

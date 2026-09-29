@@ -43,7 +43,9 @@ function makeEnv({ quote = QUOTE, winner = null, batchError = null } = {}) {
         method: 'batch',
       });
       if (batchError) throw batchError;
-      return stmts.map(() => ({ meta: { changes: 1, last_row_id: 99 } }));
+      // Distinct ids per statement: a shared id would let the order_id
+      // assertion pass whichever result the code read.
+      return stmts.map((_, i) => ({ meta: { changes: 1, last_row_id: 100 + i } }));
     },
   };
   const env = { DB: db, PAYMENT_WEBHOOK_SECRET: 's3cret' };
@@ -113,6 +115,13 @@ describe('convertQuoteToOrder atomicity', () => {
     for (const stmt of [payment, event, quoteUpdate]) {
       expect(stmt.binds, 'the quote id must be bound, never inlined').toContain(18);
     }
+
+    // D1 only rejects a mismatched bind count at runtime, and a dropped
+    // argument silently shifts every later value in the same statement.
+    for (const stmt of batch.binds) {
+      const placeholders = (stmt.sql.match(/\?/g) || []).length;
+      expect(placeholders, `bind/placeholder mismatch in: ${stmt.sql}`).toBe(stmt.binds.length);
+    }
   });
 
   it('still returns an order id to the caller', async () => {
@@ -120,7 +129,7 @@ describe('convertQuoteToOrder atomicity', () => {
     const res = await worker.fetch(depositRequest(), env, ctx);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.order_id).toBe(99);
+    expect(body.order_id).toBe(100);
   });
 
   it('returns the winner order id when a concurrent convert wins the quote_id race', async () => {
@@ -148,5 +157,25 @@ describe('convertQuoteToOrder atomicity', () => {
     });
     const res = await worker.fetch(depositRequest(), env, ctx);
     expect(res.status).toBe(500);
+  });
+
+  it('rethrows a payments.id unique violation instead of reporting a lost race', async () => {
+    // payments.id is a TEXT PRIMARY KEY and statement 2 inserts a generated
+    // payId. Treated as a lost race, a rolled-back batch would answer 2xx with
+    // order_id: null — the deposit is already claimed on the quote, so the
+    // money would sit with no order, no payment row, and no retry.
+    const { env, ctx, calls } = makeEnv({
+      winner: { converted_order_id: null },
+      batchError: new Error('D1_ERROR: UNIQUE constraint failed: payments.id'),
+    });
+    const res = await worker.fetch(depositRequest(), env, ctx);
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.order_id, 'nothing was committed, so no order id may be reported').toBeUndefined();
+    expect(
+      calls.find((c) => c.method === 'first' && /SELECT converted_order_id/.test(c.sql)),
+      'a rolled-back batch must not be treated as a lost race'
+    ).toBeFalsy();
   });
 });
