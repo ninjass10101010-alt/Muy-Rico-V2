@@ -70,7 +70,9 @@ function createPaymentRequest(body) {
   });
 }
 
-const BASE = { id: 'pay_test1', order_id: 1, order_number: 'MR-1', customer_name: 'Ana', method: 'cash', amount: 30 };
+// A `date` is part of the base payload because payments.date is NOT NULL
+// (migrations/0006): without it the request below is one real D1 rejects.
+const BASE = { id: 'pay_test1', order_id: 1, order_number: 'MR-1', customer_name: 'Ana', method: 'cash', amount: 30, date: '2026-09-01' };
 
 // Every statement's SQL, flattened out of any batch. A batch is recorded as one
 // call whose .sql is the literal 'BATCH', with the statement SQL in .binds —
@@ -151,8 +153,8 @@ describe('createPayment replace mode', () => {
     expect(ins[4]).toBe(30);
     expect(ins[5]).toBe('cash');
     expect(ins[6]).toBe('{"type":"cash"}');
-    // BASE sends no `date`, and the handler binds `body.date || null`.
-    expect(ins[7]).toBeNull();
+    // The base payload supplies a date, so the row is one real D1 would accept.
+    expect(ins[7]).toBe('2026-09-01');
   });
 });
 
@@ -366,6 +368,19 @@ describe('createPayment validation (unchanged behaviour)', () => {
     const { env, ctx } = makeEnv();
     const res = await worker.fetch(createPaymentRequest({ ...BASE, order_id: null }), env, ctx);
     expect(res.status).toBe(201);
+  });
+
+  // KNOWN GAP, ticketed separately: payments.date is NOT NULL (migrations/0006)
+  // and the handler binds `body.date || null`, so a payload without a date is a
+  // request real D1 rejects with "NOT NULL constraint failed: payments.date".
+  // The handler defect is out of scope here — this pins the current binding so
+  // the assertion moves the day it is fixed, and deliberately does NOT assert
+  // that such a request succeeds.
+  it('KNOWN GAP: binds null when the payload carries no date', async () => {
+    const { env, ctx, calls } = makeEnv();
+    await worker.fetch(createPaymentRequest({ ...BASE, date: undefined }), env, ctx);
+    const ins = batchOf(calls).binds[1].binds;
+    expect(ins[7]).toBeNull();
   });
 });
 

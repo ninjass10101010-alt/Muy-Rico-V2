@@ -2727,6 +2727,42 @@ async function listPayments(request, env) {
   return json({ payments: results.map(snakeToCamelObject) }, 200);
 }
 
+// The read-sum-derive block every ledger write needs once its own statement is
+// durable: order total, ACTIVE payments, derived status, guarded status write.
+// Shared by createPayment, deletePayment and restorePayment so the three cannot
+// drift into disagreeing answers about the same order.
+//
+// The read must run AFTER the caller's write — the sum it derives from is the
+// point of the exercise, and a pre-write read derives the ledger state the
+// caller just changed. Returns null when the order no longer exists, so a
+// caller can tell "nothing to derive against" from "derivation ran".
+//
+// The totalCents > 0 guard: a derived 'unpaid' from (0 collected, 0 total)
+// would park a 100%-discount order in the dashboard's awaiting-payment filter
+// with a $0.00 balance, forever. Nothing is collectable, so there is nothing
+// to derive.
+async function rederiveOrderPaymentStatus(env, orderId) {
+  const order = await env.DB.prepare(
+    'SELECT total_cents FROM orders WHERE id = ?'
+  ).bind(orderId).first();
+  if (!order) return null;
+
+  const active = await env.DB.prepare(
+    'SELECT amount FROM payments WHERE order_id = ? AND active = 1'
+  ).bind(orderId).all();
+  const collected = activePaymentsCents((active && active.results) || []);
+  const totalCents = Number(order.total_cents) || 0;
+  const paymentStatus = derivePaymentStatus(collected, totalCents);
+  const balanceCents = balanceCentsCents(collected, totalCents);
+
+  if (totalCents > 0) {
+    await env.DB.prepare('UPDATE orders SET payment_status = ? WHERE id = ?')
+      .bind(paymentStatus, orderId).run();
+  }
+
+  return { paymentStatus, balanceCents };
+}
+
 async function createPayment(request, env, actor) {
   let body;
   try { body = await request.json(); } catch { body = {}; }
@@ -2805,40 +2841,21 @@ async function createPayment(request, env, actor) {
   let paymentStatus;
   let balanceCents;
   try {
-    const order = await env.DB.prepare(
-      'SELECT total_cents FROM orders WHERE id = ?'
-    ).bind(orderId).first();
-    if (!order) {
-      // Order was deleted mid-flight; the payment row still stands on its own.
-      return json({ ok: true, id: body.id }, 201);
-    }
-
-    const active = await env.DB.prepare(
-      'SELECT amount FROM payments WHERE order_id = ? AND active = 1'
-    ).bind(orderId).all();
-    const collected = activePaymentsCents((active && active.results) || []);
-    const totalCents = Number(order.total_cents) || 0;
-    paymentStatus = derivePaymentStatus(collected, totalCents);
-    balanceCents = balanceCentsCents(collected, totalCents);
-
-    // Skip the status write for a zero-total order (a 100% discount). Deriving
-    // 'unpaid' from (0 collected, 0 total) would park it in the dashboard's
-    // awaiting-payment filter with a $0.00 balance, forever. Nothing is
-    // collectable, so there is nothing to derive.
-    if (totalCents > 0) {
-      await env.DB.prepare('UPDATE orders SET payment_status = ? WHERE id = ?')
-        .bind(paymentStatus, orderId).run();
-    }
+    const derived = await rederiveOrderPaymentStatus(env, orderId);
+    // Order was deleted mid-flight; the payment row still stands on its own.
+    if (!derived) return json({ ok: true, id: body.id }, 201);
+    paymentStatus = derived.paymentStatus;
+    balanceCents = derived.balanceCents;
 
     // Mirror the ledger row onto the order itself: receipt-html.js:15 reads
     // order.payment_method, and Orders.tsx falls back to a bare "Paid" without
     // it, so an order whose method lives only on `payments` produces a receipt
-    // with no payment method on it. Written outside the totalCents guard on
-    // purpose — that guard exists because a *derived* status of 'unpaid' on a
-    // $0.00 order is a lie, but the method is not derived: it is simply how a
-    // payment that did land was paid, which stays true at any order total. It is
-    // also the same value markPaid writes (api.js:1098), so the two paths leave
-    // an order in the same shape.
+    // with no payment method on it. Written outside the helper's totalCents
+    // guard on purpose — that guard exists because a *derived* status of
+    // 'unpaid' on a $0.00 order is a lie, but the method is not derived: it is
+    // simply how a payment that did land was paid, which stays true at any
+    // order total. It is also the same value markPaid writes (api.js:1098), so
+    // the two paths leave an order in the same shape.
     //
     // payment_sub_method is COALESCEd rather than assigned. markOrderPaid writes
     // the card brand and last4 there, and NO SPA payment supplies one — none of
@@ -2864,7 +2881,38 @@ async function createPayment(request, env, actor) {
 async function deletePayment(id, env, actor) {
   const r = await env.DB.prepare(`UPDATE payments SET active = 0 WHERE id = ?`).bind(id).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
-  return json({ ok: true }, 200);
+
+  // Same post-commit contract as restorePayment: the void is durable before
+  // any of this runs, so a throw here must not become a 500 for a payment that
+  // already stopped counting. paymentStatus/balanceCents stay undefined when
+  // derivation did not complete, which is how createPayment already reports it.
+  let paymentStatus;
+  let balanceCents;
+  try {
+    const payment = await env.DB.prepare(
+      'SELECT order_id FROM payments WHERE id = ?'
+    ).bind(id).first();
+    const orderId = payment && payment.order_id;
+    // Orphan payment (no order): nothing to derive against, and
+    // order_events.order_id is NOT NULL (migrations/0001_initial.sql:29).
+    if (orderId == null) return json({ ok: true }, 200);
+
+    const derived = await rederiveOrderPaymentStatus(env, orderId);
+    // Order was deleted mid-flight; the voided row still stands on its own.
+    if (!derived) return json({ ok: true }, 200);
+    paymentStatus = derived.paymentStatus;
+    balanceCents = derived.balanceCents;
+
+    // Restoring writes its own event, so a void needs one too: without it the
+    // audit log shows the un-void and never the void that preceded it.
+    await env.DB.prepare(`
+      INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_voided')
+    `).bind(orderId, actor || 'unknown').run();
+  } catch (e) {
+    console.error('deletePayment: payment voided but post-commit steps failed', e);
+  }
+
+  return json({ ok: true, paymentStatus, balanceCents }, 200);
 }
 
 // Reactivating a voided payment, NOT a second spelling of deletePayment.
@@ -2882,7 +2930,11 @@ async function restorePayment(id, env, actor) {
   // to 1 changes the order's ledger sum, so the order's cached payment_status
   // is now stale — leaving it is exactly the "status disagrees with the ledger"
   // failure this handler exists to prevent. A throw here would return 500 for a
-  // restore that already committed, so log and still report success.
+  // restore that already committed, so log and still report success. The
+  // derived keys are left undefined when derivation did not run, which is how
+  // createPayment already distinguishes a re-derived status from a failed one.
+  let paymentStatus;
+  let balanceCents;
   try {
     const payment = await env.DB.prepare(
       'SELECT order_id FROM payments WHERE id = ?'
@@ -2892,26 +2944,12 @@ async function restorePayment(id, env, actor) {
     // order_events.order_id is NOT NULL (migrations/0001_initial.sql:29).
     if (orderId == null) return json({ ok: true }, 200);
 
-    const order = await env.DB.prepare(
-      'SELECT total_cents FROM orders WHERE id = ?'
-    ).bind(orderId).first();
+    // Sums AFTER the reactivate, so the restored row is in it.
+    const derived = await rederiveOrderPaymentStatus(env, orderId);
     // Order was deleted mid-flight; the payment row still stands on its own.
-    if (!order) return json({ ok: true }, 200);
-
-    // Sum AFTER the reactivate, so the restored row is in it.
-    const active = await env.DB.prepare(
-      'SELECT amount FROM payments WHERE order_id = ? AND active = 1'
-    ).bind(orderId).all();
-    const collected = activePaymentsCents((active && active.results) || []);
-    const totalCents = Number(order.total_cents) || 0;
-
-    // Same guard as createPayment: a derived 'unpaid' from (0 collected, 0
-    // total) would park a 100%-discount order in the awaiting-payment filter
-    // forever. Nothing is collectable, so there is nothing to derive.
-    if (totalCents > 0) {
-      await env.DB.prepare('UPDATE orders SET payment_status = ? WHERE id = ?')
-        .bind(derivePaymentStatus(collected, totalCents), orderId).run();
-    }
+    if (!derived) return json({ ok: true }, 200);
+    paymentStatus = derived.paymentStatus;
+    balanceCents = derived.balanceCents;
 
     await env.DB.prepare(`
       INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:payment_restored')
@@ -2920,7 +2958,7 @@ async function restorePayment(id, env, actor) {
     console.error('restorePayment: payment restored but post-commit steps failed', e);
   }
 
-  return json({ ok: true }, 200);
+  return json({ ok: true, paymentStatus, balanceCents }, 200);
 }
 
 // ─── Label templates ─────────────────────────────────────────────────────────
@@ -4890,6 +4928,15 @@ async function convertQuote(id, request, env, ctx, actor) {
 
     if (quote.status === 'converted') {
       return json({ error: 'Quote already converted' }, 400);
+    }
+    // Status alone is not a guard: updateQuote pushes `status = ?`
+    // unconditionally (its editability fence runs only when quoted_price is
+    // present) and the Quotes tab unarchives by sending status:'new', which it
+    // does whenever archivedFrom is empty — always true after a reload, since
+    // that state is React-only. converted_order_id is the fact of the earlier
+    // conversion and no edit path rewrites it, so it rejects on its own.
+    if (quote.converted_order_id != null) {
+      return json({ error: `Quote already converted to order ${quote.converted_order_id}` }, 400);
     }
     if (quote.quoted_price == null) {
       return json({ error: 'Set quoted_price before converting' }, 400);

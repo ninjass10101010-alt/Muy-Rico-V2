@@ -33,16 +33,22 @@ function apiToPaymentForRow(row: ApiPayment): Payment {
 }
 
 export default function Payments({ search }: { search: string }) {
-  const { payments, profile, refreshPayments } = useStore();
+  const { payments, orders, profile, refreshPayments, refreshOrders } = useStore();
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [showVoided, setShowVoided] = useState(false);
+  const [ledgerRows, setLedgerRows] = useState<Payment[]>([]);
   const [voidedPayments, setVoidedPayments] = useState<Payment[]>([]);
   const [voidedBusy, setVoidedBusy] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
+  // The whole ledger, active and voided alike, from the same read that produced
+  // the voided list. The restore warning below needs an order's active rows as
+  // of THAT read — `payments` is whatever the store last fetched and can be a
+  // render old, which is exactly how a warning gets computed from the wrong sum.
   const readVoided = async () => {
-    const rows = await fetchPayments(true);
-    setVoidedPayments(rows.filter((p) => !p.active).map(apiToPaymentForRow));
+    const rows = (await fetchPayments(true)).map(apiToPaymentForRow);
+    setLedgerRows(rows);
+    setVoidedPayments(rows.filter((p) => !p.active));
   };
 
   const toggleVoided = async () => {
@@ -59,17 +65,63 @@ export default function Payments({ search }: { search: string }) {
     }
   };
 
-  const restorePayment = async (id: string) => {
-    setRestoringId(id);
+  /**
+   * The arithmetic an owner needs before un-voiding a row, or null to restore
+   * without asking.
+   *
+   * The server derives payment_status from the sum AFTER the restore, and
+   * derivePaymentStatus answers 'paid' for any sum at or above the total — so
+   * an over-collected order is never contradicted by its own status, it just
+   * reports revenue nobody collected (order 39: four voided $40 rows over one
+   * active one). This is deliberately a question, not a block: order 52's
+   * $1.30 voided deposit is real cash that belongs back in the ledger.
+   *
+   * Null when either figure cannot be read. A missing order or an unreadable
+   * ledger must not strand a payment in the voided list.
+   */
+  const overCollectionWarning = (row: Payment): string | null => {
+    if (!row.orderId) return null;
+    const order = orders.find((o) => o.id === row.orderId);
+    if (!order) return null;
+    if (!ledgerRows.some((p) => p.id === row.id)) return null;
+
+    const cents = (n: number) => Math.round(n * 100);
+    const activeCents = ledgerRows
+      .filter((p) => p.active && p.orderId === row.orderId)
+      .reduce((sum, p) => sum + cents(p.amount), 0);
+    const rowCents = cents(row.amount);
+    const totalCents = cents(order.total);
+    const nextCents = activeCents + rowCents;
+    // An unreadable figure must not block the restore, and must not print as
+    // "$NaN" in the question either.
+    if (!Number.isFinite(totalCents) || !Number.isFinite(nextCents)) return null;
+    if (nextCents <= totalCents) return null;
+
+    return [
+      `Restoring this payment would push ${order.orderNumber} past its total:`,
+      `${formatCurrency(activeCents / 100)} already active + ${formatCurrency(rowCents / 100)} restored = ${formatCurrency(nextCents / 100)}`,
+      `against a ${formatCurrency(totalCents / 100)} order total.`,
+      "",
+      "Restore anyway?",
+    ].join("\n");
+  };
+
+  const restorePayment = async (row: Payment) => {
+    const warning = overCollectionWarning(row);
+    if (warning && !window.confirm(warning)) return;
+
+    setRestoringId(row.id);
     try {
       // Re-fetch after: the server re-derives the order's payment_status, so
       // the voided list can legitimately change beyond this row. The store's
       // ledger has to be refreshed too — "Total collected", the per-method tiles
       // and the active table all read `payments`, so without it a restored row
       // leaves the voided list and never appears anywhere on the page, and the
-      // figures still describe the pre-restore ledger.
-      await restorePaymentRequest(id);
-      await Promise.all([refreshPayments(), readVoided()]);
+      // figures still describe the pre-restore ledger. refreshOrders joins them
+      // for the same reason: orders.payment_status is rewritten server-side and
+      // Orders.tsx shows it until something re-reads the orders.
+      await restorePaymentRequest(row.id);
+      await Promise.all([refreshPayments(), readVoided(), refreshOrders()]);
     } catch (err) {
       console.warn("Failed to restore payment:", err);
     } finally {
@@ -183,6 +235,7 @@ export default function Payments({ search }: { search: string }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-sand-100 text-left text-xs uppercase tracking-wide text-cocoa-muted">
+                    <th className="px-2 py-2">Order</th>
                     <th className="px-2 py-2">Customer</th>
                     <th className="px-2 py-2">Method</th>
                     <th className="px-2 py-2">Date</th>
@@ -193,6 +246,7 @@ export default function Payments({ search }: { search: string }) {
                 <tbody className="divide-y divide-sand-100">
                   {voidedPayments.map((p) => (
                     <tr key={p.id}>
+                      <td className="px-2 py-2 font-medium text-cocoa">{p.orderNumber}</td>
                       <td className="px-2 py-2 text-cocoa-muted">{p.customerName}</td>
                       <td className="px-2 py-2 text-cocoa-muted">
                         {PAYMENT_METHOD_LABELS[p.method]}
@@ -203,7 +257,7 @@ export default function Payments({ search }: { search: string }) {
                       </td>
                       <td className="px-2 py-2 text-right">
                         <button
-                          onClick={() => restorePayment(p.id)}
+                          onClick={() => restorePayment(p)}
                           disabled={restoringId === p.id}
                           className="text-xs font-semibold text-palm hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                         >

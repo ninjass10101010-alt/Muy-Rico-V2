@@ -235,4 +235,28 @@ describe('convertQuote (admin) lost conversion race', () => {
     expect(waited, 'a loser must not announce a conversion that did not happen').toHaveLength(0);
     expect(batchOf(calls).binds, 'no second order is written on the loser path').toHaveLength(4);
   });
+
+  it('rejects a quote that already produced an order, whatever its status says', async () => {
+    // The status check alone is not a guard: updateQuote pushes `status = ?`
+    // unconditionally and the Quotes tab's unarchive sends status:'new' after
+    // any reload, so a converted quote can be downgraded to 'new' and converted
+    // a second time. converted_order_id is the fact that cannot be rewritten.
+    const { env, ctx, calls } = makeEnv({
+      quote: { ...QUOTE, status: 'new', converted_order_id: 61 },
+    });
+    const res = await worker.fetch(convertRequest(), env, ctx);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/already converted to order 61/);
+    expect(batchOf(calls), 'a rejected conversion must create nothing').toBeUndefined();
+  });
+
+  it('still converts a quote whose status was flipped but that produced no order', async () => {
+    // The new guard keys on converted_order_id, not on status — a quote that
+    // was never converted must not be caught by it.
+    const { env, ctx } = makeEnv({ quote: { ...QUOTE, status: 'replied' } });
+    const res = await worker.fetch(convertRequest(), env, ctx);
+    expect(res.status).toBe(201);
+  });
 });

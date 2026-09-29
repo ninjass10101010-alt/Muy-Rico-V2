@@ -5,7 +5,6 @@ import type {
   InventoryItem,
   LabelTemplate,
   Order,
-  Payment,
   Product,
 } from "../types";
 import { DEFAULT_REMINDER_CONFIG } from "../types";
@@ -402,8 +401,6 @@ export const seedOrders: Order[] = [
     inventoryDeducted: false,
   },
 ];
-
-export const seedPayments: Payment[] = [];
 
 export const seedLabelTemplates: LabelTemplate[] = [];
 

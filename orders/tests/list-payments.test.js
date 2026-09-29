@@ -14,7 +14,7 @@ const PAYMENTS = [
  * pre-existing assertion keeps seeing the rows it saw before — the fallbacks
  * below are the original unconditional `null` / `PAYMENTS` answers.
  */
-function makeEnv({ payment = null, order = null, activeRows = [], changes = 1 } = {}) {
+function makeEnv({ payment = null, order = null, activeRows = [], changes = 1, throwOnAll = false } = {}) {
   const calls = [];
   const db = {
     prepare(sql) {
@@ -34,6 +34,7 @@ function makeEnv({ payment = null, order = null, activeRows = [], changes = 1 } 
         },
         async all() {
           calls.push({ sql, binds: stmt._binds, method: 'all' });
+          if (throwOnAll) throw new Error('D1_ERROR: something failed after the write');
           if (/SELECT amount FROM payments/.test(sql)) return { results: activeRows };
           return { results: PAYMENTS };
         },
@@ -68,17 +69,118 @@ describe('listPayments', () => {
   });
 });
 
+const del = (id) =>
+  new Request(`https://orders-api.test/api/payments/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders,
+  });
+
 describe('DELETE /api/payments/:id', () => {
   it('deactivates a payment by id', async () => {
     const { env, ctx, calls } = makeEnv();
-    const res = await worker.fetch(
-      new Request('https://orders-api.test/api/payments/pay_1', { method: 'DELETE', headers: authHeaders }),
-      env, ctx
-    );
+    const res = await worker.fetch(del('pay_1'), env, ctx);
     expect(res.status).toBe(200);
     const update = calls.find((c) => /UPDATE payments SET active = 0 WHERE id/.test(c.sql));
     expect(update).toBeTruthy();
     expect(update.binds).toContain('pay_1');
+  });
+
+  it('re-derives the order payment_status from what is left active', async () => {
+    // The void removes $1.30 from the ledger, so a $60.00 order that still has
+    // $60.00 active is 'paid'. Leaving the cached status behind is the same
+    // "status disagrees with the ledger" failure restore exists to prevent.
+    const { env, ctx, calls } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 6000 },
+      activeRows: [{ amount: 60 }],
+    });
+    const res = await worker.fetch(del('pay_2'), env, ctx);
+    expect(res.status).toBe(200);
+
+    const write = statusWrite(calls);
+    expect(write, 'a void must re-derive, not just flip active').toBeTruthy();
+    expect(write.binds).toEqual(['paid', 1]);
+  });
+
+  it('derives from the ledger read AFTER the void, not before it', async () => {
+    // A pre-void read still contains the row being removed, so the derived
+    // status would be the one the owner just voided away.
+    const { env, ctx, calls } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 6000 },
+      activeRows: [{ amount: 58.7 }],
+    });
+    await worker.fetch(del('pay_2'), env, ctx);
+    const voidIdx = calls.findIndex((c) => /UPDATE payments SET active = 0 WHERE id/.test(c.sql));
+    const readIdx = calls.findIndex((c) => c.method === 'all' && /SELECT amount FROM payments/.test(c.sql));
+    expect(voidIdx, 'the void must be recorded').toBeGreaterThanOrEqual(0);
+    expect(readIdx, 'the ledger read must follow the void').toBeGreaterThan(voidIdx);
+
+    expect(statusWrite(calls).binds).toEqual(['partial', 1]);
+  });
+
+  it('does not touch payment_status on a zero-total order', async () => {
+    // The createPayment/restorePayment guard: a derived 'unpaid' from
+    // (0 collected, 0 total) parks a 100%-discount order in the awaiting-payment
+    // filter forever.
+    const { env, ctx, calls } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 0 },
+      activeRows: [],
+    });
+    const res = await worker.fetch(del('pay_2'), env, ctx);
+    expect(res.status).toBe(200);
+    // The ledger was read — the guard, not a short circuit, withholds the write.
+    expect(calls.some((c) => /SELECT total_cents FROM orders/.test(c.sql))).toBe(true);
+    expect(statusWrite(calls)).toBeUndefined();
+  });
+
+  it('writes an order_events row so the void is auditable', async () => {
+    const { env, ctx, calls } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 6000 },
+      activeRows: [{ amount: 60 }],
+    });
+    await worker.fetch(del('pay_2'), env, ctx);
+    const event = calls.find((c) => /INSERT INTO order_events/.test(c.sql));
+    expect(event, 'restore audits its write; the void must too').toBeTruthy();
+    expect(event.binds[0]).toBe(1);
+    expect(event.binds[1]).toBe('jeff');
+    expect(event.sql).toMatch(/order:payment_voided/);
+    // Symmetry, not sameness: one name for both would make the audit log
+    // unable to say which direction the row moved.
+    expect(event.sql).not.toMatch(/order:payment_restored/);
+  });
+
+  it('does not derive a status for an orphan payment', async () => {
+    // order_id is NULL, and order_events.order_id is NOT NULL
+    // (migrations/0001_initial.sql:29).
+    const { env, ctx, calls } = makeEnv({ payment: { id: 'pay_3', order_id: null } });
+    const res = await worker.fetch(del('pay_3'), env, ctx);
+    expect(res.status).toBe(200);
+    expect(statusWrite(calls)).toBeUndefined();
+    expect(calls.some((c) => /INSERT INTO order_events/.test(c.sql))).toBe(false);
+  });
+
+  it('still answers 200 when a post-commit step throws', async () => {
+    // The void is durable before any of this runs; a throw after it must not
+    // become a 500 for a payment that already stopped counting.
+    const { env, ctx } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 6000 },
+      throwOnAll: true,
+    });
+    const res = await worker.fetch(del('pay_2'), env, ctx);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body, 'derivation failed, so it must not claim a derived status').not.toHaveProperty('paymentStatus');
+    expect(body.ok).toBe(true);
+  });
+
+  it('404s when no payment row changed', async () => {
+    const { env, ctx } = makeEnv({ changes: 0 });
+    const res = await worker.fetch(del('pay_nope'), env, ctx);
+    expect(res.status).toBe(404);
   });
 });
 
@@ -227,5 +329,36 @@ describe('POST /api/payments/:id/restore', () => {
     expect(calls.some((c) => /UPDATE payments SET active = 1 WHERE id/.test(c.sql))).toBe(true);
     expect(statusWrite(calls)).toBeUndefined();
     expect(calls.some((c) => /INSERT INTO order_events/.test(c.sql))).toBe(false);
+  });
+
+  it('reports the re-derived status, so success is distinguishable from no derivation', async () => {
+    // createPayment already answers with the derived pair; restore answered a
+    // bare {ok:true} whether or not the derivation ran, so a caller could not
+    // tell "the ledger and the status agree again" from "we gave up halfway".
+    const { env, ctx } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 6000 },
+      activeRows: [{ amount: 1.3 }],
+    });
+    const res = await worker.fetch(restore('pay_2'), env, ctx);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ ok: true, paymentStatus: 'partial', balanceCents: 5870 });
+  });
+
+  it('omits the derived fields when the post-commit derivation fails', async () => {
+    // The reactivate is already durable, so this stays a 200 — the absent keys
+    // are what separate it from the success above.
+    const { env, ctx } = makeEnv({
+      payment: { id: 'pay_2', order_id: 1 },
+      order: { total_cents: 6000 },
+      throwOnAll: true,
+    });
+    const res = await worker.fetch(restore('pay_2'), env, ctx);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body, 'an undetermined derivation must not claim a status').not.toHaveProperty('paymentStatus');
+    expect(body).not.toHaveProperty('balanceCents');
   });
 });
