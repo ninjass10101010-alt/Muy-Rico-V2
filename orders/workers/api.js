@@ -4789,50 +4789,71 @@ async function convertQuoteToOrder(env, id, quote, { depositCents, method, subMe
   }
   const itemsJson = JSON.stringify([orderLine]);
 
-  const orderResult = await env.DB.prepare(`
-    INSERT INTO orders
-      (customer_name, phone, email, pickup_date, items_json,
-       total_cents, payment_method, payment_status, status, notes,
-       created_by, source, language)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?)
-  `).bind(
-    quote.customer_name,
-    quote.phone,
-    quote.email,
-    quote.desired_date || new Date().toISOString().slice(0, 10),
-    itemsJson,
-    quote.quoted_price,
-    method,
-    paymentStatus,
-    orderNotes,
-    actor,
-    quote.language || 'es',
-  ).run();
-
-  const orderId = orderResult.meta.last_row_id;
-
-  // Record deposit payment
+  // One batch, all-or-nothing. These were four separate awaits, so a crash after
+  // the order insert but before the payment left an order with no payment and
+  // the quote still 'new' — the exact partial state the crash-heal branch above
+  // exists to repair. convertInvoiceToOrder has batched its statements since it
+  // was written.
   const payId = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  await env.DB.prepare(`
-    UPDATE payments SET active = 0 WHERE order_id = ? AND active = 1
-  `).bind(orderId).run();
-  await env.DB.prepare(`
-    INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-  `).bind(payId, orderId, quote.customer_name, depositCents / 100, method, subMethod).run();
 
-  // Log event
-  await env.DB.prepare(`
-    INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, 'order:created')
-  `).bind(orderId, actor).run();
+  try {
+    // The dependent statements correlate on orders.quote_id, never on
+    // last_insert_rowid(): the unique partial index idx_orders_quote_id makes
+    // that lookup unambiguous. Rowid correlation inside a batch drifted and
+    // silently linked rows to the wrong parent — see bf19876.
+    const results = await env.DB.batch([
+      env.DB.prepare(`
+        INSERT INTO orders
+          (customer_name, phone, email, pickup_date, items_json,
+           total_cents, payment_method, payment_status, status, notes,
+           created_by, source, language, quote_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'website', ?, ?)
+      `).bind(
+        quote.customer_name,
+        quote.phone,
+        quote.email,
+        quote.desired_date || new Date().toISOString().slice(0, 10),
+        itemsJson,
+        quote.quoted_price,
+        method,
+        paymentStatus,
+        orderNotes,
+        actor,
+        quote.language || 'es',
+        id,
+      ),
+      env.DB.prepare(`
+        INSERT INTO payments (id, order_id, customer_name, amount, method, method_details, date)
+        SELECT ?, id, ?, ?, ?, ?, datetime('now') FROM orders WHERE quote_id = ?
+      `).bind(payId, quote.customer_name, depositCents / 100, method, subMethod, id),
+      env.DB.prepare(`
+        INSERT INTO order_events (order_id, actor, event)
+        SELECT id, ?, 'order:created' FROM orders WHERE quote_id = ?
+      `).bind(actor, id),
+      env.DB.prepare(`
+        UPDATE cake_quotes SET status = 'converted',
+          converted_order_id = (SELECT id FROM orders WHERE quote_id = ?),
+          updated_at = datetime('now') WHERE id = ?
+      `).bind(id, id),
+    ]);
 
-  // Update quote
-  await env.DB.prepare(`
-    UPDATE cake_quotes SET status = 'converted', converted_order_id = ?,
-      updated_at = datetime('now') WHERE id = ?
-  `).bind(orderId, id).run();
-
-  return { orderId, paymentStatus };
+    return { orderId: results[0].meta.last_row_id, paymentStatus };
+  } catch (e) {
+    if (/UNIQUE constraint failed/i.test(String(e))) {
+      // Another caller won the conversion race; return their order id. The
+      // winner has committed, so its order row and converted_order_id are
+      // already visible to this read.
+      const winner = await env.DB.prepare(
+        'SELECT converted_order_id FROM cake_quotes WHERE id = ?'
+      ).bind(id).first();
+      return {
+        orderId: winner ? winner.converted_order_id : null,
+        paymentStatus: null,
+        already: true,
+      };
+    }
+    throw e;
+  }
 }
 
 async function convertQuote(id, request, env, ctx, actor) {
