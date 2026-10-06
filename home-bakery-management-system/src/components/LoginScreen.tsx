@@ -1,4 +1,5 @@
 import { useAuth } from "../context/AuthContext";
+import muyRicoLogo from "../assets/muy_rico_logo_transparent.webp";
 
 export default function LoginScreen() {
   const { signIn, minting, error } = useAuth();
@@ -6,7 +7,7 @@ export default function LoginScreen() {
     <div className="flex min-h-screen items-center justify-center bg-sand-50 px-6">
       <div className="w-full max-w-sm text-center">
         <img
-          src="/muy_rico_logo_transparent.webp"
+          src={muyRicoLogo}
           alt="Muy Rico"
           className="mx-auto h-24 w-auto"
         />
