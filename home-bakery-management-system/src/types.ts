@@ -407,10 +407,27 @@ export interface Receipt {
   paymentMethod: string;
   paymentSubMethod: string | null;
   orderStatus: string;
+  language: string | null;
   status: "sent" | "printed" | "failed";
   messageId: string | null;
   sentAt: string;
   createdAt: string;
+}
+
+export interface MissingReceiptOrder {
+  id: number;
+  customerName: string;
+  email: string | null;
+  phone: string | null;
+  createdAt: string;
+  pickupDate: string;
+  paymentStatus: "paid" | "partial" | "unpaid";
+  status: string;
+  totalCents: number;
+  language: string;
+  receiptAttempts: number;
+  lastReceiptStatus: string | null;
+  lastReceiptAt: string | null;
 }
 
 export type ComplianceSeverity = "error" | "warning";

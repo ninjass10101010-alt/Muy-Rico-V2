@@ -42,6 +42,7 @@ interface ApiOrder {
   customer_name: string;
   customer_id: string | null;
   phone: string | null;
+  email?: string | null;
   pickup_date: string;
   pickup_time: string | null;
   items_json: string;
@@ -55,6 +56,7 @@ interface ApiOrder {
   notes: string | null;
   created_by: string;
   source: string;
+  language?: string | null;
   food_coloring: string | null;
   inventory_deducted?: number;
 }
@@ -871,6 +873,7 @@ export interface ApiReceipt {
   paymentMethod: string;
   paymentSubMethod: string | null;
   orderStatus: string;
+  language: string | null;
   status: "sent" | "printed" | "failed";
   messageId: string | null;
   sentAt: string;
@@ -935,6 +938,51 @@ export async function shareReceipt(receiptId: string, lang?: 'en' | 'es'): Promi
     } catch { return false; }
   }
   return false;
+}
+
+export interface ApiMissingReceiptOrder {
+  id: number;
+  customer_name: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+  pickup_date: string;
+  payment_status: string;
+  status: string;
+  total_cents: number;
+  language: string;
+  receipt_attempts: number;
+  last_receipt_status: string | null;
+  last_receipt_at: string | null;
+}
+
+export interface SendReceiptsResult {
+  results: { id: number; ok: boolean; status: "sent" | "failed" | "skipped"; messageId?: string | null; reason?: string }[];
+  sent: number;
+  failed: number;
+  skipped: number;
+}
+
+export async function fetchOrderRaw(id: number): Promise<{ order: ApiOrder; events: ApiOrderEvent[] }> {
+  return apiFetch(`/api/orders/${id}`);
+}
+
+export async function fetchMissingReceipts(search?: string): Promise<ApiMissingReceiptOrder[]> {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  params.set("limit", "500");
+  const data = await apiFetch<{ orders: ApiMissingReceiptOrder[] }>(`/api/orders/missing-receipts?${params.toString()}`);
+  return data.orders || [];
+}
+
+export async function sendMissingReceiptsApi(
+  ids: number[],
+  language: "auto" | "en" | "es",
+): Promise<SendReceiptsResult> {
+  return apiFetch(`/api/orders/send-receipts`, {
+    method: "POST",
+    body: JSON.stringify({ ids, language }),
+  });
 }
 
 // ─── Label templates ──────────────────────────────────────────────────────────

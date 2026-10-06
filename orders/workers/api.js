@@ -266,6 +266,14 @@ export default {
         return await backfillAllOrderLabels(env);
       }
 
+      // Receipt backfill: orders with an email but no successful receipt
+      if (path === '/api/orders/missing-receipts' && method === 'GET') {
+        return await listOrdersMissingReceipts(request, env);
+      }
+      if (path === '/api/orders/send-receipts' && method === 'POST') {
+        return await sendReceiptsForOrders(request, env, actorName);
+      }
+
       const pm = path.match(/^\/api\/products\/([A-Za-z0-9_-]+)$/);
       if (pm) {
         const id = pm[1];
@@ -1446,6 +1454,101 @@ async function generateReceiptForOrder(id, request, env, ctx, actor) {
     receiptId,
     status: emailResult.ok ? 'sent' : emailResult.skipped ? 'printed' : 'failed',
     messageId: emailResult.messageId || null,
+  }, 200);
+}
+
+async function listOrdersMissingReceipts(request, env) {
+  const sp = new URL(request.url).searchParams;
+  const search = (sp.get('search') || '').trim();
+  const limit = Math.min(Math.max(Number(sp.get('limit')) || 200, 1), 500);
+
+  const where = [
+    "TRIM(COALESCE(o.email, '')) != ''",
+    "NOT EXISTS (SELECT 1 FROM receipts r WHERE r.order_id = o.id AND r.status = 'sent')",
+  ];
+  const binds = [];
+  if (search) {
+    where.push("(o.customer_name LIKE ? OR o.email LIKE ? OR ('MR-' || o.id) LIKE ?)");
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+  binds.push(limit);
+
+  const sql = `
+    SELECT o.id, o.customer_name, o.email, o.phone, o.created_at, o.pickup_date,
+           o.payment_status, o.status, o.total_cents, o.language,
+           (SELECT COUNT(*) FROM receipts r WHERE r.order_id = o.id) AS receipt_attempts,
+           (SELECT r.status FROM receipts r WHERE r.order_id = o.id
+             ORDER BY r.created_at DESC, r.id DESC LIMIT 1) AS last_receipt_status,
+           (SELECT r.created_at FROM receipts r WHERE r.order_id = o.id
+             ORDER BY r.created_at DESC, r.id DESC LIMIT 1) AS last_receipt_at
+    FROM orders o
+    WHERE ${where.join(' AND ')}
+    ORDER BY o.created_at DESC, o.id DESC
+    LIMIT ?
+  `;
+  const { results } = await env.DB.prepare(sql).bind(...binds).all();
+  return json({ orders: results }, 200);
+}
+
+const SEND_RECEIPTS_MAX_IDS = 25;
+const SEND_RECEIPTS_DELAY_MS = 600;
+const SEND_RECEIPTS_LANGUAGES = new Set(['auto', 'en', 'es']);
+
+async function sendReceiptsForOrders(request, env, actor) {
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const ids = body && body.ids;
+  const language = (body && body.language) || 'auto';
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > SEND_RECEIPTS_MAX_IDS) {
+    return json({ error: `ids must be an array of 1-${SEND_RECEIPTS_MAX_IDS} order ids` }, 400);
+  }
+  if (!ids.every((v) => Number.isInteger(v) && v > 0)) {
+    return json({ error: 'ids must be positive integers' }, 400);
+  }
+  if (!SEND_RECEIPTS_LANGUAGES.has(language)) {
+    return json({ error: 'language must be auto, en, or es' }, 400);
+  }
+
+  const results = [];
+  const uniqueIds = [...new Set(ids)];
+  let lastSendAt = 0;
+  for (let i = 0; i < uniqueIds.length; i++) {
+    const id = uniqueIds[i];
+    const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+    if (!order) {
+      results.push({ id, ok: false, status: 'skipped', reason: 'not_found' });
+    } else if (!order.email || !String(order.email).trim()) {
+      results.push({ id, ok: false, status: 'skipped', reason: 'no_email' });
+    } else {
+      const orderForSend = language === 'auto' ? order : { ...order, language };
+      // Resend's default rate limit is 2 req/s — space actual sends.
+      if (lastSendAt) {
+        const elapsed = Date.now() - lastSendAt;
+        if (elapsed < SEND_RECEIPTS_DELAY_MS) {
+          await new Promise((r) => setTimeout(r, SEND_RECEIPTS_DELAY_MS - elapsed));
+        }
+      }
+      const emailResult = await sendCustomerConfirmation(env, orderForSend);
+      lastSendAt = Date.now();
+      const receiptId = `rcpt_${id}_${Date.now().toString(36)}`;
+      await logReceiptWithId(env, orderForSend, emailResult, id, receiptId);
+      await env.DB.prepare(
+        `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)`
+      ).bind(id, actor || 'system', 'receipt:generated').run();
+      results.push({
+        id,
+        ok: !!emailResult.ok,
+        status: emailResult.ok ? 'sent' : 'failed',
+        messageId: emailResult.messageId || null,
+      });
+    }
+  }
+
+  return json({
+    results,
+    sent: results.filter((r) => r.status === 'sent').length,
+    failed: results.filter((r) => r.status === 'failed').length,
+    skipped: results.filter((r) => r.status === 'skipped').length,
   }, 200);
 }
 
