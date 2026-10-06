@@ -91,13 +91,22 @@ async function handleStripeWebhook(request, env) {
   const secret = env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return json({ error: "webhook secret not configured" }, 500);
 
-  // Verify signature: t=<ts>,v1=<hmac>
+  // Verify signature: t=<ts>,v1=<hmac>[,v1=<hmac>...]
+  // Stripe emits one v1 per candidate secret while a secret rotation is in flight,
+  // so we must accept if ANY v1 matches. Keeping only the last one would reject
+  // valid deliveries signed with the outgoing secret.
   const parts = {};
+  const v1s = [];
   sig.split(",").forEach((p) => {
-    const [k, v] = p.split("=");
-    if (k && v !== undefined) parts[k] = v;
+    const idx = p.indexOf("=");
+    if (idx === -1) return;
+    const k = p.slice(0, idx).trim();
+    const v = p.slice(idx + 1).trim();
+    if (!k) return;
+    if (k === "v1") v1s.push(v);
+    else parts[k] = v;
   });
-  if (!parts.t || !parts.v1) return new Response("Invalid signature", { status: 400 });
+  if (!parts.t || v1s.length === 0) return new Response("Invalid signature", { status: 400 });
 
   // Replay protection: reject signatures older than 5 minutes
   const TIMESTAMP_TOLERANCE = 300;
@@ -108,13 +117,8 @@ async function handleStripeWebhook(request, env) {
 
   const signedPayload = parts.t + "." + rawBody;
   const expected = await hmacSha256(secret, signedPayload);
-  const got = parts.v1;
-  // constant-time compare
-  let diff = expected.length ^ got.length;
-  for (let i = 0; i < Math.max(expected.length, got.length); i++) {
-    diff |= (expected[i] || "").charCodeAt(0) ^ (got[i] || "").charCodeAt(0);
-  }
-  if (diff !== 0) return new Response("Invalid signature", { status: 400 });
+  const matches = v1s.some((candidate) => timingSafeEqualStr(expected, candidate));
+  if (!matches) return new Response("Invalid signature", { status: 400 });
 
   let event;
   try { event = JSON.parse(rawBody); } catch { return new Response("Bad JSON", { status: 400 }); }
@@ -168,6 +172,16 @@ async function handleStripeWebhook(request, env) {
   }
 
   return json({ received: true });
+}
+
+// Constant-time compare for hex digests of equal length; unequal lengths bail early
+// on length alone, which leaks nothing about the secret's value.
+function timingSafeEqualStr(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 async function hmacSha256(secret, payload) {
