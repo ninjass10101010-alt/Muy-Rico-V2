@@ -54,7 +54,7 @@
     <button id="btnEn" type="button">EN</button>
     <button id="btnEs" type="button">ES</button>
   </div>
-  <div id="app"><p class="msg muted"><span class="spin"></span><span id="loadingTxt">Cargando…</span></p></div>
+  <div id="app" aria-live="polite"><p class="msg muted"><span class="spin"></span><span id="loadingTxt">Cargando…</span></p></div>
   <div class="foot">Muy Rico Bakery · Holland, MI</div>
 </div>
 
@@ -77,6 +77,7 @@ const STR = {
     alreadyT: 'Deposit already received', alreadyB: 'Thank you! This quote is already paid — no further action needed.',
     invalidT: 'Link not available', invalidB: 'This payment link is invalid or no longer active. Please contact us and we will help you.',
     errPay: 'Payment could not be completed. Please try again or contact us.',
+    processing: 'Processing…', secure: 'Secure payment via Stripe & PayPal',
     fullLabel: (amt) => `Pay in full — ${amt}`,
   },
   es: {
@@ -88,6 +89,7 @@ const STR = {
     alreadyT: 'Depósito ya recibido', alreadyB: '¡Gracias! Esta cotización ya fue pagada — no necesitas hacer nada más.',
     invalidT: 'Enlace no disponible', invalidB: 'Este enlace de pago no es válido o ya no está activo. Contáctanos y con gusto te ayudamos.',
     errPay: 'No se pudo completar el pago. Intenta de nuevo o contáctanos.',
+    processing: 'Procesando…', secure: 'Pago seguro con Stripe y PayPal',
     fullLabel: (amt) => `Pago completo — ${amt}`,
   },
 };
@@ -102,6 +104,8 @@ function paintLangButtons() {
   bar.style.display = '';
   document.getElementById('btnEn').className = lang === 'en' ? 'on' : '';
   document.getElementById('btnEs').className = lang === 'es' ? 'on' : '';
+  document.getElementById('btnEn').setAttribute('aria-pressed', String(lang === 'en'));
+  document.getElementById('btnEs').setAttribute('aria-pressed', String(lang === 'es'));
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = String(s ?? ''); return d.innerHTML; }
@@ -134,6 +138,9 @@ function payBody() {
   const s = t();
   const itemsRows = (quote.items || []).map(i =>
     `<tr><td>${esc(i.name)}</td><td>×${esc(i.qty)}</td></tr>`).join('');
+  const btnLabel = paying
+    ? `<span class="spin" style="border-color:rgba(250,246,236,.3);border-top-color:#FAF6EC"></span>${esc(s.processing)}`
+    : esc(s.payCard(money(chargeCents())));
   return `
     <h1>${esc(s.quoteHash(quote.id))}</h1>
     <p class="sub">${esc(s.hi(quote.customer_name))}</p>
@@ -147,13 +154,15 @@ function payBody() {
       <label class="mode"><input type="radio" name="paymode" value="deposit" ${payMode === 'deposit' ? 'checked' : ''}><span>${esc(s.deposit)} · ${money(quote.deposit_cents)}</span></label>
       <label class="mode"><input type="radio" name="paymode" value="full" ${payMode === 'full' ? 'checked' : ''}><span>${esc(s.fullLabel(money(quote.total_cents)))}</span></label>
     </div>
-    <button class="btn-pay" id="btnCard">${esc(s.payCard(money(chargeCents())))}</button>
+    <button class="btn-pay" id="btnCard" ${paying ? 'disabled' : ''}>${btnLabel}</button>
     <div class="divider">${esc(s.or)}</div>
-    <div id="paypal-area"></div>`;
+    <div id="paypal-area"></div>
+    <p class="msg muted"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>${esc(s.secure)}</p>`;
 }
 
 let state = 'loading';
 let payMode = 'deposit';
+let paying = false;
 function chargeCents() { return payMode === 'full' ? quote.total_cents : quote.deposit_cents; }
 
 async function loadQuote() {
@@ -186,6 +195,7 @@ async function pollForPaid() {
 function wirePayButtons() {
   document.querySelectorAll('input[name="paymode"]').forEach((r) =>
     r.addEventListener('change', (e) => {
+      if (paying) return;
       payMode = e.target.value === 'full' ? 'full' : 'deposit';
       const btn = document.getElementById('btnCard');
       if (btn) btn.textContent = t().payCard(money(chargeCents()));
@@ -196,8 +206,11 @@ function wirePayButtons() {
 }
 
 async function payByCard() {
+  if (paying) return;
   const btn = document.getElementById('btnCard');
+  paying = true;
   btn.disabled = true;
+  btn.innerHTML = `<span class="spin" style="border-color:rgba(250,246,236,.3);border-top-color:#FAF6EC"></span>${esc(t().processing)}`;
   try {
     const res = await fetch(`${WORKER}/quote-deposit/checkout`, {
       method: 'POST',
@@ -209,6 +222,7 @@ async function payByCard() {
     window.location = data.url;
   } catch (e) {
     console.error(e);
+    paying = false;
     state = 'pay-error'; render();
   }
 }

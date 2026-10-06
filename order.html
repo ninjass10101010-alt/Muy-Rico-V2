@@ -1467,6 +1467,18 @@
     const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const ORDER_API = isDev ? 'http://localhost:8787' : 'https://muy-rico-orders-api.bexgarcia0208.workers.dev';
 
+    // Prevent customers from placing an order for a date in the past. The server
+    // (orders/workers/order-date.js) enforces the same rule; this makes the input
+    // itself refuse to select a past date so the user gets immediate feedback.
+    (function enforceMinimumPickupDate() {
+      const dateEl = document.getElementById('date');
+      if (dateEl) {
+        const now = new Date();
+        const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        dateEl.min = iso;
+      }
+    })();
+
     let allProducts = [];
     let activeCategory = 'all';
 
@@ -1696,7 +1708,12 @@
         ScrollTrigger.getAll().forEach(st => {
           if (st.trigger && productsGrid && productsGrid.contains(st.trigger)) st.kill();
         });
-        if (window.MuyRicoMotion) MuyRicoMotion.bindReveals(productsGrid);
+        if (productsGrid && window.MuyRicoMotion) {
+          productsGrid.querySelectorAll('[data-motion], .reveal').forEach(el => {
+            delete el.dataset.motionBound;
+          });
+          MuyRicoMotion.bindReveals(productsGrid);
+        }
       };
 
       if (window.MuyRicoMotion) MuyRicoMotion.init({

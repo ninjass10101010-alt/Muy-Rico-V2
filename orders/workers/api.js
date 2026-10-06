@@ -55,10 +55,23 @@ const ALLOWED_PAYSTAT = ['unpaid', 'paid', 'partial'];
 const ALLOWED_SOURCE  = ['website', 'in-person'];
 const ALLOWED_QUOTE_STATUS = ['new', 'replied', 'converted', 'archived'];
 
+// CORS headers.
+//
+// `Access-Control-Allow-Origin: *` is deliberate and safe here: this API
+// authenticates with an explicit Authorization/X-Webhook-Secret header or a
+// device bearer token, never an ambient cookie, and we deliberately do NOT send
+// `Access-Control-Allow-Credentials`. Without that header a browser refuses to
+// attach cookies to a wildcard cross-origin request, so a hostile page cannot
+// ride an authenticated session.
+//
+// ALLOWED_ORIGIN in wrangler.toml is documentation of the deploy's real origins
+// (used by the Access application), not a runtime gate. Tightening the wildcard
+// requires per-deploy origin knowledge and would break the site if it drifts.
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Webhook-Secret',
+  'Access-Control-Max-Age': '86400',
 };
 
 // Constant-time string compare for shared secrets (avoids early-exit timing leaks).
@@ -860,7 +873,7 @@ async function listOrders(request, env, actor) {
   const from    = sp.get('from');
   const to      = sp.get('to');
   const search  = sp.get('search');
-  const limit   = Math.min(Number(sp.get('limit')) || 200, 500);
+  const limit = Math.min(Number(sp.get('limit')) || 200, 500);
 
   const where = [];
   const binds = [];

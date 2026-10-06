@@ -1502,7 +1502,7 @@ button { cursor: pointer; font-family: var(--font-sans); border: none; backgroun
   padding: 0.85rem 0.85rem 1.1rem;
   transition: transform var(--m-fast) ease, box-shadow var(--m-fast) ease;
 }
-.gallery-card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(30, 70, 54, 0.10); }
+.gallery-card:hover, .gallery-card:focus-within { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(30, 70, 54, 0.10); }
 .gallery-card-img {
   aspect-ratio: 4 / 5;
   width: 100%;

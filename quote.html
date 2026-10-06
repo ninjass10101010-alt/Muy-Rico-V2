@@ -435,7 +435,7 @@
               <!-- Item cards will be inserted here dynamically -->
             </div>
             <button type="button" id="add-item-btn" class="btn btn-ghost btn-sm" style="margin-top: 1rem;">
-              <span class="lang-fade" data-es="+ Agregar otro artículo" data-en="+ Add another item">+ Add another item</button>
+              <span class="lang-fade" data-es="+ Agregar otro artículo" data-en="+ Add another item">+ Add another item</span>
             </button>
           </div>
 
@@ -872,7 +872,13 @@
   function updateAddButtonVisibility() {
     const container = document.getElementById('items-container');
     const addBtn = document.getElementById('add-item-btn');
-    addBtn.style.display = container.children.length >= 3 ? 'none' : 'flex';
+    const count = container.children.length;
+    addBtn.style.display = count >= 3 ? 'none' : 'flex';
+    // The remove ("✕") button only makes sense once a second card exists;
+    // a lone card must stay because submission requires at least one item.
+    container.querySelectorAll('.remove-item-btn').forEach(btn => {
+      btn.style.display = count > 1 ? '' : 'none';
+    });
   }
 
   document.getElementById('add-item-btn').addEventListener('click', () => {
@@ -902,15 +908,31 @@
         const card = sel.closest('.item-card');
         const customGroup = card.querySelector('.custom-qty-group');
         if (customGroup) {
-          customGroup.style.display = sel.value === 'custom' ? 'block' : 'none';
+          const isCustom = sel.value === 'custom';
+          customGroup.style.display = isCustom ? 'block' : 'none';
+          const input = customGroup.querySelector('input[name="custom_quantity"]');
+          if (input) input.required = isCustom;
         }
       });
     });
   }
 
+  // Prevent customers from picking a past desired date (mirrors the
+  // pickup-date min rule in order.html). Server does not enforce this.
+  (function enforceMinimumDesiredDate() {
+    const dateEl = document.getElementById('desired_date');
+    if (dateEl) {
+      const now = new Date();
+      dateEl.min = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+  })();
+
   function initializeQuoteForm() {
     const params = new URLSearchParams(window.location.search);
-    const type = params.get('type') || 'cake';
+    const requestedType = params.get('type') || 'cake';
+    // Guard: an unknown ?type= would crash createItemCard (itemLabels[type] is
+    // undefined) and take down the whole init (no item card, gallery stuck).
+    const type = itemTypeTemplates[requestedType] ? requestedType : 'cake';
     const inspirationId = params.get('inspiration');
     const container = document.getElementById('items-container');
     const card = createItemCard(type);
@@ -944,6 +966,11 @@
       showError(currentLang === 'es' ? 'Completa los campos obligatorios: Nombre y Correo electrónico.' : 'Please fill in: Name and Email.');
       return;
     }
+    // The form is novalidate, so the browser never applies the type=email check.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showError(currentLang === 'es' ? 'Ingresa un correo electrónico válido.' : 'Please enter a valid email address.');
+      return;
+    }
 
     // Collect items
     const items = [];
@@ -958,6 +985,8 @@
           } else if (el.name === 'quantity' && el.value === 'custom') {
             const customInput = card.querySelector('input[name="custom_quantity"]');
             details.quantity = customInput ? customInput.value : '';
+          } else if (el.name === 'custom_quantity') {
+            // resolved into details.quantity above when quantity === 'custom'
           } else {
             details[el.name] = el.value;
           }
@@ -969,6 +998,19 @@
     if (items.length === 0) {
       showError(currentLang === 'es' ? 'Agrega al menos un artículo.' : 'Please add at least one item.');
       return;
+    }
+
+    // novalidate also disables `required` on the dynamic card inputs — enforce here.
+    for (const card of document.querySelectorAll('.item-card')) {
+      const missing = Array.from(card.querySelectorAll('[required]'))
+        .find(el => !String(el.value).trim());
+      if (missing) {
+        showError(currentLang === 'es'
+          ? 'Completa los campos obligatorios de cada artículo.'
+          : 'Please fill in the required fields for each item.');
+        missing.focus();
+        return;
+      }
     }
 
     submitBtn.disabled = true;

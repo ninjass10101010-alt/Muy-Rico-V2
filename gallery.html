@@ -242,7 +242,7 @@
               const href = `quote.html?inspiration=${encodeURIComponent(ph.id)}`;
               return `
                 <article class="gallery-card" data-motion="rise">
-                  <img class="gallery-card-img" src="${escapeHtml(ph.image_url)}" alt="${escapeHtml(title)}" loading="lazy" />
+                  <img class="gallery-card-img" src="${escapeHtml(ph.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" />
                   <div class="gallery-card-body">
                     <h3 class="gallery-card-title lang-fade" data-es="${escapeHtml(titleEs)}" data-en="${escapeHtml(title)}">${escapeHtml(title)}</h3>
                     <a class="gallery-request-btn lang-fade" href="${href}"
