@@ -16,6 +16,7 @@ interface EditorState {
   panX: number;
   panY: number;
   leftTab: LeftTab;
+  leftOpen: boolean;
   complianceOpen: boolean;
   dirty: boolean;
 
@@ -29,6 +30,7 @@ interface EditorState {
   setZoom(z: number): void;
   setPan(x: number, y: number): void;
   setLeftTab(tab: LeftTab): void;
+  toggleLeftTab(tab: LeftTab): void;
   toggleCompliance(): void;
   undo(): void;
   redo(): void;
@@ -45,6 +47,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   panX: 0,
   panY: 0,
   leftTab: "add",
+  leftOpen: true,
   complianceOpen: false,
   dirty: false,
 
@@ -86,6 +89,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setZoom: (zoom) => set({ zoom: Math.min(400, Math.max(25, zoom)) }),
   setPan: (panX, panY) => set({ panX, panY }),
   setLeftTab: (leftTab) => set({ leftTab }),
+  toggleLeftTab: (tab) =>
+    set((s) =>
+      s.leftTab === tab && s.leftOpen
+        ? { leftOpen: false }
+        : { leftTab: tab, leftOpen: true }
+    ),
   toggleCompliance: () => set((s) => ({ complianceOpen: !s.complianceOpen })),
 
   undo: () =>

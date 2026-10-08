@@ -58,4 +58,28 @@ describe("editor store", () => {
     expect(s.doc.orientation).toBe("portrait");
     expect(s.doc.elements.length).toBeGreaterThan(0);
   });
+
+  it("toggleLeftTab collapses the panel of the active open tool", () => {
+    useEditorStore.setState({ leftTab: "add", leftOpen: true });
+    useEditorStore.getState().toggleLeftTab("add");
+    const s = useEditorStore.getState();
+    expect(s.leftOpen).toBe(false);
+    expect(s.leftTab).toBe("add");
+  });
+
+  it("toggleLeftTab reopens a collapsed panel for the same tool", () => {
+    useEditorStore.setState({ leftTab: "templates", leftOpen: false });
+    useEditorStore.getState().toggleLeftTab("templates");
+    const s = useEditorStore.getState();
+    expect(s.leftOpen).toBe(true);
+    expect(s.leftTab).toBe("templates");
+  });
+
+  it("toggleLeftTab on a different tool switches the tab and opens the panel", () => {
+    useEditorStore.setState({ leftTab: "add", leftOpen: false });
+    useEditorStore.getState().toggleLeftTab("layers");
+    const s = useEditorStore.getState();
+    expect(s.leftTab).toBe("layers");
+    expect(s.leftOpen).toBe(true);
+  });
 });

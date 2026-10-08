@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ChevronDown,
+  ChevronsLeft,
   Copy,
   Download,
   ExternalLink,
@@ -24,10 +25,12 @@ import {
   ZoomOut,
 } from "lucide-react";
 import type { LabelElement, LabelTemplate } from "../../types";
+import type { Page } from "../../App";
 import { effectiveDimensions } from "../../components/label/defaultElements";
 import ComplianceScore from "../../components/label/ComplianceScore";
 import AverySheet from "../../components/label/AverySheet";
 import Modal from "../../components/ui/Modal";
+import { TITLES } from "../../components/Topbar";
 import { useStore } from "../../context/StoreContext";
 import { newId } from "../../utils/format";
 import {
@@ -97,12 +100,14 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
   const zoom = useEditorStore((s) => s.zoom);
   const dirty = useEditorStore((s) => s.dirty);
   const leftTab = useEditorStore((s) => s.leftTab);
+  const leftOpen = useEditorStore((s) => s.leftOpen);
   const canUndo = useEditorStore(selectCanUndo);
   const canRedo = useEditorStore(selectCanRedo);
   const updateField = useEditorStore((s) => s.updateField);
   const setZoomAction = useEditorStore((s) => s.setZoom);
   const setPan = useEditorStore((s) => s.setPan);
   const setLeftTab = useEditorStore((s) => s.setLeftTab);
+  const toggleLeftTab = useEditorStore((s) => s.toggleLeftTab);
 
   const [confirmBack, setConfirmBack] = useState(false);
   const [menu, setMenu] = useState<"save" | "export" | null>(null);
@@ -430,6 +435,8 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
     else onBack();
   }
 
+  const backTitle = (returnToLabel && TITLES[returnToLabel as Page]?.title) || "Dashboard";
+
   // ── Export pipeline ───────────────────────────────────────────────────────
   const stageCanvasRef = useRef<StageCanvasHandle>(null);
   const [exporting, setExporting] = useState<string | null>(null);
@@ -536,11 +543,11 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
         <button
           type="button"
           onClick={requestBack}
-          title={`Back to ${returnToLabel || "Dashboard"}`}
+          title={`Back to ${backTitle}`}
           className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-cocoa-muted transition hover:bg-sand-100 hover:text-cocoa"
         >
           <ArrowLeft size={16} />
-          <span className="hidden sm:inline">{returnToLabel || "Dashboard"}</span>
+          <span className="hidden sm:inline">Back to {backTitle}</span>
         </button>
         <div className="h-6 w-px shrink-0 bg-sand-200" />
         <input
@@ -732,32 +739,53 @@ export default function LabelStudio({ filterByOrder, filterByProduct, returnToLa
 
       {/* ── Body ────────────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1">
-        {/* Left rail — lg+ only this task (<lg drawers land in Task 8) */}
-        <aside className="hidden w-[280px] shrink-0 flex-col border-r border-sand-200 bg-white lg:flex">
-          <div className="flex shrink-0 border-b border-sand-200">
-            {railTabs.map(({ id, label, icon: Icon }) => (
+        <nav
+          aria-label="Editor tools"
+          className="hidden w-[68px] shrink-0 flex-col gap-1 border-r border-sand-200 bg-white px-2 py-3 lg:flex"
+        >
+          {railTabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => toggleLeftTab(id)}
+              title={label}
+              aria-pressed={leftTab === id && leftOpen}
+              className={`flex min-h-[52px] w-full flex-col items-center justify-center gap-1 rounded-xl px-0.5 text-[10px] font-medium leading-tight transition ${
+                leftTab === id && leftOpen
+                  ? "bg-palm-50 text-palm"
+                  : "text-cocoa-muted hover:bg-sand-50 hover:text-cocoa"
+              }`}
+            >
+              <Icon size={18} />
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {leftOpen && (
+          <aside className="hidden w-[280px] shrink-0 flex-col border-r border-sand-200 bg-white lg:flex">
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-sand-200 px-4">
+              <h3 className="font-serif text-base font-semibold text-cocoa">
+                {railTabs.find((t) => t.id === leftTab)?.label}
+              </h3>
               <button
-                key={id}
                 type="button"
-                onClick={() => setLeftTab(id)}
-                className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition ${
-                  leftTab === id
-                    ? "border-b-2 border-palm bg-palm-50 text-palm"
-                    : "border-b-2 border-transparent text-cocoa-muted hover:bg-sand-50"
-                }`}
+                onClick={() => toggleLeftTab(leftTab)}
+                title="Hide panel"
+                className="rounded-lg p-1.5 text-cocoa-muted transition hover:bg-sand-50 hover:text-cocoa"
               >
-                <Icon size={13} /> {label}
+                <ChevronsLeft size={15} />
               </button>
-            ))}
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col">
-            {leftTab === "add" && <AddTab />}
-            {leftTab === "layers" && <LayersTab />}
-            {leftTab === "templates" && (
-              <TemplatesTab filterByOrder={filterByOrder} filterByProduct={filterByProduct} />
-            )}
-          </div>
-        </aside>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col">
+              {leftTab === "add" && <AddTab />}
+              {leftTab === "layers" && <LayersTab />}
+              {leftTab === "templates" && (
+                <TemplatesTab filterByOrder={filterByOrder} filterByProduct={filterByProduct} />
+              )}
+            </div>
+          </aside>
+        )}
 
         {/* Stage */}
         <main

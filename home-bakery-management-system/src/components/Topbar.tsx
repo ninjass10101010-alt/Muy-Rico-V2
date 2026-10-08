@@ -3,7 +3,7 @@ import type { Page } from "../App";
 import { useAuth } from "../context/AuthContext";
 import ReminderBell from "./ReminderBell";
 
-const TITLES: Record<Page, { title: string; subtitle: string }> = {
+export const TITLES: Record<Page, { title: string; subtitle: string }> = {
   dashboard: { title: "Dashboard", subtitle: "Your bakery at a glance" },
   orders: { title: "Orders", subtitle: "Track website & in-person orders" },
   calendar: { title: "Calendar", subtitle: "Upcoming orders, reminders & prep" },
