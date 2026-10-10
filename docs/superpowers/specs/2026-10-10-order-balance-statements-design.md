@@ -136,8 +136,10 @@ selectStatementRecipients(orders, paymentsByOrder, statementsByOrder, { today, c
 ### `POST /api/orders/:id/balance-paid` (webhook-secret only)
 - Body `{ amount_cents, method, sub_method?, ref }`.
 - Idempotency: if a payment with this `ref` exists → `{ ok: true, already: true }` (200).
-- Recompute balance; require `amount_cents === balanceCents` (400 + Telegram alert otherwise —
-  mirrors the invoice `unexpected-amount` policy).
+- Recompute balance; always record the **settled amount** (money moved must never be dropped).
+  If it differs from the live balance (the page and the payment raced an admin ledger entry), the
+  mismatch is audited as an order event and flagged to the owner — mirrors the invoice
+  `unexpected-amount` policy.
 - Record the payment on the order ledger using existing createPayment semantics
   (`replace: false`, active row), re-derive `payment_status` via `payment-ledger-lib`, add order
   event `payment:balance_online`, and send the customer the updated paid confirmation (the same
@@ -224,7 +226,7 @@ Mirrors the invoice handlers exactly, with an `order_balance` payment kind:
 | Already paid before opening link | Pay page shows paid state; checkout returns 409 "already settled". |
 | Double webhook / capture retry | `payments.ref` unique index + `already` response; no double record. |
 | Order cancelled after send | Pay page shows not-payable message; bulk excludes cancelled. |
-| Amount mismatch at webhook | Rejected + Telegram alert to owner; no ledger write. |
+| Amount mismatch at webhook | Settled amount is recorded (never dropped), mismatch audited as an order event + owner alert — mirrors the invoice `unexpected-amount` policy. |
 | Void/refund after online payment | Existing void/restore flows; balance recomputes from active payments. |
 | Token leak concern | Tokens are 128-bit random and only expose that one order's balance breakdown. |
 
