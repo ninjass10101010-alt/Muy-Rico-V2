@@ -206,8 +206,11 @@ export default {
     // Order balance statement read: public route, token-guarded inside the handler
     const isPublicOrderBalance =
       path.match(/^\/api\/public\/orders\/\d+\/balance$/) && method === 'GET';
+    // Balance payment webhook: public route, authenticated by X-Webhook-Secret inside the handler
+    const isPublicBalancePaid =
+      path.match(/^\/api\/orders\/\d+\/balance-paid$/) && method === 'POST';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSlideshowGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid && !isPublicInvoicePayable && !isPublicInvoicePaid && !isPublicOrderBalance) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSlideshowGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid && !isPublicInvoicePayable && !isPublicInvoicePaid && !isPublicOrderBalance && !isPublicBalancePaid) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -265,6 +268,11 @@ export default {
       const mpm = path.match(/^\/api\/orders\/(\d+)\/mark-paid$/);
       if (mpm && method === 'POST') {
         return await markOrderPaid(Number(mpm[1]), request, env, ctx);
+      }
+
+      const bpm = path.match(/^\/api\/orders\/(\d+)\/balance-paid$/);
+      if (bpm && method === 'POST') {
+        return await markOrderBalancePaid(Number(bpm[1]), request, env, ctx);
       }
 
       const grm = path.match(/^\/api\/orders\/(\d+)\/generate-receipt$/);
@@ -1273,6 +1281,86 @@ async function getPublicOrderBalance(id, url, env) {
   }, 200);
 }
 
+async function markOrderBalancePaid(id, request, env, ctx) {
+  if (!hasValidWebhookSecret(request, env)) {
+    return json({ error: 'Forbidden — invalid webhook secret' }, 401);
+  }
+
+  let body;
+  try { body = await request.json(); } catch { body = {}; }
+  const method = body.method;
+  if (!method || !ALLOWED_PAYMENT.includes(method)) {
+    return json({ error: `Invalid or missing method. Must be one of: ${ALLOWED_PAYMENT.join(', ')}` }, 400);
+  }
+  const subMethod = body.sub_method || null;
+  const ref = typeof body.ref === 'string' && body.ref.trim()
+    ? body.ref.trim().slice(0, 200)
+    : '';
+  if (!ref) return json({ error: 'Missing ref' }, 400);
+  const amountCents = Number(body.amount_cents);
+  if (!Number.isFinite(amountCents) || amountCents <= 0) {
+    return json({ error: 'Invalid amount_cents' }, 400);
+  }
+
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+  if (!order) return json({ error: 'Not found' }, 404);
+
+  // Idempotency: a webhook replay with the same gateway ref is a no-op.
+  const seen = await env.DB.prepare('SELECT id FROM payments WHERE ref = ?').bind(ref).first();
+  if (seen) return json({ ok: true, already: true }, 200);
+
+  const payments = await loadActivePayments(env, id);
+  const balanceCents = orderBalanceCents(order, payments);
+  if (balanceCents <= 0) return json({ ok: true, already: true }, 200);
+
+  // The money moved: always record the settled amount. A mismatch (balance
+  // changed between page load and payment) is audited and flagged, not dropped —
+  // mirrors the invoice `unexpected-amount` policy.
+  if (amountCents !== balanceCents) {
+    await env.DB.prepare(
+      `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)`
+    ).bind(id, 'system', `order:balance-amount-mismatch: paid=${amountCents} expected=${balanceCents}`).run();
+    if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+      await notifyTelegram(env,
+        `⚠️ Balance amount mismatch on order #${id}: paid $${(amountCents / 100).toFixed(2)}, expected $${(balanceCents / 100).toFixed(2)} — recorded the settled amount`);
+    }
+  }
+
+  const payId = `pay_${id}_${Date.now().toString(36)}_b`;
+  await env.DB.prepare(`
+    INSERT INTO payments (id, order_id, order_number, customer_name, amount, method, method_details, ref, date, created_at, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+  `).bind(
+    payId, id, `MR-${id}`, order.customer_name || '',
+    amountCents / 100, method, subMethod, ref,
+  ).run();
+
+  const derived = await rederiveOrderPaymentStatus(env, id);
+  await env.DB.prepare(
+    `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)`
+  ).bind(id, 'system', 'payment:balance_online').run();
+
+  if (ctx) {
+    ctx.waitUntil((async () => {
+      const updatedOrder = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+      const updatedPayments = await loadActivePayments(env, id);
+      await notifyOrderPaid(env, updatedOrder, id, method);
+      const result = await sendCustomerConfirmation(env, updatedOrder, {
+        payments: paymentsForEmail(updatedPayments, updatedOrder.language === 'en'),
+        balanceCents: derived ? derived.balanceCents : 0,
+        payUrl: null,
+      });
+      await logReceipt(env, updatedOrder, result, id);
+    })());
+  }
+
+  return json({
+    ok: true,
+    paymentStatus: derived ? derived.paymentStatus : null,
+    balanceCents: derived ? derived.balanceCents : 0,
+  }, 200);
+}
+
 async function getOrderPaymentStatus(id, env) {
   const order = await env.DB.prepare(
     'SELECT payment_status, status FROM orders WHERE id = ?'
@@ -1308,7 +1396,7 @@ async function notifyOrderPaid(env, order, id, method) {
   }
 }
 
-async function sendCustomerConfirmation(env, order) {
+async function sendCustomerConfirmation(env, order, opts = {}) {
   const email = order.email;
   if (!email || !env.RESEND_API_KEY) {
     console.warn('sendCustomerConfirmation: missing email or RESEND_API_KEY for order', order.id);
@@ -1316,7 +1404,7 @@ async function sendCustomerConfirmation(env, order) {
   }
 
   const isEn = order.language === 'en';
-  const html = buildReceiptHtml(order, isEn);
+  const html = buildReceiptHtml(order, isEn, opts);
 
   const customer = order.customer_name.trim();
   const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '$0.00';
