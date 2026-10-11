@@ -2114,7 +2114,7 @@ Expected: no errors.
 
 - [ ] **Step 5: Manual verification in the local dev harness**
 
-Start local workers (`npx wrangler dev -c orders/wrangler.toml --port 8787 --persist-to <fresh dir seeded with a test order>`) + the running Vite dev server, open an overdue partial order, confirm:
+Start local workers (`npx -y wrangler@4.127.0 dev -c orders/wrangler.toml --port 8787 --persist-to <fresh dir seeded with a test order>`) + the running Vite dev server, open an overdue partial order, confirm:
 - Button enabled with email, disabled without.
 - Sending shows "Statement sent" and "Last reminder: …".
 - The order events gain `statement:sent` (visible in the timeline if shown).
