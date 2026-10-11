@@ -40,11 +40,20 @@ function snakeToCamelObject(obj) {
       newObj[camelKey] = obj[key];
     }
   }
+  // Acronym columns: the generic rule yields netWeightUs, but clients read
+  // and write netWeightUS.
+  if (obj.net_weight_us !== undefined) newObj.netWeightUS = obj.net_weight_us;
   return newObj;
 }
 
 function getBodyField(body, snakeKey) {
   if (body[snakeKey] !== undefined) return body[snakeKey];
+  // Acronym alias: clients send netWeightUS (the generic camelization would
+  // look for netWeightUs and silently drop the field).
+  if (snakeKey === 'net_weight_us') {
+    if (body.netWeightUS !== undefined) return body.netWeightUS;
+    if (body.netWeightUs !== undefined) return body.netWeightUs;
+  }
   const camelKey = snakeKey.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
   return body[camelKey];
 }
@@ -111,6 +120,10 @@ import {
   mintDeviceToken, resolveDeviceToken, listDevices, revokeDevice, revokeAllDevices,
 } from './device-token-lib.js';
 import { verifyAccessJwt } from './access-jwt-lib.js';
+import {
+  quoteItemDisplayName, quoteItemQty, quoteItemDetailsSummary,
+  buildSubItems, expandOrderLineItems,
+} from './label-gen-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -3128,26 +3141,19 @@ async function generateLabelsForOrder(env, orderId, body) {
   // Load all products once for name-based fallback matching
   const { results: allProducts } = await env.DB.prepare('SELECT * FROM products WHERE active = 1').all();
 
+  // One label per line item, or per quoted sub-item when a quote-converted
+  // line carries subItems (see expandOrderLineItems).
+  const entries = expandOrderLineItems(items, allProducts);
+
   let generated = 0;
 
-  for (const item of items) {
-    // Resolve product from cached list
-    let product = null;
-    if (item.productId) {
-      product = allProducts.find(p => p.id === item.productId) || null;
-    }
-    if (!product) {
-      const itemNames = [item.name, item.name_es, item.name_en].filter(Boolean).map(n => n.toLowerCase());
-      product = allProducts.find(p => {
-        const pNames = [p.name, p.name_es].filter(Boolean).map(n => n.toLowerCase());
-        return pNames.some(pn => itemNames.some(inm => inm === pn || inm.includes(pn)));
-      }) || null;
-    }
-    if (!product || !product.auto_generate_label) continue;
+  for (const entry of entries) {
+    const product = entry.product;
+    const item = entry.item;
 
     // Label identity = the line item's own name (includes flavor/pack, e.g.
     // "Cupcakes (6) (Cupcake flavor: Chocolate)") so each flavor gets its own label.
-    const itemName = (item.name || product.name).trim();
+    const itemName = entry.displayName;
 
     // Skip if label already exists for this order + item (active only)
     const existing = await env.DB.prepare(
@@ -3194,8 +3200,10 @@ async function generateLabelsForOrder(env, orderId, body) {
       ingredients,
       allergens,
       net_weight: t?.net_weight || '',
-      price: `$${((item.price || product.price) || 0).toFixed(2)}`,
-      show_price: t?.show_price ?? 1,
+      // Quote sub-items have no per-item price (the quote is a lump sum), so
+      // their labels suppress the price rather than print a catalog price.
+      price: entry.isSubItem ? '' : `$${((item.price || product.price) || 0).toFixed(2)}`,
+      show_price: entry.showPrice ?? (t?.show_price ?? 1),
       show_best_by: t?.show_best_by ?? 1,
       best_by_days: bestByDays,
       logo_emoji: t?.logo_emoji || product.emoji || '🧁',
@@ -4744,39 +4752,6 @@ async function quoteDepositPaid(id, request, env, ctx) {
   return json({ ok: true, order_id: orderId }, 200);
 }
 
-function quoteItemDisplayName(item) {
-  const d = (item.details && typeof item.details === 'object') ? item.details : {};
-  switch (item.product_type) {
-    case 'cake':
-      return d.cake_flavor ? `Custom Cake — ${d.cake_flavor}` : 'Custom Cake';
-    case 'cakepops': {
-      const parts = [d.chocolate_dip, d.topping_style].filter(Boolean);
-      return parts.length ? `Cakepops (${parts.join(', ')})` : 'Cakepops';
-    }
-    case 'cupcakes':
-      return d.frosting ? `Cupcakes (${d.frosting})` : 'Cupcakes';
-    case 'custom':
-      return d.name || 'Custom Item';
-    default:
-      return item.product_type || 'Custom Item';
-  }
-}
-
-function quoteItemQty(item) {
-  const d = (item.details && typeof item.details === 'object') ? item.details : {};
-  if (item.product_type === 'cake') return 1;
-  if (item.product_type === 'custom') return Number(d.quantity) || 1;
-  return Number(d.quantity) || 6;
-}
-
-function quoteItemDetailsSummary(details, excludeKeys = []) {
-  if (!details || typeof details !== 'object') return '';
-  return Object.entries(details)
-    .filter(([k, v]) => !excludeKeys.includes(k) && v != null && v !== '' && !(Array.isArray(v) && !v.length))
-    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join('/') : v}`)
-    .join(', ');
-}
-
 function escapeHtml(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -4945,6 +4920,9 @@ async function convertQuoteToOrder(env, id, quote, { depositCents, method, subMe
       qty: 1,
       price: quote.quoted_price / 100,
       flavorNote,
+      // Structured snapshot so regenerate-labels can emit one label per
+      // quoted flavor instead of a single combined label.
+      subItems: buildSubItems(quoteItems),
     };
   } else {
     // Legacy quotes (pre-items-table): keep the original Custom Cake line
