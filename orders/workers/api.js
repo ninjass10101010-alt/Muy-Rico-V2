@@ -203,8 +203,11 @@ export default {
       path.match(/^\/api\/invoices\/\d+\/payable$/) && method === 'GET';
     const isPublicInvoicePaid =
       path.match(/^\/api\/invoices\/\d+\/paid$/) && method === 'POST';
+    // Order balance statement read: public route, token-guarded inside the handler
+    const isPublicOrderBalance =
+      path.match(/^\/api\/public\/orders\/\d+\/balance$/) && method === 'GET';
 
-    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSlideshowGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid && !isPublicInvoicePayable && !isPublicInvoicePaid) {
+    if (!actorEmail && !isLocal && !isPublicPost && !isPublicProductGet && !isPublicGalleryGet && !isPublicSlideshowGet && !isPublicSiteGet && !isPublicMarkPaid && !isPublicPayable && !isPublicPaymentStatus && !isPublicQuotePost && !isPublicQuoteUpload && !isPublicPaymentOptions && !isPublicQuoteDepositGet && !isPublicQuoteDepositPaid && !isPublicInvoicePayable && !isPublicInvoicePaid && !isPublicOrderBalance) {
       return json({ error: 'Unauthorized — Cloudflare Access required' }, 401);
     }
 
@@ -242,6 +245,9 @@ export default {
       if (path === '/api/inventory/groups' && method === 'POST') return await createInventoryGroup(request, env);
       const igm = path.match(/^\/api\/inventory\/groups\/([A-Za-z0-9_-]+)$/);
       if (igm && method === 'PATCH') return await updateInventoryGroup(igm[1], request, env, actorName);
+
+      const obm = path.match(/^\/api\/public\/orders\/(\d+)\/balance$/);
+      if (obm && method === 'GET') return await getPublicOrderBalance(Number(obm[1]), url, env);
 
       const om = path.match(/^\/api\/orders\/(\d+)$/);
       if (om) {
@@ -1219,6 +1225,52 @@ async function getOrderPayable(id, request, env) {
   ).bind(id).first();
   if (!order) return json({ error: 'Not found' }, 404);
   return json(order, 200);
+}
+
+async function getPublicOrderBalance(id, url, env) {
+  const token = url.searchParams.get('t') || '';
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+  if (!order || !order.pay_token || !token || !timingSafeEqualStr(token, order.pay_token)) {
+    return json({ error: 'Not found' }, 404);
+  }
+  if (order.status === 'cancelled') {
+    return json({ error: 'Order is no longer payable' }, 409);
+  }
+
+  const payments = await loadActivePayments(env, id);
+  const paidCents = payments.reduce((s, p) => s + Math.round((Number(p.amount) || 0) * 100), 0);
+  const totalCents = Number(order.total_cents) || 0;
+  const balanceCents = orderBalanceCents(order, payments);
+  const isEn = order.language === 'en';
+
+  let items = [];
+  try { items = JSON.parse(order.items_json || '[]'); } catch { /* keep [] */ }
+
+  return json({
+    orderId: order.id,
+    customerName: order.customer_name || '',
+    pickupDate: order.pickup_date || null,
+    language: order.language || 'es',
+    status: order.status,
+    subtotalCents: Number(order.subtotal_cents) || (totalCents + (Number(order.discount_cents) || 0)),
+    discountCents: Number(order.discount_cents) || 0,
+    totalCents,
+    paidCents,
+    balanceCents,
+    paid: balanceCents <= 0,
+    items: items.map((i) => ({
+      name: isEn ? (i.name_en || i.name) : (i.name_es || i.name),
+      qty: i.qty,
+      price: i.price,
+    })),
+    payments: payments.map((p) => ({
+      date: String(p.date || '').slice(0, 10),
+      amountCents: Math.round((Number(p.amount) || 0) * 100),
+      methodLabel: buildMethodLabel(
+        { payment_method: p.method, payment_sub_method: p.method_details }, isEn
+      ),
+    })),
+  }, 200);
 }
 
 async function getOrderPaymentStatus(id, env) {
