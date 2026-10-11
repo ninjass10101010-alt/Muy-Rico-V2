@@ -36,7 +36,7 @@
 -- Order balance statements: a stable per-order pay token, gateway refs on
 -- payments for idempotent webhooks, and a statement send log.
 -- Run:
---   npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --local  --file=orders/migrations/0051_order_balance_statements.sql
+--   npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --file=orders/migrations/0051_order_balance_statements.sql
 --   npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --remote --file=orders/migrations/0051_order_balance_statements.sql
 
 ALTER TABLE orders ADD COLUMN pay_token TEXT;
@@ -65,7 +65,7 @@ CREATE INDEX IF NOT EXISTS idx_order_statements_order
 - [ ] **Step 2: Apply locally and verify**
 
 Run: `npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --file=orders/migrations/0051_order_balance_statements.sql`
-Expected: `Executed 5 queries` (no errors).
+Expected: `5 commands executed successfully` (no errors).
 
 Then run: `npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --command "SELECT name FROM pragma_table_info('order_statements')"`
 Expected: rows `id, order_id, customer_name, email, language, total_cents, paid_cents, balance_cents, status, message_id, sent_by, created_at`.
