@@ -34,6 +34,16 @@ export default {
       if (path === "/invoice/paypal-capture" && request.method === "POST") {
         return await handleInvoicePayPalCapture(request, env);
       }
+      const opay = path.match(/^\/order\/(\d+)\/payable$/);
+      if (opay && request.method === "GET") {
+        return await handleOrderPayable(Number(opay[1]), request, env);
+      }
+      if (path === "/order/checkout" && request.method === "POST") {
+        return await handleOrderCheckout(request, env);
+      }
+      if (path === "/order/paypal-capture" && request.method === "POST") {
+        return await handleOrderPayPalCapture(request, env);
+      }
       if (path === "/paypal-client-id" && request.method === "GET") {
         return json({ clientId: env.PAYPAL_CLIENT_ID || "" });
       }
@@ -146,6 +156,16 @@ async function handleStripeWebhook(request, env) {
         subMethod, ref: obj.id, amountCents: obj.amount_total,
       });
       return ok ? json({ received: true }) : json({ error: "invoice-paid failed" }, 500);
+    }
+
+    // Order balance payments: checkout sessions carry order_balance metadata
+    if (event.type === "checkout.session.completed" && meta.kind === "order_balance") {
+      const subMethod = await extractStripeSubMethod(event, obj, env);
+      const ok = await markOrderBalancePaid(env, {
+        id: Number(meta.order_id), token: meta.token, method: "stripe",
+        subMethod, ref: obj.id, amountCents: obj.amount_total,
+      });
+      return ok ? json({ received: true }) : json({ error: "balance-paid failed" }, 500);
     }
 
     const orderId = event.type === "checkout.session.completed"
@@ -389,6 +409,19 @@ async function handlePayPalWebhook(request, env) {
       });
       return ok ? json({ received: true }) : json({ error: "invoice-paid failed" }, 500);
     }
+    const orderPayRef = parseOrderPayCustomId(orderId);
+    if (orderPayRef) {
+      if (event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+        return json({ received: true });
+      }
+      const oSubMethod = await extractPayPalWebhookSubMethod(event, env);
+      const oAmountCents = Math.round(parseFloat(resource.amount?.value || "0") * 100);
+      const ok = await markOrderBalancePaid(env, {
+        id: orderPayRef.id, token: orderPayRef.token, method: "paypal",
+        subMethod: oSubMethod, ref: resource.id || String(orderId), amountCents: oAmountCents,
+      });
+      return ok ? json({ received: true }) : json({ error: "balance-paid failed" }, 500);
+    }
     // Regular orders: only a completed capture moves money. An approval event
     // (CHECKOUT.ORDER.APPROVED) must NOT mark the order paid — mirror the
     // quote/invoice branches above.
@@ -605,6 +638,15 @@ function parseInvoiceCustomId(s) {
   return m ? { id: Number(m[1]), token: m[2] } : null;
 }
 
+function encodeOrderPayCustomId(orderId, token) {
+  return `o${orderId}:${token}`;
+}
+
+function parseOrderPayCustomId(s) {
+  const m = typeof s === "string" ? s.match(/^o(\d+):([0-9a-f]{32})$/) : null;
+  return m ? { id: Number(m[1]), token: m[2] } : null;
+}
+
 function allowedPayModes(paymentOptions) {
   if (paymentOptions === "full") return ["full"];
   if (paymentOptions === "deposit") return ["deposit"];
@@ -639,6 +681,32 @@ async function handleInvoicePayable(id, request, env) {
     status: res.status,
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   });
+}
+
+function fetchOrderPayable(env, id, token) {
+  return ordersApiFetch(env, "/api/public/orders/" + encodeURIComponent(id) +
+    "/balance?t=" + encodeURIComponent(token));
+}
+
+async function handleOrderPayable(id, request, env) {
+  const token = new URL(request.url).searchParams.get("t") || "";
+  if (!token) return json({ error: "Missing token" }, 403);
+  const res = await fetchOrderPayable(env, id, token);
+  return new Response(await res.text(), {
+    status: res.status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
+}
+
+// Load the payable order for payment creation; returns { order } or { err: Response }.
+async function loadPayableOrder(env, id, token) {
+  const res = await fetchOrderPayable(env, id, token);
+  if (!res.ok) return { err: json({ error: "Order balance not payable" }, res.status) };
+  const order = await res.json();
+  if (order.paid || order.status === "cancelled") {
+    return { err: json({ error: "Order already settled" }, 409) };
+  }
+  return { order };
 }
 
 // Load the payable invoice for payment creation; returns { invoice } or { err: Response }.
@@ -766,6 +834,102 @@ async function handleInvoicePayPalCapture(request, env) {
     ref: captureId, amountCents,
   });
   if (!ok) return json({ error: "invoice-paid failed" }, 500);
+  return json({ ok: true });
+}
+
+async function handleOrderCheckout(request, env) {
+  const { id, token, origin } = await request.json();
+  if (!id || !token) return json({ error: "id and token required" }, 400);
+  const key = env.STRIPE_SECRET_KEY;
+  if (!key) return json({ error: "STRIPE_SECRET_KEY not set" }, 500);
+
+  const { order, err } = await loadPayableOrder(env, id, token);
+  if (err) return err;
+
+  const ALLOWED_ORIGINS = ["https://muy-rico.com", "https://www.muy-rico.com", "https://muyrico.bexgarcia0208.workers.dev"];
+  const base = ALLOWED_ORIGINS.includes(origin) ? origin : "https://muy-rico.com";
+  const pageUrl = `${base}/pay-order.html?o=${id}&t=${encodeURIComponent(token)}`;
+
+  const params = new URLSearchParams();
+  params.append("line_items[0][price_data][currency]", "usd");
+  params.append("line_items[0][price_data][product_data][name]", `Muy Rico — Order #${id} Balance`);
+  params.append("line_items[0][price_data][unit_amount]", String(order.balanceCents));
+  params.append("line_items[0][quantity]", "1");
+  params.append("mode", "payment");
+  params.append("client_reference_id", encodeOrderPayCustomId(id, token));
+  params.append("metadata[kind]", "order_balance");
+  params.append("metadata[order_id]", String(id));
+  params.append("metadata[token]", token);
+  params.append("success_url", pageUrl + "&paid=stripe");
+  params.append("cancel_url", pageUrl);
+
+  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + key, "Content-Type": "application/x-www-form-urlencoded" },
+    body: params,
+  });
+  const session = await res.json();
+  if (session.error) return json({ error: session.error.message }, 400);
+  return json({ url: session.url });
+}
+
+async function handleOrderPayPalCapture(request, env) {
+  const { id, token, paypalOrderId } = await request.json();
+  if (!id || !token || !paypalOrderId) return json({ error: "id, token and paypalOrderId required" }, 400);
+
+  const { order, err } = await loadPayableOrder(env, id, token);
+  if (err) return err;
+
+  const auth = await paypalAuth(env);
+  if (!auth) return json({ error: "paypal auth failed" }, 500);
+
+  const orderRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId), {
+    headers: { Authorization: "Bearer " + auth },
+  });
+  const paypalOrder = await orderRes.json();
+  if (!orderRes.ok) {
+    console.error("paypal order balance lookup failed", JSON.stringify(paypalOrder));
+    return json({ error: "Could not verify PayPal order" }, 400);
+  }
+  const ppCents = Math.round(parseFloat(paypalOrder.purchase_units?.[0]?.amount?.value || "0") * 100);
+  const ppCurrency = paypalOrder.purchase_units?.[0]?.amount?.currency_code || "";
+  if (ppCurrency !== "USD") {
+    console.error(`order balance currency mismatch: ${ppCurrency} order=${id}`);
+    return json({ error: "Currency mismatch" }, 400);
+  }
+  if (ppCents !== order.balanceCents) {
+    console.error(`order balance amount mismatch: expected=${order.balanceCents} paypal=${ppCents} order=${id}`);
+    return json({ error: "Amount mismatch" }, 400);
+  }
+  const ppCustomId = paypalOrder.purchase_units?.[0]?.custom_id || "";
+  if (ppCustomId !== encodeOrderPayCustomId(id, token)) {
+    console.error(`order balance custom_id mismatch: ${ppCustomId}`);
+    return json({ error: "Order mismatch" }, 400);
+  }
+
+  const captureRes = await fetch(env.PAYPAL_API_BASE + "/v2/checkout/orders/" + encodeURIComponent(paypalOrderId) + "/capture", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + auth, "Content-Type": "application/json" },
+  });
+  const captureData = await captureRes.json();
+  if (!captureRes.ok || captureData.status !== "COMPLETED") {
+    console.error("paypal order balance capture failed", JSON.stringify(captureData));
+    return json({ error: captureData.message || "Capture failed" }, 400);
+  }
+
+  const capture = captureData.purchase_units?.[0]?.payments?.captures?.[0] || {};
+  if ((capture.amount?.currency_code || "USD") !== "USD") {
+    console.error(`order balance capture currency mismatch: ${capture.amount?.currency_code} order=${id}`);
+    return json({ error: "Currency mismatch" }, 400);
+  }
+  const captureId = capture.id || paypalOrderId;
+  const amountCents = Math.round(parseFloat(capture.amount?.value || "0") * 100) || order.balanceCents;
+  const ok = await markOrderBalancePaid(env, {
+    id, token, method: "paypal",
+    subMethod: extractPayPalSubMethod(captureData),
+    ref: captureId, amountCents,
+  });
+  if (!ok) return json({ error: "balance-paid failed" }, 500);
   return json({ ok: true });
 }
 
@@ -931,6 +1095,28 @@ async function markInvoicePaid(env, { id, token, method, subMethod, ref, amountC
     return true;
   } catch (e) {
     console.error("invoice-paid network error", e);
+    return false;
+  }
+}
+
+async function markOrderBalancePaid(env, { id, token, method, subMethod, ref, amountCents }) {
+  try {
+    const res = await ordersApiFetch(env, "/api/orders/" + encodeURIComponent(id) + "/balance-paid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, method, sub_method: subMethod, ref, amount_cents: amountCents }),
+    });
+    if (res.status === 404 || res.status === 409) {
+      console.error("balance-paid final status", res.status, "for order", id);
+      return true;
+    }
+    if (!res.ok) {
+      console.error("balance-paid failed", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("balance-paid network error", e);
     return false;
   }
 }
