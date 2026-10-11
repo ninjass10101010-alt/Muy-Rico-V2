@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel } from '../workers/receipt-html.js';
+import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel, statementSubject } from '../workers/receipt-html.js';
 
 const baseOrder = {
   id: 42,
@@ -183,5 +183,65 @@ describe('buildMethodLabel / formatStatusLabel', () => {
     expect(html).toContain('Cash');
     expect(html, 'the receipt must not name a card that was not the tender').not.toContain('4242');
     expect(html).not.toContain('Visa');
+  });
+});
+
+const STMT_ORDER = {
+  id: 65,
+  customer_name: 'Stacy Stout',
+  email: 'stacy@example.com',
+  items_json: JSON.stringify([{ name: 'Lemon Cupcake ×24', qty: 1, price: 40 }]),
+  subtotal_cents: 12000,
+  discount_cents: 4000,
+  total_cents: 8000,
+  payment_method: 'stripe',
+  payment_sub_method: null,
+  payment_status: 'partial',
+  status: 'pending',
+  pickup_date: '2026-10-07',
+  pickup_time: null,
+  created_at: '2026-10-06 00:05:04',
+  language: 'en',
+};
+
+const PAYMENTS = [{ date: '2026-10-06', methodLabel: 'Card', amountCents: 6000 }];
+
+describe('statement rendering', () => {
+  it('renders the statement title, payments, balance due, and pay button (EN)', () => {
+    const html = buildReceiptHtml(STMT_ORDER, true, {
+      payments: PAYMENTS, balanceCents: 2000, payUrl: 'https://muy-rico.com/pay-order.html?o=65&t=abc',
+    });
+    expect(html).toContain('BALANCE REMINDER');
+    expect(html).not.toContain('>RECEIPT<');
+    expect(html).toContain('2026-10-06');
+    expect(html).toContain('Card');
+    expect(html).toContain('$60.00');
+    expect(html).toContain('Paid to date');
+    expect(html).toContain('Balance due');
+    expect(html).toContain('$20.00');
+    expect(html).toContain('href="https://muy-rico.com/pay-order.html?o=65&amp;t=abc"');
+  });
+
+  it('renders Spanish statement wording', () => {
+    const es = { ...STMT_ORDER, language: 'es' };
+    const html = buildReceiptHtml(es, false, {
+      payments: PAYMENTS, balanceCents: 2000, payUrl: 'https://muy-rico.com/pay-order.html?o=65&t=abc',
+    });
+    expect(html).toContain('RECORDATORIO DE SALDO');
+    expect(html).toContain('Pagado a la fecha');
+    expect(html).toContain('Saldo pendiente');
+  });
+
+  it('shows the payments breakdown on a paid receipt with no button', () => {
+    const paid = { ...STMT_ORDER, payment_status: 'paid' };
+    const html = buildReceiptHtml(paid, true, { payments: PAYMENTS, balanceCents: 0, payUrl: null });
+    expect(html).toContain('RECEIPT');
+    expect(html).toContain('Paid to date');
+    expect(html).not.toContain('pay-order.html');
+  });
+
+  it('produces statement subjects per language', () => {
+    expect(statementSubject(STMT_ORDER, true)).toBe('Balance reminder — Muy Rico Order #65');
+    expect(statementSubject(STMT_ORDER, false)).toBe('Recordatorio de saldo — Pedido Muy Rico #65');
   });
 });

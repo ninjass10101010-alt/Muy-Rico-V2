@@ -106,8 +106,18 @@ export function emailMeta(order, isEn) {
   };
 }
 
-export function buildReceiptHtml(order, isEn) {
+export function statementSubject(order, isEn) {
+  return isEn
+    ? `Balance reminder — Muy Rico Order #${order.id}`
+    : `Recordatorio de saldo — Pedido Muy Rico #${order.id}`;
+}
+
+export function buildReceiptHtml(order, isEn, opts = {}) {
   const customer = order.customer_name.trim();
+  const payments = Array.isArray(opts.payments) ? opts.payments : null;
+  const balanceCents = Number.isFinite(opts.balanceCents) ? opts.balanceCents : null;
+  const payUrl = typeof opts.payUrl === 'string' && opts.payUrl ? opts.payUrl : null;
+  const isStatement = payments !== null && balanceCents !== null && balanceCents > 0 && !!payUrl;
   const total = order.total_cents ? '$' + (order.total_cents / 100).toFixed(2) : '$0.00';
   const orderDate = (order.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
   const methodLabel = buildMethodLabel(order, isEn);
@@ -143,6 +153,10 @@ export function buildReceiptHtml(order, isEn) {
       amount: 'Amount',
       subtotal: 'Subtotal',
       discount: 'Discount',
+      paymentsReceived: 'Payments received',
+      paidToDate: 'Paid to date',
+      balanceDue: 'Balance due',
+      payNow: 'Pay balance',
     } : {
       notes: 'Notas',
       item: 'Producto',
@@ -150,8 +164,19 @@ export function buildReceiptHtml(order, isEn) {
       amount: 'Importe',
       subtotal: 'Subtotal',
       discount: 'Descuento',
+      paymentsReceived: 'Pagos recibidos',
+      paidToDate: 'Pagado a la fecha',
+      balanceDue: 'Saldo pendiente',
+      payNow: 'Pagar saldo',
     }),
   };
+
+  if (isStatement) {
+    L.receipt = isEn ? 'BALANCE REMINDER' : 'RECORDATORIO DE SALDO';
+    L.paidNote = isEn
+      ? `Our records show a balance of $${(balanceCents / 100).toFixed(2)} on your order from ${order.pickup_date}. If you already paid, just reply and we will fix it right away.`
+      : `Nuestros registros muestran un saldo de $${(balanceCents / 100).toFixed(2)} en tu pedido del ${order.pickup_date}. Si ya pagaste, respóndenos y lo corregimos de inmediato.`;
+  }
 
   const discountRows = discountCents > 0 ? `
         <tr>
@@ -218,8 +243,31 @@ export function buildReceiptHtml(order, isEn) {
           <td colspan="2" style="padding: 14px 0 4px; color: #1e4636; font-size: 15px; font-weight: 700;">${L.total}</td>
           <td style="padding: 14px 0 4px; color: #1e4636; font-size: 18px; font-weight: 700; text-align: right;">${total}</td>
         </tr>
+        ${payments !== null ? `
+        <tr>
+          <td colspan="3" style="padding: 16px 0 4px; border-top: 1px dashed #e3dcd2; color: #8a8078; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;">${L.paymentsReceived}</td>
+        </tr>
+        ${payments.length ? payments.map((p) => `
+        <tr>
+          <td style="padding: 4px 0; color: #4a423d; font-size: 13px;">${escapeHtml(p.date)}</td>
+          <td style="padding: 4px 0; color: #8a8078; font-size: 13px; text-align: center;">${escapeHtml(p.methodLabel)}</td>
+          <td style="padding: 4px 0; color: #4a423d; font-size: 13px; text-align: right;">$${(Number(p.amountCents) / 100).toFixed(2)}</td>
+        </tr>`).join('') : '<tr><td colspan="3" style="padding: 4px 0; color: #8a8078; font-size: 13px;">—</td></tr>'}
+        <tr>
+          <td colspan="2" style="padding: 10px 0 4px; color: #2d7a46; font-size: 13px; font-weight: 600;">${L.paidToDate}</td>
+          <td style="padding: 10px 0 4px; color: #2d7a46; font-size: 13px; font-weight: 600; text-align: right;">&minus;$${(payments.reduce((s, p) => s + (Number(p.amountCents) || 0), 0) / 100).toFixed(2)}</td>
+        </tr>
+        ${balanceCents !== null ? `
+        <tr>
+          <td colspan="2" style="padding: 4px 0 14px; color: #1e4636; font-size: 15px; font-weight: 700;">${L.balanceDue}</td>
+          <td style="padding: 4px 0 14px; color: #1e4636; font-size: 18px; font-weight: 700; text-align: right;">$${(balanceCents / 100).toFixed(2)}</td>
+        </tr>` : ''}` : ''}
       </tfoot>
     </table>
+    ${isStatement ? `
+    <div style="text-align: center; margin: 22px 0 6px;">
+      <a href="${escapeHtml(payUrl)}" style="display: inline-block; background: #1e4636; color: #ffffff; font-size: 15px; font-weight: 600; padding: 12px 28px; border-radius: 10px; text-decoration: none;">${L.payNow} — $${(balanceCents / 100).toFixed(2)}</a>
+    </div>` : ''}
   </div>
 
   <div style="padding: 20px 32px 28px;">
