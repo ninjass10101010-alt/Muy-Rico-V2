@@ -50,9 +50,9 @@ CREATE TABLE IF NOT EXISTS order_statements (
   customer_name TEXT NOT NULL,
   email         TEXT,
   language      TEXT NOT NULL DEFAULT 'es',
-  total_cents   INTEGER NOT NULL DEFAULT 0,
-  paid_cents    INTEGER NOT NULL DEFAULT 0,
-  balance_cents INTEGER NOT NULL DEFAULT 0,
+  total_cents   INTEGER NOT NULL,
+  paid_cents    INTEGER NOT NULL,
+  balance_cents INTEGER NOT NULL,
   status        TEXT NOT NULL DEFAULT 'sent',
   message_id    TEXT,
   sent_by       TEXT,
@@ -64,10 +64,10 @@ CREATE INDEX IF NOT EXISTS idx_order_statements_order
 
 - [ ] **Step 2: Apply locally and verify**
 
-Run: `npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --local --file=orders/migrations/0051_order_balance_statements.sql`
+Run: `npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --file=orders/migrations/0051_order_balance_statements.sql`
 Expected: `Executed 5 queries` (no errors).
 
-Then run: `npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --local --command "SELECT name FROM pragma_table_info('order_statements')"`
+Then run: `npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --command "SELECT name FROM pragma_table_info('order_statements')"`
 Expected: rows `id, order_id, customer_name, email, language, total_cents, paid_cents, balance_cents, status, message_id, sent_by, created_at`.
 
 - [ ] **Step 3: Commit**
@@ -2247,7 +2247,7 @@ Expected: typecheck clean; bundle written; `postbuild.sh` copies to `admin/index
 - [ ] **Step 3: Local end-to-end (no live payment)**
 
 1. Fresh local D1 (temp `--persist-to` dir) seeded with order 65-like data (`total_cents=8000`, one $60 payment, past pickup, email).
-2. Start `npx wrangler dev -c orders/wrangler.toml --port 8787 --persist-to <dir>`.
+2. Start `npx -y wrangler@4.127.0 dev -c orders/wrangler.toml --port 8787 --persist-to <dir>`.
 3. `curl -s -X POST http://127.0.0.1:8787/api/orders/65/send-statement`
    Expected: `{"ok":true,...}` or 502 with a `statement:failed` row when `RESEND_API_KEY` is absent locally (both acceptable; verify the `order_statements` row and token were written either way).
 4. `curl -s "http://127.0.0.1:8787/api/public/orders/65/balance?t=<token>"` → verify the payload math (total 8000, paid 6000, balance 2000).

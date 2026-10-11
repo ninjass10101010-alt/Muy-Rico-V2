@@ -1,7 +1,7 @@
 -- Order balance statements: a stable per-order pay token, gateway refs on
 -- payments for idempotent webhooks, and a statement send log.
 -- Run:
---   npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --local  --file=orders/migrations/0051_order_balance_statements.sql
+--   npx -y wrangler@4.127.0 d1 execute muy-rico-orders --config orders/wrangler.toml --local --file=orders/migrations/0051_order_balance_statements.sql
 --   npx wrangler d1 execute muy-rico-orders -c orders/wrangler.toml --remote --file=orders/migrations/0051_order_balance_statements.sql
 
 ALTER TABLE orders ADD COLUMN pay_token TEXT;
@@ -15,9 +15,9 @@ CREATE TABLE IF NOT EXISTS order_statements (
   customer_name TEXT NOT NULL,
   email         TEXT,
   language      TEXT NOT NULL DEFAULT 'es',
-  total_cents   INTEGER NOT NULL DEFAULT 0,
-  paid_cents    INTEGER NOT NULL DEFAULT 0,
-  balance_cents INTEGER NOT NULL DEFAULT 0,
+  total_cents   INTEGER NOT NULL,
+  paid_cents    INTEGER NOT NULL,
+  balance_cents INTEGER NOT NULL,
   status        TEXT NOT NULL DEFAULT 'sent',
   message_id    TEXT,
   sent_by       TEXT,
