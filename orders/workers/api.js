@@ -104,7 +104,7 @@ import { createLruCache, usdaCandidatesFromResponse, mapOffProduct, sanitizeBarc
 import { validatePickupDate, pickupChangeEvent } from './order-date.js';
 import { validateOrderItems, computeOrderTotals } from './order-edit-lib.js';
 import { rewriteRecipeForGroup } from './groups-lib.js';
-import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel } from './receipt-html.js';
+import { buildMethodLabel, buildReceiptHtml, emailMeta, formatStatusLabel, statementSubject } from './receipt-html.js';
 import {
   depositCentsFor, isDepositSufficient, buildPayUrl, generateQuoteToken,
 } from './quote-deposit-lib.js';
@@ -124,6 +124,7 @@ import {
   quoteItemDisplayName, quoteItemQty, quoteItemDetailsSummary,
   buildSubItems, expandOrderLineItems,
 } from './label-gen-lib.js';
+import { orderBalanceCents, isStatementEligible } from './order-statements-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -290,6 +291,14 @@ export default {
       // Bulk backfill labels for ALL past orders
       if (path === '/api/orders/backfill-labels' && method === 'POST') {
         return await backfillAllOrderLabels(env);
+      }
+
+      const stm = path.match(/^\/api\/orders\/(\d+)\/send-statement$/);
+      if (stm && method === 'POST') {
+        return await sendOrderStatement(Number(stm[1]), env, actorName);
+      }
+      if (path === '/api/orders/send-statements' && method === 'POST') {
+        return await sendOverdueStatements(env, actorName);
       }
 
       // Receipt backfill: orders with an email but no successful receipt
@@ -3254,6 +3263,156 @@ async function generateLabelsForOrderById(orderId, env) {
   if (!order) return json({ error: 'Order not found' }, 404);
   const generated = await generateLabelsForOrder(env, orderId, order);
   return json({ ok: true, orderId, generated }, 200);
+}
+
+// ─── Order balance statements ────────────────────────────────────────────────
+
+async function loadActivePayments(env, orderId) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, amount, method, method_details, date FROM payments WHERE order_id = ? AND active = 1 ORDER BY date ASC'
+  ).bind(orderId).all();
+  return results || [];
+}
+
+async function ensurePayToken(env, order) {
+  if (order.pay_token) return order.pay_token;
+  const token = [...crypto.getRandomValues(new Uint8Array(16))]
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+  await env.DB.prepare('UPDATE orders SET pay_token = ? WHERE id = ?').bind(token, order.id).run();
+  return token;
+}
+
+function statementPayUrl(order, token) {
+  return `https://muy-rico.com/pay-order.html?o=${order.id}&t=${token}`;
+}
+
+function paymentsForEmail(payments, isEn) {
+  return payments.map((p) => ({
+    date: String(p.date || '').slice(0, 10),
+    methodLabel: buildMethodLabel({ payment_method: p.method, payment_sub_method: p.method_details }, isEn),
+    amountCents: Math.round((Number(p.amount) || 0) * 100),
+  }));
+}
+
+async function sendStatementEmail(env, order, payments, balanceCents, token) {
+  const email = order.email;
+  if (!email || !env.RESEND_API_KEY) return { ok: false, skipped: true };
+  const isEn = order.language === 'en';
+  const payUrl = statementPayUrl(order, token);
+  const html = buildReceiptHtml(order, isEn, {
+    payments: paymentsForEmail(payments, isEn),
+    balanceCents,
+    payUrl,
+  });
+  const balance = '$' + (balanceCents / 100).toFixed(2);
+  const paidCents = payments.reduce((s, p) => s + Math.round((Number(p.amount) || 0) * 100), 0);
+  const text = [
+    'Muy Rico Bakery — ' + (isEn ? 'BALANCE REMINDER' : 'RECORDATORIO DE SALDO'),
+    '',
+    (isEn ? 'Hi ' : 'Hola ') + order.customer_name + ',',
+    isEn
+      ? `Our records show a balance of ${balance} on your order from ${order.pickup_date}.`
+      : `Nuestros registros muestran un saldo de ${balance} en tu pedido del ${order.pickup_date}.`,
+    '',
+    (isEn ? 'Total: ' : 'Total: ') + '$' + ((Number(order.total_cents) || 0) / 100).toFixed(2),
+    (isEn ? 'Paid to date: ' : 'Pagado a la fecha: ') + '$' + (paidCents / 100).toFixed(2),
+    (isEn ? 'Balance due: ' : 'Saldo pendiente: ') + balance,
+    '',
+    (isEn ? 'Pay online: ' : 'Paga en línea: ') + payUrl,
+    '',
+    isEn ? 'Questions? Reply to this email or call/text (616) 218-3582.' : '¿Preguntas? Responde a este correo o llámanos al (616) 218-3582.',
+    'Muy Rico Bakery · Holland, Michigan · Familia · Tradición · Sabor',
+  ].join('\n');
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + env.RESEND_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM || 'orders@muy-rico.com',
+        to: [email],
+        subject: statementSubject(order, isEn),
+        text,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      console.error('statement email failed', res.status, await res.text().catch(() => ''));
+      return { ok: false };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { ok: true, messageId: data.id || null };
+  } catch (e) {
+    console.error('statement email failed:', e);
+    return { ok: false };
+  }
+}
+
+async function logStatement(env, order, { paidCents, balanceCents, emailResult, actor }) {
+  const id = `stmt_${order.id}_${Date.now().toString(36)}`;
+  const status = emailResult && emailResult.ok ? 'sent' : 'failed';
+  await env.DB.prepare(`
+    INSERT INTO order_statements
+      (id, order_id, customer_name, email, language, total_cents, paid_cents, balance_cents, status, message_id, sent_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id, order.id, order.customer_name || '', order.email || null, order.language || 'es',
+    Number(order.total_cents) || 0, paidCents, balanceCents, status,
+    (emailResult && emailResult.messageId) || null, actor || 'system',
+  ).run();
+  await env.DB.prepare(
+    `INSERT INTO order_events (order_id, actor, event) VALUES (?, ?, ?)`
+  ).bind(order.id, actor || 'system', status === 'sent' ? 'statement:sent' : 'statement:failed').run();
+}
+
+async function deliverStatement(env, order, actor) {
+  const today = new Date().toISOString().slice(0, 10);
+  const payments = await loadActivePayments(env, order.id);
+  const balanceCents = orderBalanceCents(order, payments);
+  if (!String(order.email || '').trim()) return { outcome: 'no-email', balanceCents };
+  if (!isStatementEligible(order, { balanceCents, today })) return { outcome: 'not-eligible', balanceCents };
+
+  const token = await ensurePayToken(env, order);
+  const emailResult = await sendStatementEmail(env, order, payments, balanceCents, token);
+  const paidCents = payments.reduce((s, p) => s + Math.round((Number(p.amount) || 0) * 100), 0);
+  await logStatement(env, order, { paidCents, balanceCents, emailResult, actor });
+
+  const latest = await env.DB.prepare(
+    "SELECT MAX(created_at) AS last_sent_at FROM order_statements WHERE order_id = ? AND status = 'sent'"
+  ).bind(order.id).first();
+
+  return {
+    outcome: emailResult.ok ? 'sent' : 'failed',
+    balanceCents,
+    messageId: emailResult.messageId || null,
+    lastSentAt: (latest && latest.last_sent_at) || null,
+  };
+}
+
+async function sendOrderStatement(orderId, env, actor) {
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
+  if (!order) return json({ error: 'Not found' }, 404);
+  const result = await deliverStatement(env, order, actor);
+  if (result.outcome === 'no-email') return json({ error: 'Order has no email' }, 400);
+  if (result.outcome === 'not-eligible') {
+    return json({ error: 'Not eligible for a balance statement' }, 409);
+  }
+  if (result.outcome === 'failed') {
+    return json({ ok: false, error: 'Statement email could not be sent', balanceCents: result.balanceCents }, 502);
+  }
+  return json({
+    ok: true,
+    status: 'sent',
+    balanceCents: result.balanceCents,
+    lastSentAt: result.lastSentAt,
+  }, 200);
+}
+
+async function sendOverdueStatements(env, actor) {
+  return json({ ok: true, sent: 0, failed: 0, skipped: {} }, 200);
 }
 
 // Backfill labels for ALL past orders that don't already have labels
