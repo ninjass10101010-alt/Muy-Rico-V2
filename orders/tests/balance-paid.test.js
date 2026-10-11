@@ -97,4 +97,19 @@ describe('POST /api/orders/:id/balance-paid', () => {
     const mismatchEvent = calls.find((c) => c.method === 'run' && /balance-amount-mismatch/.test(String(c.binds[2])));
     expect(mismatchEvent, 'mismatch must be audited').toBeTruthy();
   });
+
+  it('records a fresh payment even when the balance is already zero', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ id: 'msg' }) })));
+    const { env, calls } = makeEnv({ payments: [{ amount: 80 }] }); // balance already 0
+    const res = await worker.fetch(post({ amount_cents: 2000, method: 'stripe', ref: 'cs_live_dup' }), env, {
+      waitUntil: (p) => { if (p && p.catch) p.catch(() => {}); },
+    });
+    expect(res.status).toBe(200);
+    const insert = calls.find((c) => c.method === 'run' && /INSERT INTO payments/.test(c.sql));
+    expect(insert, 'settled money must still be recorded').toBeTruthy();
+    expect(insert.binds).toContain('cs_live_dup');
+    const mismatch = calls.find((c) => c.method === 'run' && /INSERT INTO order_events/.test(c.sql)
+      && /balance-amount-mismatch/.test(String(c.binds[2])));
+    expect(mismatch, 'overpayment must be audited').toBeTruthy();
+  });
 });

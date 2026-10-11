@@ -1311,7 +1311,6 @@ async function markOrderBalancePaid(id, request, env, ctx) {
 
   const payments = await loadActivePayments(env, id);
   const balanceCents = orderBalanceCents(order, payments);
-  if (balanceCents <= 0) return json({ ok: true, already: true }, 200);
 
   // The money moved: always record the settled amount. A mismatch (balance
   // changed between page load and payment) is audited and flagged, not dropped —
