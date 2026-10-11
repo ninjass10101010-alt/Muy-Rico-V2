@@ -124,7 +124,7 @@ import {
   quoteItemDisplayName, quoteItemQty, quoteItemDetailsSummary,
   buildSubItems, expandOrderLineItems,
 } from './label-gen-lib.js';
-import { orderBalanceCents, isStatementEligible } from './order-statements-lib.js';
+import { orderBalanceCents, isStatementEligible, selectStatementRecipients } from './order-statements-lib.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -3412,7 +3412,50 @@ async function sendOrderStatement(orderId, env, actor) {
 }
 
 async function sendOverdueStatements(env, actor) {
-  return json({ ok: true, sent: 0, failed: 0, skipped: {} }, 200);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { results: candidates } = await env.DB.prepare(
+    `SELECT * FROM orders WHERE status != 'cancelled' AND TRIM(COALESCE(email, '')) != '' AND pickup_date IS NOT NULL AND pickup_date < ?`
+  ).bind(today).all();
+
+  const ids = (candidates || []).map((o) => o.id);
+  const paymentsByOrder = {};
+  const lastSentByOrder = {};
+  if (ids.length) {
+    const placeholders = ids.map(() => '?').join(',');
+    const { results: payRows } = await env.DB.prepare(
+      `SELECT order_id, amount FROM payments WHERE active = 1 AND order_id IN (${placeholders})`
+    ).bind(...ids).all();
+    for (const r of payRows || []) (paymentsByOrder[r.order_id] ||= []).push(r);
+
+    const { results: sentRows } = await env.DB.prepare(
+      `SELECT order_id, MAX(created_at) AS last_sent_at FROM order_statements
+        WHERE status = 'sent' AND order_id IN (${placeholders}) GROUP BY order_id`
+    ).bind(...ids).all();
+    for (const r of sentRows || []) lastSentByOrder[r.order_id] = r.last_sent_at;
+  }
+
+  const { send, skipped } = selectStatementRecipients(
+    candidates, paymentsByOrder, lastSentByOrder, { today }
+  );
+
+  const results = [];
+  let sent = 0;
+  let failed = 0;
+  for (const { order } of send) {
+    try {
+      const result = await deliverStatement(env, order, actor);
+      if (result.outcome === 'sent') sent++;
+      else failed++;
+      results.push({ orderId: order.id, outcome: result.outcome });
+    } catch (e) {
+      console.error('sendOverdueStatements: failed for order', order.id, e);
+      failed++;
+      results.push({ orderId: order.id, outcome: 'failed' });
+    }
+  }
+
+  return json({ ok: true, sent, failed, skipped, results }, 200);
 }
 
 // Backfill labels for ALL past orders that don't already have labels
