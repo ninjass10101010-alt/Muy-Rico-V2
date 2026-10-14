@@ -15,7 +15,7 @@ function makeEnv({ payments = [], sent = [] } = {}) {
         bind(...args) { stmt._binds = args; return stmt; },
         async first() {
           calls.push({ sql, binds: stmt._binds, method: 'first' });
-          if (/FROM orders WHERE id = \?/.test(sql)) return CANDIDATES.find((o) => o.id === stmt._binds[0]) || null;
+          if (/FROM orders\b[^)]*id\s*=\s*\?/s.test(sql)) return CANDIDATES.find((o) => o.id === stmt._binds[0]) || null;
           if (/SELECT pay_token FROM orders/.test(sql)) return { pay_token: 'tok' };
           if (/MAX\(created_at\)/.test(sql)) return { last_sent_at: null };
           return null;
@@ -23,7 +23,7 @@ function makeEnv({ payments = [], sent = [] } = {}) {
         async run() { calls.push({ sql, binds: stmt._binds, method: 'run' }); return { meta: { changes: 1 } }; },
         async all() {
           calls.push({ sql, binds: stmt._binds, method: 'all' });
-          if (/FROM orders WHERE status != 'cancelled'/.test(sql)) return { results: CANDIDATES };
+          if (/WHERE.*status != 'cancelled' AND pickup_date/.test(sql)) return { results: CANDIDATES };
           if (/FROM payments WHERE active = 1 AND order_id IN/.test(sql)) return { results: payments };
           if (/FROM order_statements/.test(sql)) return { results: sent };
           if (/FROM payments WHERE order_id = \?/.test(sql)) {

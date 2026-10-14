@@ -57,6 +57,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [orderEvents, setOrderEvents] = useState<ApiOrderEvent[]>([]);
   const [stmtBusy, setStmtBusy] = useState(false);
   const [stmtMsg, setStmtMsg] = useState("");
+  const [stmtEmailDraft, setStmtEmailDraft] = useState("");
   const [dueEdit, setDueEdit] = useState<string | null>(null);
   const [dueError, setDueError] = useState<string | null>(null);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
@@ -300,7 +301,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   tier === "tomorrow" ? "#fad9d4" :
                   "transparent";
                 return (
-                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setMarkPayError(""); setOrderEvents([]); eventsFetchId.current = Number(o.id); fetchOrder(Number(o.id)).then((r) => { if (eventsFetchId.current !== Number(o.id)) return; setOrderEvents(r.events); }).catch(() => {}); }}>
+                <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setMarkPayError(""); setStmtMsg(""); setStmtEmailDraft(""); setOrderEvents([]); eventsFetchId.current = Number(o.id); fetchOrder(Number(o.id)).then((r) => { if (eventsFetchId.current !== Number(o.id)) return; setOrderEvents(r.events); }).catch(() => {}); }}>
                   <td className="px-4 py-3 font-medium text-cocoa">{o.orderNumber}</td>
                   <td className="px-4 py-3 text-cocoa-muted">{o.customerName}</td>
                   <td className="px-4 py-3">
@@ -772,7 +773,33 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                       <Wallet size={16} /> {stmtBusy ? "Sending…" : "Send balance statement"}
                     </button>
                     {!selected.email && (
-                      <p className="text-xs text-cocoa-muted">Add an email to this order to send a statement.</p>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="email"
+                          placeholder="Customer email"
+                          value={stmtEmailDraft}
+                          onChange={(e) => setStmtEmailDraft(e.target.value)}
+                          className="flex-1 rounded-xl border border-sand-200 px-3 py-2 text-sm outline-none focus:border-palm"
+                        />
+                        <button
+                          disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stmtEmailDraft)}
+                          onClick={async () => {
+                            try {
+                              await apiUpdateOrder(Number(selected.id), { email: stmtEmailDraft });
+                              await refreshOrders();
+                              const fresh = await fetchOrder(Number(selected.id));
+                              if (eventsFetchId.current === Number(selected.id)) setOrderEvents(fresh.events);
+                              setSelected((prev) => (prev && prev.id === selected.id ? { ...prev, email: stmtEmailDraft } : prev));
+                              setStmtMsg("Email saved. You can send the statement now.");
+                            } catch (err: any) {
+                              setStmtMsg(err?.message || "Could not save email.");
+                            }
+                          }}
+                          className="rounded-xl bg-palm px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        >
+                          Save email
+                        </button>
+                      </div>
                     )}
                     {lastStatementAt && (
                       <p className="text-xs text-cocoa-muted">Last reminder: {formatDateTime(lastStatementAt.replace(" ", "T") + "Z")}</p>

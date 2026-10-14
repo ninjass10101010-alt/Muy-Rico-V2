@@ -142,6 +142,9 @@ export async function updateOrder(
     payment_sub_method?: string | null;
     pickup_date?: string;
     notes?: string;
+    email?: string;
+    customer_id?: string | null;
+    customer_name?: string;
     items_json?: OrderItemPatch[];
     discount_cents?: number;
   }

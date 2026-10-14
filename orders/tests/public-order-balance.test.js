@@ -15,7 +15,7 @@ function makeEnv({ order = ORDER, payments = [] } = {}) {
       const stmt = {
         _sql: sql, _binds: [],
         bind(...args) { stmt._binds = args; return stmt; },
-        async first() { if (/FROM orders WHERE id = \?/.test(sql)) return order; return null; },
+        async first() { if (/FROM orders\b[^)]*id\s*=\s*\?/s.test(sql)) return order; return null; },
         async run() { return { meta: { changes: 1 } }; },
         async all() {
           if (/FROM payments WHERE order_id = \? AND active = 1/.test(sql)) return { results: payments };

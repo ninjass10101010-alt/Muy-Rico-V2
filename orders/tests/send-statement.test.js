@@ -11,7 +11,7 @@ function makeEnv({ order = null, payments = [], statementRow = null } = {}) {
         bind(...args) { stmt._binds = args; return stmt; },
         async first() {
           calls.push({ sql, binds: stmt._binds, method: 'first' });
-          if (/FROM orders WHERE id = \?/.test(sql)) return order;
+          if (/FROM orders\b[^)]*id\s*=\s*\?/s.test(sql)) return order;
           if (/SELECT pay_token FROM orders/.test(sql)) return { pay_token: 'tok65' };
           if (/MAX\(created_at\)/.test(sql)) return statementRow;
           return null;

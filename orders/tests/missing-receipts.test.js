@@ -11,7 +11,7 @@ function makeEnv({ ordersById = {}, missingRows = [], secret = 's3cret' } = {}) 
         bind(...args) { stmt._binds = args; return stmt; },
         async first() {
           calls.push({ sql, binds: stmt._binds, method: 'first' });
-          if (/FROM orders WHERE id = \?/.test(sql)) return ordersById[stmt._binds[0]] ?? null;
+          if (/FROM orders\b[^)]*id\s*=\s*\?/s.test(sql)) return ordersById[stmt._binds[0]] ?? null;
           return null;
         },
         async run() {

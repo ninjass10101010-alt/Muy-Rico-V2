@@ -927,18 +927,22 @@ async function listOrders(request, env, actor) {
   }
 
   const sql = `
-    SELECT * FROM orders
+    SELECT o.*, COALESCE(NULLIF(TRIM(o.email), ''), NULLIF(TRIM(c.email), '')) AS email
+    FROM orders o
+    LEFT JOIN customers c ON c.id = o.customer_id
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-    ORDER BY pickup_date ASC, pickup_time ASC, created_at DESC
-    LIMIT ?
-  `;
+    ORDER BY o.pickup_date ASC, o.pickup_time ASC, o.created_at DESC
+    LIMIT ?`;
   binds.push(limit);
   const { results } = await env.DB.prepare(sql).bind(...binds).all();
   return json({ orders: results }, 200);
 }
 
 async function getOrder(id, env, actor) {
-  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+  const order = await env.DB.prepare(
+    "SELECT o.*, COALESCE(NULLIF(TRIM(o.email), ''), NULLIF(TRIM(c.email), '')) AS email " +
+    "FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?"
+  ).bind(id).first();
   if (!order) return json({ error: 'Not found' }, 404);
   const { results: events } = await env.DB.prepare(
     'SELECT * FROM order_events WHERE order_id = ? ORDER BY created_at ASC'
@@ -948,13 +952,14 @@ async function getOrder(id, env, actor) {
 
 async function updateOrder(id, request, env, ctx, actor) {
   const body = await request.json();
-  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring', 'customer_id'];
+  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring', 'customer_id', 'email', 'customer_name'];
   const sets = [], binds = [];
   for (const f of allowed) {
     if (body[f] === undefined) continue;
     if (f === 'payment_method' && !ALLOWED_PAYMENT.includes(body[f])) return json({ error: 'Invalid payment_method' }, 400);
     if (f === 'payment_status' && !ALLOWED_PAYSTAT.includes(body[f])) return json({ error: 'Invalid payment_status' }, 400);
     if (f === 'status' && !ALLOWED_STATUS.includes(body[f])) return json({ error: 'Invalid status' }, 400);
+    if (f === 'email') { const v = String(body.email || '').trim(); if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return json({ error: 'Invalid email' }, 400); }
     sets.push(`${f} = ?`); binds.push(body[f]);
   }
 
@@ -991,6 +996,16 @@ async function updateOrder(id, request, env, ctx, actor) {
       const clamped = Math.min(Math.max(Math.round(discountCents), 0), subtotalCents);
       sets.push('discount_cents = ?'); binds.push(clamped);
       sets.push('total_cents = ?'); binds.push(subtotalCents - clamped);
+    }
+  }
+
+  // Backfill the email from the linked customer if one is being set
+  // (and the caller didn't already provide an email).
+  if (body.customer_id !== undefined && body.email === undefined) {
+    const cust = await env.DB.prepare('SELECT email FROM customers WHERE id = ?').bind(body.customer_id).first();
+    const cemail = cust && cust.email ? String(cust.email).trim() : '';
+    if (cemail) {
+      sets.push('email = ?'); binds.push(cemail);
     }
   }
 
@@ -1152,7 +1167,10 @@ async function markOrderPaid(id, request, env, ctx) {
   const subMethod = body.sub_method || null;
   const amountCents = body.amount_cents != null ? Number(body.amount_cents) : null;
 
-  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+  const order = await env.DB.prepare(
+    "SELECT o.*, COALESCE(NULLIF(TRIM(o.email), ''), NULLIF(TRIM(c.email), '')) AS email " +
+    "FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?"
+  ).bind(id).first();
   if (!order) return json({ error: 'Not found' }, 404);
 
   // Idempotent: already paid → no-op (still log the event below).
@@ -1302,7 +1320,10 @@ async function markOrderBalancePaid(id, request, env, ctx) {
     return json({ error: 'Invalid amount_cents' }, 400);
   }
 
-  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+  const order = await env.DB.prepare(
+    "SELECT o.*, COALESCE(NULLIF(TRIM(o.email), ''), NULLIF(TRIM(c.email), '')) AS email " +
+    "FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?"
+  ).bind(id).first();
   if (!order) return json({ error: 'Not found' }, 404);
 
   // Idempotency: a webhook replay with the same gateway ref is a no-op.
@@ -2891,6 +2912,16 @@ async function updateCustomer(id, request, env, actor) {
   binds.push(id);
   const r = await env.DB.prepare(`UPDATE customers SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
   if (!r.meta.changes) return json({ error: 'Not found' }, 404);
+
+  // Backfill the new email onto any of this customer's orders that don't yet
+  // have one, so statements/reminders work without recreating the order.
+  if (body.email !== undefined && String(body.email || '').trim()) {
+    const newEmail = String(body.email).trim();
+    await env.DB.prepare(
+      "UPDATE orders SET email = ? WHERE customer_id = ? AND (email IS NULL OR TRIM(email) = '')"
+    ).bind(newEmail, id).run();
+  }
+
   return json({ ok: true }, 200);
 }
 
@@ -3532,7 +3563,10 @@ async function deliverStatement(env, order, actor) {
 }
 
 async function sendOrderStatement(orderId, env, actor) {
-  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
+  const order = await env.DB.prepare(
+    "SELECT o.*, COALESCE(NULLIF(TRIM(o.email), ''), NULLIF(TRIM(c.email), '')) AS email " +
+    "FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?"
+  ).bind(orderId).first();
   if (!order) return json({ error: 'Not found' }, 404);
   const result = await deliverStatement(env, order, actor);
   if (result.outcome === 'no-email') return json({ error: 'Order has no email' }, 400);
@@ -3554,7 +3588,9 @@ async function sendOverdueStatements(env, actor) {
   const today = new Date().toISOString().slice(0, 10);
 
   const { results: candidates } = await env.DB.prepare(
-    `SELECT * FROM orders WHERE status != 'cancelled' AND TRIM(COALESCE(email, '')) != '' AND pickup_date IS NOT NULL AND pickup_date < ?`
+    `SELECT o.*, COALESCE(NULLIF(TRIM(o.email), ''), NULLIF(TRIM(c.email), '')) AS email
+     FROM orders o LEFT JOIN customers c ON c.id = o.customer_id
+     WHERE o.status != 'cancelled' AND pickup_date IS NOT NULL AND pickup_date < ?`
   ).bind(today).all();
 
   const ids = (candidates || []).map((o) => o.id);

@@ -12,7 +12,7 @@ function makeEnv({ order, secret = 's3cret' } = {}) {
         bind(...args) { stmt._binds = args; return stmt; },
         async first() {
           calls.push({ sql, binds: stmt._binds, method: 'first' });
-          if (/FROM orders WHERE id/.test(sql)) return order;
+          if (/FROM orders\b[^)]*id\s*=/.test(sql)) return order;
           return null;
         },
         async run() {

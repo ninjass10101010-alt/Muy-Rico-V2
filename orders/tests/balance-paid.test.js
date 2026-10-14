@@ -19,7 +19,7 @@ function makeEnv({ order = ORDER, payments = [], paymentByRef = null } = {}) {
           calls.push({ sql, binds: stmt._binds, method: 'first' });
           if (/SELECT id FROM payments WHERE ref = \?/.test(sql)) return paymentByRef;
           if (/SELECT total_cents FROM orders/.test(sql)) return { total_cents: order.total_cents };
-          if (/FROM orders WHERE id = \?/.test(sql)) return order;
+          if (/FROM orders\b[^)]*id\s*=\s*\?/s.test(sql)) return order;
           return null;
         },
         async run() {
