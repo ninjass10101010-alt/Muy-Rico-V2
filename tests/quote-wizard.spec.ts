@@ -139,6 +139,17 @@ test.describe('step 2 · event details', () => {
     await expect(page.locator('#wz-reason')).toBeVisible();
   });
 
+  test('zero servings does not advance', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '0');
+    await page.fill('#desired_date', '2099-06-01');
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await expect(page.locator('#wz-reason')).toBeVisible();
+  });
+
   test('a valid step 2 answer survives Back and Forward', async ({ page }) => {
     await mockApi(page);
     await openQuote(page);
@@ -275,6 +286,39 @@ test.describe('step 3 · gallery search and tags', () => {
     await expect(page.locator('.inspiration-card')).toHaveCount(2);
     await expect(page.locator('.gallery-empty')).toHaveCount(0);
   });
+
+  test('a successful re-upload clears the previous attempt error', async ({ page }) => {
+    let attempt = 0;
+    await page.route('**/api/gallery', (r) => r.fulfill({ json: GALLERY }));
+    await page.route('**/api/quotes/upload-image', (r) => {
+      attempt += 1;
+      return attempt === 1
+        ? r.fulfill({ status: 500, json: { error: 'nope' } })
+        : r.fulfill({ json: { url: 'https://example.test/up.jpg' } });
+    });
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+
+    await page.setInputFiles('#reference_image', {
+      name: 'first.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+    });
+    await expect(page.locator('#form-error')).toBeVisible();
+
+    // Retrying with a different file: the stale failure must not outlive it.
+    await page.setInputFiles('#reference_image', {
+      name: 'second.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+    });
+    await expect(page.locator('#form-error')).toBeHidden();
+  });
 });
 
 test.describe('steps 4 and 5 · products and details', () => {
@@ -356,6 +400,10 @@ test.describe('steps 4 and 5 · products and details', () => {
     await expect(page.locator('#wz-product-count')).toHaveText('1 of 3 products selected');
     await page.click('#btn-es');
     await expect(page.locator('#wz-product-count')).toHaveText('1 de 3 producto elegido');
+    // Pin the plural branch too — the singular/plural ternary has two arms and
+    // only the n === 1 arm was covered.
+    await page.click('.wz-tile[data-kind="product"][data-value="cakepops"]');
+    await expect(page.locator('#wz-product-count')).toHaveText('2 de 3 productos elegidos');
   });
 
   test('a card ✕ removes the product and re-enables its tile', async ({ page }) => {
@@ -449,6 +497,38 @@ test.describe('step 6 · submit payload', () => {
     await page.fill('#email', 'maria@example.test');
     await expect(page.locator('#wz-next')).toBeEnabled();
   });
+
+  test('an untouched request posts an empty dietary array and a null comment', async ({ page }) => {
+    let body: any = null;
+    await page.route('**/api/quotes', async (route) => {
+      if (route.request().method() !== 'POST') return route.fulfill({ status: 404, json: {} });
+      body = JSON.parse(route.request().postData() || '{}');
+      return route.fulfill({ status: 201, json: { ok: true, id: 1 } });
+    });
+    // Deliberately not fillToContact(): that helper fills dietary and the design
+    // note, which is the opposite of what this test is pinning.
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.click('#wz-next');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Vanilla');
+    await page.click('#wz-next');
+    await page.fill('#customer_name', 'Maria');
+    await page.fill('#email', 'maria@example.test');
+    await page.click('#wz-next');
+    await expect(page.locator('#form-success')).toBeVisible();
+
+    // Shapes the server depends on: dietary is stringified as an array, and
+    // comments must be null rather than '' when nothing was written.
+    expect(body.dietary).toEqual([]);
+    expect(body.comments).toBeNull();
+  });
 });
 
 test.describe('deep links', () => {
@@ -465,7 +545,16 @@ test.describe('deep links', () => {
     await mockApi(page);
     await openQuote(page, '?type=lasagna');
     await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(1);
+    // The fallback must fully pre-select, not merely render a card.
+    await expect(page.locator('.wz-tile[data-kind="product"][data-value="cake"]')).toHaveAttribute('aria-pressed', 'true');
     expect(errors).toEqual([]);
+  });
+
+  test('an empty ?type= seeds nothing, leaving step 4 gated', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page, '?type=');
+    await expect(page.locator('.item-card')).toHaveCount(0);
+    await expect(page.locator('.wz-tile[data-kind="product"][aria-pressed="true"]')).toHaveCount(0);
   });
 
   test('?inspiration=<id> pre-selects that gallery card', async ({ page }) => {
@@ -489,6 +578,7 @@ test.describe('deep links', () => {
     await openQuote(page, '?type=constructor');
     await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(1);
     await expect(page.locator('.item-card[data-type="constructor"]')).toHaveCount(0);
+    await expect(page.locator('.wz-tile[data-kind="product"][data-value="cake"]')).toHaveAttribute('aria-pressed', 'true');
     expect(errors).toEqual([]);
   });
 });
@@ -514,12 +604,14 @@ test.describe('bilingual, motion and layout', () => {
 
     for (const [step, es] of heads) {
       await page.evaluate((s) => (window as any).__wz.show(s), step);
-      await expect(page.locator(`.wz-panel[data-step="${step}"] .wz-heading`)).toContainText(es);
+      // toHaveText, not toContainText: a data-es drift to a superstring
+      // ("…celebrar hoy?") would still contain the expected text.
+      await expect(page.locator(`.wz-panel[data-step="${step}"] .wz-heading`)).toHaveText(es);
     }
 
     await page.evaluate(() => (window as any).__wz.setLang('en'));
     await page.evaluate(() => (window as any).__wz.show('occasion'));
-    await expect(page.locator('.wz-panel[data-step="occasion"] .wz-heading')).toContainText('What are we celebrating?');
+    await expect(page.locator('.wz-panel[data-step="occasion"] .wz-heading')).toHaveText('What are we celebrating?');
   });
 
   test('the gating reason re-translates when the language toggles', async ({ page }) => {
@@ -551,7 +643,7 @@ test.describe('bilingual, motion and layout', () => {
     }
   });
 
-  test('reduced motion still navigates every step', async ({ browser }) => {
+  test('reduced motion still navigates a step', async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await ctx.newPage();
     await mockApi(page);
@@ -574,6 +666,15 @@ test.describe('bilingual, motion and layout', () => {
     expect(scrollY).toBe(0);
   });
 
+  test('a fresh load does not steal focus into the form', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    // Focus is gated by the same flag as scrolling. Stealing it on load drops
+    // screen-reader users into the form before they have read the hero.
+    const focusedClass = await page.evaluate(() => document.activeElement?.className || '');
+    expect(focusedClass).not.toContain('wz-heading');
+  });
+
   test('focus lands on the step heading after advancing', async ({ page }) => {
     await mockApi(page);
     await openQuote(page);
@@ -581,6 +682,84 @@ test.describe('bilingual, motion and layout', () => {
     await page.click('#wz-next');
     const focused = await page.evaluate(() => document.activeElement?.id || '');
     expect(focused).toBe('wz-h-event');
+  });
+});
+
+// Top-level, not nested in the group above: that group pins locale es-ES, and
+// these tests assert behaviour that must hold in the default (English) locale.
+test.describe('keyboard', () => {
+  test('Enter advances from a satisfied step', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.focus('#servings');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+  });
+
+  test('Enter does nothing while the step is gated', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="event"]')).toBeVisible();
+    // Servings is still empty, so the event gate is unsatisfied.
+    await page.focus('#desired_date');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.wz-panel[data-step="event"]')).toBeVisible();
+  });
+
+  test('Enter submits from the contact step', async ({ page }) => {
+    let body: any = null;
+    await page.route('**/api/quotes', async (route) => {
+      if (route.request().method() !== 'POST') return route.fulfill({ status: 404, json: {} });
+      body = JSON.parse(route.request().postData() || '{}');
+      return route.fulfill({ status: 201, json: { ok: true, id: 1 } });
+    });
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.click('#wz-next');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Vanilla');
+    await page.click('#wz-next');
+    await page.fill('#customer_name', 'Maria');
+    await page.fill('#email', 'maria@example.test');
+    await page.focus('#email');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#form-success')).toBeVisible();
+    expect(body.customer_name).toBe('Maria');
+  });
+
+  test('Enter inside a textarea inserts a newline instead of submitting', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.click('#wz-next');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Vanilla');
+    await page.click('#wz-next');
+    await page.fill('#customer_name', 'Maria');
+    await page.fill('#email', 'maria@example.test');
+    await page.focus('#comments');
+    await page.keyboard.type('line one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('line two');
+    await expect(page.locator('#comments')).toHaveValue('line one\nline two');
+    await expect(page.locator('#form-success')).toBeHidden();
   });
 });
 
@@ -632,7 +811,7 @@ test('a custom item posts its name', async ({ page }) => {
   expect(body.items[0].details.serving_size).toBeUndefined();
 });
 
-test('a gallery failure shows the empty state and still advances', async ({ page }) => {
+test('a gallery failure shows the failure copy and still advances', async ({ page }) => {
   await page.route('**/api/gallery', (r) => r.fulfill({ status: 500, json: { error: 'boom' } }));
   await openQuote(page);
   await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
@@ -641,6 +820,8 @@ test('a gallery failure shows the empty state and still advances', async ({ page
   await page.fill('#desired_date', '2099-06-01');
   await page.click('#wz-next');
   await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
-  await expect(page.locator('.gallery-empty')).toBeVisible();
+  // Assert the failure message specifically: a regression that fell through to the
+  // "no designs matched" branch would satisfy a bare .gallery-empty check.
+  await expect(page.locator('.gallery-empty')).toContainText('Could not load the gallery');
   await expect(page.locator('#wz-next')).toBeEnabled();
 });

@@ -707,6 +707,13 @@
   })();
   document.documentElement.lang = currentLang;
 
+  // Translates everything carrying data-es / data-en (plus options and
+  // placeholders). Three user-facing strings are deliberately NOT driven by data
+  // attributes, because their text is computed at render time: #wz-reason (the
+  // REASONS map, re-applied by syncNav), #wz-product-count (re-applied by
+  // updateProductTiles) and #inspiration-count (re-applied by updateInspirationCount).
+  // Each has its own wrapper so it re-renders on a language change — do not
+  // "fix" them into data attributes without moving that re-render too.
   function applyLangToDOM(lang) {
     const btnEs = document.getElementById('btn-es');
     const btnEn = document.getElementById('btn-en');
@@ -830,6 +837,9 @@
       const data = await res.json();
       if (data.url) {
         uploadedImageUrl = data.url;
+        // A retry that succeeds must clear the previous attempt's failure, or the
+        // customer sees a stale error under a photo that actually uploaded.
+        hideError();
       } else {
         showError(data.error || 'Upload failed');
       }
@@ -1113,12 +1123,13 @@
     wzPanels.forEach(p => { p.hidden = p.dataset.step !== stepId; });
     updateProgress();
     syncNav();
-    // A stale error from a previous step must not follow the customer forward.
-    const err = document.getElementById('form-error');
-    if (err) { err.textContent = ''; err.style.display = 'none'; }
-    const heading = document.querySelector(`.wz-panel[data-step="${stepId}"] .wz-heading`);
-    if (heading) heading.focus({ preventScroll: true });
+    hideError();
     if (wzScrollOnShow) {
+      // Only on real step changes. The first show() runs on page load, when the
+      // visitor is reading the hero — focusing the heading and scrolling then
+      // would yank them (and screen-reader users) straight into the form.
+      const heading = document.querySelector(`.wz-panel[data-step="${stepId}"] .wz-heading`);
+      if (heading) heading.focus({ preventScroll: true });
       document.getElementById('quote-form-section').scrollIntoView({
         behavior: prefersReduced ? 'auto' : 'smooth',
         block: 'start',
@@ -1150,6 +1161,19 @@
     if (wizard.step === 'contact') { document.getElementById('quote-form').requestSubmit(); return; }
     const idx = STEP_ORDER.indexOf(wizard.step);
     if (idx < STEP_ORDER.length - 1) show(STEP_ORDER[idx + 1]);
+  });
+
+  // Enter does what the primary button does. Both nav buttons are type="button"
+  // and the old single-form page had a real submit button, so without this the
+  // implicit submission a customer expects after typing their email is gone.
+  document.getElementById('quote-form').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target;
+    // Textareas need Enter for newlines; the gallery search is search-as-you-type.
+    if (t.tagName === 'TEXTAREA' || t.id === 'wz-search') return;
+    if (t.tagName !== 'INPUT' && t.tagName !== 'SELECT') return;
+    e.preventDefault();
+    if (!wzNext.disabled) wzNext.click();
   });
 
   const OCCASION_TILES = [
@@ -1371,6 +1395,11 @@
   function showError(msg) {
     formError.textContent = msg;
     formError.style.display = 'block';
+  }
+
+  function hideError() {
+    formError.textContent = '';
+    formError.style.display = 'none';
   }
 
   form.addEventListener('submit', async (e) => {
@@ -1649,6 +1678,8 @@
 
   // Test seam: Playwright drives step changes that would otherwise need a full
   // click path. Namespaced so it cannot collide with a global named "show".
+  // This ships to customers — it is inert unless called, and deliberately
+  // exposes only show() and setLang(), never form state or a submit path.
   window.__wz = { show, setLang };
 
   // Initialize form on DOM ready

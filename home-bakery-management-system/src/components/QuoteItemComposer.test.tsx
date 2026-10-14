@@ -64,4 +64,13 @@ describe("QuoteItemComposer serving size", () => {
     const tens = Array.from(select!.options).filter((o) => o.value === "10-12");
     expect(tens).toHaveLength(1);
   });
+
+  it("adds no option at all when there is no serving size", () => {
+    mountCake("");
+    const select = servingSelect();
+    const blanks = Array.from(select!.options).filter((o) => o.value === "");
+    // Exactly one empty-valued option: the placeholder. A guard that tested
+    // `!== undefined` instead of truthiness would add a phantom second one.
+    expect(blanks).toHaveLength(1);
+  });
 });

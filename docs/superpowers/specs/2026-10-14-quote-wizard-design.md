@@ -327,7 +327,7 @@ stacked buttons. The existing `.item-card`, `.dropzone`, `.checkbox-grid`, and
 
 | Failure | Behaviour |
 |---|---|
-| Upload fails (network/4xx/5xx) | Existing inline error retained; step does not advance on a failed upload attempt, and the customer may continue without a photo (upload is optional) |
+| Upload fails (network/4xx/5xx) | Existing inline error retained, rendered outside the panels so it is visible on the step that produced it; the customer may continue without a photo (upload is optional, so step 3 never blocks) |
 | Gallery fetch fails | Existing "gallery is coming soon" empty state; step 3 still advances |
 | Validation fails on Next | Next disabled + inline `role="status"` reason naming the missing answer |
 | Submit fails (network/4xx) | Existing `showError` path and existing button re-enable, unchanged |
