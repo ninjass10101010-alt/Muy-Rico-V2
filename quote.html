@@ -856,17 +856,6 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label lang-fade" data-es="Número de porciones" data-en="Serving size">Serving size</label>
-        <select name="serving_size" class="form-input">
-          <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
-          <option value="6-8">6-8</option>
-          <option value="10-12">10-12</option>
-          <option value="15-20">15-20</option>
-          <option value="20-30">20-30</option>
-          <option value="30+">30+</option>
-        </select>
-      </div>
-      <div class="form-group">
         <label class="form-label lang-fade" data-es="Decoraciones / Coberturas" data-en="Toppings / Decorations">Toppings / Decorations</label>
         <div class="checkbox-grid">
           <label class="checkbox-label"><input type="checkbox" name="toppings" value="Sprinkles"><span class="lang-fade" data-es="Chispas de Colores" data-en="Sprinkles">Sprinkles</span></label>
@@ -1039,7 +1028,6 @@
   const wizard = {
     step: 'occasion',
     productTypes: [],
-    servings: '',
   };
 
   const wzPanels = Array.from(document.querySelectorAll('.wz-panel'));
@@ -1142,6 +1130,13 @@
 
   function reapplyLang() {
     applyLangToDOM(currentLang);
+    const progress = document.getElementById('wz-progress');
+    if (progress) {
+      progress.setAttribute(
+        'aria-label',
+        currentLang === 'es' ? 'Progreso de la solicitud de cotización' : 'Quote request progress',
+      );
+    }
     syncNav();
   }
 
@@ -1338,10 +1333,7 @@
 
   document.getElementById('wz-search').addEventListener('input', applySearchFilter);
 
-  document.getElementById('servings').addEventListener('input', (e) => {
-    wizard.servings = e.target.value.trim();
-    syncNav();
-  });
+  document.getElementById('servings').addEventListener('input', syncNav);
   document.getElementById('desired_date').addEventListener('change', syncNav);
 
   // Prevent customers from picking a past desired date (mirrors the
@@ -1399,6 +1391,8 @@
       return;
     }
 
+    const servings = document.getElementById('servings').value.trim();
+
     // Collect items
     const items = [];
     document.querySelectorAll('.item-card').forEach(card => {
@@ -1421,7 +1415,7 @@
       });
       // Servings is a wizard-level question (step 2) so it is asked once and
       // stamped onto every cake in the request.
-      if (type === 'cake' && wizard.servings) details.serving_size = wizard.servings;
+      if (type === 'cake' && servings) details.serving_size = servings;
       items.push({ product_type: type, details });
     });
 
@@ -1433,7 +1427,7 @@
     const intent = (document.querySelector('input[name="wz_design_intent"]:checked') || {}).value;
     const designNote = document.getElementById('wz_design_note').value.trim();
     const designParts = [];
-    if (intent === 'customize') {
+    if (intent === 'customize' && designNote) {
       designParts.push(currentLang === 'es'
         ? `Cambios al diseño: ${designNote}`
         : `Design changes: ${designNote}`);
@@ -1473,7 +1467,7 @@
           phone: document.getElementById('phone').value.trim() || null,
           language: currentLang,
           occasion: document.getElementById('occasion').value || null,
-          serving_size: wizard.servings || null,
+          serving_size: servings || null,
           dietary,
           comments: comments || null,
           desired_date: document.getElementById('desired_date').value || null,
@@ -1649,6 +1643,7 @@
     // #wz-reason and #wz-product-count carry no data-es/data-en — their text is
     // chosen from currentLang in syncNav()/updateProductTiles(), so both must
     // re-run when the language changes.
+    reapplyLang();
     updateProductTiles();
   };
 

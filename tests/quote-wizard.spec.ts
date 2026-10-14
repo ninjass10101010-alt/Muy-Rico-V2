@@ -528,10 +528,12 @@ test.describe('bilingual, motion and layout', () => {
     // Step 1 with nothing chosen: Next is gated, so a reason is on screen.
     await expect(page.locator('#wz-next')).toBeDisabled();
     await expect(page.locator('#wz-reason')).toContainText('Elige una ocasión');
+    await expect(page.locator('#wz-progress')).toHaveAttribute('aria-label', 'Progreso de la solicitud de cotización');
     await page.evaluate(() => (window as any).__wz.setLang('en'));
     // #wz-reason carries no data-es/data-en (its text is chosen in syncNav from
     // currentLang), so this guards the setLang wrapper fix against regression.
     await expect(page.locator('#wz-reason')).toContainText('Choose an occasion');
+    await expect(page.locator('#wz-progress')).toHaveAttribute('aria-label', 'Quote request progress');
   });
 
   test('no horizontal overflow at any width', async ({ page }) => {
@@ -580,4 +582,65 @@ test.describe('bilingual, motion and layout', () => {
     const focused = await page.evaluate(() => document.activeElement?.id || '');
     expect(focused).toBe('wz-h-event');
   });
+});
+
+test('the cake card does not re-ask for a serving size', async ({ page }) => {
+  await mockApi(page);
+  await openQuote(page);
+  await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+  await page.click('#wz-next');
+  await page.fill('#servings', '25');
+  await page.fill('#desired_date', '2099-06-01');
+  await page.click('#wz-next');
+  await page.click('#wz-next');
+  await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+  await page.click('#wz-next');
+  // Step 2 asks servings once; the cake card must not ask again with the old buckets.
+  await expect(page.locator('.item-card[data-type="cake"] select[name="serving_size"]')).toHaveCount(0);
+  await expect(page.locator('.item-card[data-type="cake"]')).toContainText('Cake flavor');
+});
+
+test('a custom item posts its name', async ({ page }) => {
+  let body: any = null;
+  await page.route('**/api/quotes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fulfill({ status: 404, json: {} });
+    body = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({ status: 201, json: { ok: true, id: 1 } });
+  });
+  await mockApi(page);
+  await openQuote(page);
+  await page.click('.wz-tile[data-kind="occasion"][data-value="Other"]');
+  await page.click('#wz-next');
+  await page.fill('#servings', '12');
+  await page.fill('#desired_date', '2099-06-01');
+  await page.click('#wz-next');
+  await page.click('#wz-next');
+  await page.click('.wz-tile[data-kind="product"][data-value="custom"]');
+  await page.click('#wz-next');
+  await page.fill('.item-card[data-type="custom"] input[name="name"]', 'Decorated cookies');
+  await page.fill('.item-card[data-type="custom"] textarea[name="description"]', 'Two dozen, lemon');
+  await page.click('#wz-next');
+  await page.fill('#customer_name', 'Maria');
+  await page.fill('#email', 'maria@example.test');
+  await page.click('#wz-next');
+
+  await expect(page.locator('#form-success')).toBeVisible();
+  expect(body.items).toHaveLength(1);
+  expect(body.items[0].product_type).toBe('custom');
+  expect(body.items[0].details.name).toBe('Decorated cookies');
+  expect(body.items[0].details.description).toBe('Two dozen, lemon');
+  expect(body.items[0].details.serving_size).toBeUndefined();
+});
+
+test('a gallery failure shows the empty state and still advances', async ({ page }) => {
+  await page.route('**/api/gallery', (r) => r.fulfill({ status: 500, json: { error: 'boom' } }));
+  await openQuote(page);
+  await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+  await page.click('#wz-next');
+  await page.fill('#servings', '20');
+  await page.fill('#desired_date', '2099-06-01');
+  await page.click('#wz-next');
+  await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+  await expect(page.locator('.gallery-empty')).toBeVisible();
+  await expect(page.locator('#wz-next')).toBeEnabled();
 });
