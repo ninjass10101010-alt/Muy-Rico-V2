@@ -833,13 +833,28 @@
         <input type="text" name="topper_design" class="form-input" data-es-placeholder="ej. Floral con hoja de oro" data-en-placeholder="e.g. Floral with gold leaf">
       </div>
     `,
+    custom: `
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="¿Qué quieres? *" data-en="What would you like? *">What would you like? *</label>
+        <input type="text" name="name" required class="form-input" data-es-placeholder="ej. Galletas decoradas, flan" data-en-placeholder="e.g. Decorated cookies, flan">
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Descripción" data-en="Description">Description</label>
+        <textarea name="description" rows="3" class="form-input" data-es-placeholder="Cuéntanos más sobre lo que quieres" data-en-placeholder="Tell us more about what you want"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label lang-fade" data-es="Cantidad" data-en="Quantity">Quantity</label>
+        <input type="number" name="quantity" min="1" class="form-input" placeholder="12">
+      </div>
+    `,
   };
 
-  const itemIcons = { cake: '🎂', cakepops: '🍭', cupcakes: '🧁' };
+  const itemIcons = { cake: '🎂', cakepops: '🍭', cupcakes: '🧁', custom: '✨' };
   const itemLabels = {
     cake: { es: 'Pastel', en: 'Cake' },
     cakepops: { es: 'Cakepops', en: 'Cakepops' },
     cupcakes: { es: 'Pastelitos', en: 'Cupcakes' },
+    custom: { es: 'Otra cosa', en: 'Something else' },
   };
 
   let itemCounter = 0;
@@ -977,7 +992,7 @@
     document.querySelectorAll('.item-card').forEach(card => {
       const type = card.dataset.type;
       const details = {};
-      card.querySelectorAll('input, select').forEach(el => {
+      card.querySelectorAll('input, select, textarea').forEach(el => {
         if (el.name) {
           if (el.type === 'checkbox') {
             if (!details[el.name]) details[el.name] = [];
