@@ -44,3 +44,37 @@ test.describe('custom product type', () => {
     await expect(card.locator('input[name="name"]')).toHaveAttribute('required', '');
   });
 });
+
+test.describe('wizard shell', () => {
+  test('opens on the occasion step with progress and a Back that is disabled', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await expect(page.locator('.wz-panel[data-step="occasion"]')).toBeVisible();
+    await expect(page.locator('.wz-panel[data-step="contact"]')).toBeHidden();
+    await expect(page.locator('#wz-progress')).toHaveAttribute('aria-valuenow', '10');
+    await expect(page.locator('#wz-back')).toBeDisabled();
+  });
+
+  test('exactly one panel is visible at a time', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    const visible = page.locator('.wz-panel:visible');
+    await expect(visible).toHaveCount(1);
+  });
+
+  test('Next is gated on step 1 and explains why', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await expect(page.locator('#wz-reason')).toBeVisible();
+    await expect(page.locator('#wz-reason')).not.toBeEmpty();
+  });
+
+  test('progress marks the current step on load', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    // updateProgress() marks every segment up to and including the current step,
+    // so step 1 on load means exactly one segment is done.
+    await expect(page.locator('.wz-progress-seg.done')).toHaveCount(1);
+  });
+});
