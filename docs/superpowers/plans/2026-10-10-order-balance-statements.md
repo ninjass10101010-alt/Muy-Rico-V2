@@ -1937,7 +1937,7 @@ git commit -m "feat(statements): order balance pay page"
 **Interfaces:**
 - Produces (consumed by Tasks 11–12): `sendOrderStatement(orderId)`, `sendOverdueStatements()`; context methods `sendOrderStatement`, `sendOverdueStatements`.
 
-- [ ] **Step 1: Add the API client functions**
+- [x] **Step 1: Add the API client functions**
 
 In `utils/api.ts`, next to `sendInvoice`:
 
@@ -1966,7 +1966,7 @@ export async function sendOverdueStatements(): Promise<SendOverdueResult> {
 }
 ```
 
-- [ ] **Step 2: Wire the context**
+- [x] **Step 2: Wire the context**
 
 In `StoreContext.tsx`:
 
@@ -1993,12 +1993,12 @@ In `StoreContext.tsx`:
 
 2d. Add both to the provider value object and the `useMemo` dependency array (follow `handleSendInvoice` exactly).
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `cd home-bakery-management-system && npm run typecheck`
 Expected: no errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add home-bakery-management-system/src/utils/api.ts home-bakery-management-system/src/context/StoreContext.tsx
@@ -2017,7 +2017,7 @@ git commit -m "feat(statements): admin API client for statement sends"
 **Interfaces:**
 - Consumes: `handleSendOrderStatement` (Task 10), `orderEvents` already loaded per order.
 
-- [ ] **Step 1: Add `email` to the Order model**
+- [x] **Step 1: Add `email` to the Order model**
 
 `types.ts` — add to `interface Order` after `phone`:
 
@@ -2031,7 +2031,7 @@ git commit -m "feat(statements): admin API client for statement sends"
           email: r.email || "",
 ```
 
-- [ ] **Step 2: Add state + handler in Orders.tsx**
+- [x] **Step 2: Add state + handler in Orders.tsx**
 
 In `Orders.tsx`, destructure from the store (add `handleSendOrderStatement`):
 
@@ -2051,7 +2051,7 @@ Add state next to `generatingLabels`:
   }, [orderEvents]);
 ```
 
-- [ ] **Step 3: Render the button in the payment panel**
+- [x] **Step 3: Render the button in the payment panel**
 
 Inside the order modal, directly after the "Remaining balance" block (the closing `</>` of the partial branch), add:
 
@@ -2106,19 +2106,19 @@ Inside the order modal, directly after the "Remaining balance" block (the closin
 
 Placement: insert this block immediately after the `</div>` that closes the `selected.paymentStatus === "partial"` branch (the `<div className="space-y-2">…</div>` block), so it renders for both `partial` and `unpaid` orders. The block itself returns `null` when the order is fully paid.
 
-- [ ] **Step 4: Typecheck + build**
+- [x] **Step 4: Typecheck + build**
 
 Run: `cd home-bakery-management-system && npm run typecheck`
 Expected: no errors.
 
-- [ ] **Step 5: Manual verification in the local dev harness**
+- [x] **Step 5: Manual verification in the local dev harness**
 
 Start local workers (`npx -y wrangler@4.127.0 dev -c orders/wrangler.toml --port 8787 --persist-to <fresh dir seeded with a test order>`) + the running Vite dev server, open an overdue partial order, confirm:
 - Button enabled with email, disabled without.
 - Sending shows "Statement sent" and "Last reminder: …".
 - The order events gain `statement:sent` (visible in the timeline if shown).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add home-bakery-management-system/src/types.ts home-bakery-management-system/src/context/StoreContext.tsx home-bakery-management-system/src/pages/Orders.tsx
@@ -2135,7 +2135,7 @@ git commit -m "feat(statements): send balance statement from the order detail"
 **Interfaces:**
 - Consumes: `handleSendOverdueStatements` (Task 10), existing `paidCentsForOrder`.
 
-- [ ] **Step 1: Destructure + compute**
+- [x] **Step 1: Destructure + compute**
 
 Add `handleSendOverdueStatements` to the store destructure (same line as Task 11's addition).
 
@@ -2157,7 +2157,7 @@ Add below the existing `filtered` memo:
   const [bulkStmtMsg, setBulkStmtMsg] = useState("");
 ```
 
-- [ ] **Step 2: Render the banner**
+- [x] **Step 2: Render the banner**
 
 In the "Needs attention" block (after the `unpaid` chip), add:
 
@@ -2207,19 +2207,19 @@ and render the banner message below the chips row:
           )}
 ```
 
-- [ ] **Step 3: Typecheck + build**
+- [x] **Step 3: Typecheck + build**
 
 Run: `cd home-bakery-management-system && npm run typecheck`
 Expected: no errors.
 
-- [ ] **Step 4: Manual verification**
+- [x] **Step 4: Manual verification**
 
 In the local harness with an overdue partial order seeded:
 - The chip appears with the count; confirm dialog shows count + total.
 - After sending, the message reports sent/skipped counts.
 - Re-running immediately reports the cooldown skip (`1 recent`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add home-bakery-management-system/src/pages/Orders.tsx

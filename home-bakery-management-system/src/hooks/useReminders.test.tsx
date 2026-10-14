@@ -12,7 +12,7 @@ import type { Order } from "../types";
 import { DEFAULT_REMINDER_CONFIG } from "../types";
 
 const mkOrder = (partial: Partial<Order>): Order => ({
-  id: "1", orderNumber: "MR-1", customerId: null, customerName: "Test", phone: "", items: [],
+  id: "1", orderNumber: "MR-1", customerId: null, customerName: "Test", phone: "", email: "", items: [],
   source: "website", status: "pending", paymentMethod: null, paymentSubMethod: null, paymentStatus: "unpaid",
   subtotal: 0, discount: 0, total: 0, dueDate: "2026-06-11T10:00:00.000Z", createdAt: "2026-06-01T00:00:00.000Z",
   notes: "", inventoryDeducted: false, foodColoring: null, ...partial,

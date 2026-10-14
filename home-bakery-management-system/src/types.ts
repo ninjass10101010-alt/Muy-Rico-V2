@@ -122,6 +122,7 @@ export interface Order {
   customerId: string | null;
   customerName: string;
   phone: string;
+  email: string;
   items: OrderItem[];
   source: OrderSource;
   status: OrderStatus;

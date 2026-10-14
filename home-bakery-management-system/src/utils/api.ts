@@ -1511,6 +1511,29 @@ export async function sendInvoice(id: number): Promise<{ ok: boolean; status: st
   return apiFetch(`/api/invoices/${id}/send`, { method: "POST" });
 }
 
+export interface SendStatementResult {
+  ok: boolean;
+  status?: string;
+  balanceCents?: number;
+  lastSentAt?: string | null;
+  error?: string;
+}
+
+export async function sendOrderStatement(orderId: number): Promise<SendStatementResult> {
+  return apiFetch(`/api/orders/${orderId}/send-statement`, { method: "POST" });
+}
+
+export interface SendOverdueResult {
+  ok: boolean;
+  sent: number;
+  failed: number;
+  skipped: Record<string, number>;
+}
+
+export async function sendOverdueStatements(): Promise<SendOverdueResult> {
+  return apiFetch(`/api/orders/send-statements`, { method: "POST" });
+}
+
 export async function addInvoiceItem(
   id: number, item: InvoiceItemInput
 ): Promise<{ ok: boolean; item: ApiInvoiceItem; total_cents: number }> {

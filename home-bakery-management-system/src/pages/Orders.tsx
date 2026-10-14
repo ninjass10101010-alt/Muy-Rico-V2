@@ -32,7 +32,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   setPage: (p: Page) => void;
   setLabelFilter: (filter: string | null) => void;
 }) {
-  const { orders, products, payments, customers, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiDeleteOrder, handleRelinkOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt } = useStore();
+  const { orders, products, payments, customers, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiDeleteOrder, handleRelinkOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt, handleSendOrderStatement, handleSendOverdueStatements } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
@@ -55,6 +55,8 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const [relinkOrderId, setRelinkOrderId] = useState<string | null>(null);
   const [relinkSearch, setRelinkSearch] = useState("");
   const [orderEvents, setOrderEvents] = useState<ApiOrderEvent[]>([]);
+  const [stmtBusy, setStmtBusy] = useState(false);
+  const [stmtMsg, setStmtMsg] = useState("");
   const [dueEdit, setDueEdit] = useState<string | null>(null);
   const [dueError, setDueError] = useState<string | null>(null);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
@@ -72,6 +74,25 @@ export default function Orders({ search, setPage, setLabelFilter }: {
       )
       .sort((a, b) => urgencyRank(a) - urgencyRank(b));
   }, [orders, statusFilter, sourceFilter, search]);
+
+  const lastStatementAt = useMemo(() => {
+    const sent = orderEvents.filter((e) => e.event === "statement:sent");
+    return sent.length ? sent[sent.length - 1].created_at : null;
+  }, [orderEvents]);
+
+  const overdueStatementCandidates = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return orders.filter((o) => {
+      if (o.status === "cancelled") return false;
+      if (!o.dueDate || o.dueDate >= today) return false;
+      if (!o.email) return false;
+      const paid = paidCentsForOrder(payments, o.id) / 100;
+      return o.total - paid > 0.005;
+    });
+  }, [orders, payments]);
+
+  const [bulkStmtBusy, setBulkStmtBusy] = useState(false);
+  const [bulkStmtMsg, setBulkStmtMsg] = useState("");
 
   async function updateStatus(order: Order, status: OrderStatus) {
     try {
@@ -191,7 +212,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
         const overdue = active.filter((o) => dueTier(o.dueDate, o.status) === "overdue").length;
         const today = active.filter((o) => dueTier(o.dueDate, o.status) === "today").length;
         const unpaid = active.filter((o) => o.paymentStatus === "unpaid").length;
-        if (!overdue && !today && !unpaid) return null;
+        if (!overdue && !today && !unpaid && overdueStatementCandidates.length === 0) return null;
         return (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-medium text-cocoa-muted">Needs attention:</span>
@@ -219,9 +240,41 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 {today} Due Today
               </button>
             )}
+            {overdueStatementCandidates.length > 0 && (
+              <button
+                disabled={bulkStmtBusy}
+                onClick={async () => {
+                  const total = overdueStatementCandidates.reduce((s, o) => {
+                    const paid = paidCentsForOrder(payments, o.id) / 100;
+                    return s + Math.max(0, o.total - paid);
+                  }, 0);
+                  if (!window.confirm(`Send balance statements to ${overdueStatementCandidates.length} overdue order(s) (${formatCurrency(total)} owed)?`)) return;
+                  setBulkStmtBusy(true);
+                  setBulkStmtMsg("");
+                  try {
+                    const r = await handleSendOverdueStatements();
+                    const skipped = Object.entries(r.skipped || {})
+                      .filter(([k, v]) => v > 0 && k !== "cancelled")
+                      .map(([k, v]) => `${v} ${k}`)
+                      .join(", ");
+                    setBulkStmtMsg(`Sent ${r.sent} · Failed ${r.failed}${skipped ? ` · Skipped: ${skipped}` : ""}`);
+                  } catch (err: any) {
+                    setBulkStmtMsg(err?.message || "Could not send statements.");
+                  } finally {
+                    setBulkStmtBusy(false);
+                  }
+                }}
+                className="rounded-full bg-coral px-2.5 py-1 font-semibold text-white ring-1 ring-inset ring-coral transition hover:opacity-90 disabled:opacity-60"
+              >
+                {bulkStmtBusy ? "Sending…" : `Remind all overdue (${overdueStatementCandidates.length})`}
+              </button>
+            )}
           </div>
         );
       })()}
+      {bulkStmtMsg && (
+        <div className="w-full text-xs text-cocoa-muted">{bulkStmtMsg}</div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-sand-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -684,6 +737,52 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                   )}
                 </div>
               )}
+              {(() => {
+                const today = new Date().toISOString().slice(0, 10);
+                const overdue = !!selected.dueDate && selected.dueDate < today && selected.status !== "cancelled";
+                const canSend = selected.paymentStatus !== "paid" && !!selected.email && overdue;
+                if (selected.paymentStatus === "paid") return null;
+                return (
+                  <div className="space-y-2 pt-2 border-t border-sand-100">
+                    <button
+                      disabled={!canSend || stmtBusy}
+                      title={!selected.email ? "Add an email to send a statement" : undefined}
+                      onClick={async () => {
+                        if (stmtBusy) return;
+                        if (lastStatementAt) {
+                          const sentMs = new Date(lastStatementAt.replace(" ", "T") + "Z").getTime();
+                          const hours = (Date.now() - sentMs) / 3600000;
+                          if (hours < 24 && !window.confirm(`Reminded ${hours < 1 ? "just now" : Math.round(hours) + " hours ago"}. Send again?`)) return;
+                        }
+                        setStmtBusy(true);
+                        setStmtMsg("");
+                        try {
+                          const r = await handleSendOrderStatement(Number(selected.id));
+                          setStmtMsg(r.lastSentAt ? `Statement sent — balance $${((r.balanceCents || 0) / 100).toFixed(2)}` : "Statement sent.");
+                          const fresh = await fetchOrder(Number(selected.id));
+                          if (eventsFetchId.current === Number(selected.id)) setOrderEvents(fresh.events);
+                        } catch (err: any) {
+                          setStmtMsg(err?.message || "Could not send the statement.");
+                        } finally {
+                          setStmtBusy(false);
+                        }
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-coral/40 bg-coral-light/20 py-2.5 text-sm font-semibold text-coral transition hover:bg-coral-light/40 disabled:opacity-50"
+                    >
+                      <Wallet size={16} /> {stmtBusy ? "Sending…" : "Send balance statement"}
+                    </button>
+                    {!selected.email && (
+                      <p className="text-xs text-cocoa-muted">Add an email to this order to send a statement.</p>
+                    )}
+                    {lastStatementAt && (
+                      <p className="text-xs text-cocoa-muted">Last reminder: {formatDateTime(lastStatementAt.replace(" ", "T") + "Z")}</p>
+                    )}
+                    {stmtMsg && (
+                      <p className={`text-xs ${/Could not|could not|failed/i.test(stmtMsg) ? "text-hibiscus" : "text-mid-green"}`}>{stmtMsg}</p>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Inside the modal on purpose: the page-level receiptMsg banner
                   renders behind this modal's blurred backdrop, and every failure
                   on this path leaves the modal open. */}
