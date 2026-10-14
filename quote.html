@@ -521,6 +521,11 @@
                data-es="Opcional — explora nuestros trabajos o sube tu propia idea."
                data-en="Optional — browse our past work or upload your own idea.">Optional — browse our past work or upload your own idea.</p>
 
+            <input type="search" id="wz-search" class="form-input wz-search" autocomplete="off"
+                   data-es-placeholder="Busca un diseño (ej. unicornio, flores)"
+                   data-en-placeholder="Search designs (e.g. unicorn, flowers)"
+                   placeholder="Search designs (e.g. unicorn, flowers)">
+
             <div class="form-section" id="inspiration-section">
               <div id="inspiration-grid">
                 <p class="form-help lang-fade" style="margin-bottom: 0;" data-es="Cargando galería…" data-en="Loading gallery…">Loading gallery…</p>
@@ -1171,6 +1176,35 @@
 
   buildOccasionTiles();
 
+  const PHOTO_TAGS_FALLBACK = Object.freeze([]);
+
+  function photoTags(ph) {
+    return Array.isArray(ph && ph.tags) ? ph.tags.filter(t => typeof t === 'string') : PHOTO_TAGS_FALLBACK;
+  }
+
+  function normalizeSearch(s) {
+    return String(s == null ? '' : s)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function matchesSearch(ph, needle) {
+    if (!needle) return true;
+    const haystack = [ph.title, ph.title_es, ...photoTags(ph)].map(normalizeSearch);
+    return haystack.some(h => h.includes(needle));
+  }
+
+  let wzAllPhotos = [];
+
+  function applySearchFilter() {
+    const input = document.getElementById('wz-search');
+    const needle = normalizeSearch(input ? input.value : '').trim();
+    renderInspirationGrid(wzAllPhotos.filter(ph => matchesSearch(ph, needle)), needle);
+  }
+
+  document.getElementById('wz-search').addEventListener('input', applySearchFilter);
+
   document.getElementById('servings').addEventListener('input', (e) => {
     wizard.servings = e.target.value.trim();
     syncNav();
@@ -1344,16 +1378,22 @@
     updateInspirationCount();
   }
 
-  function renderInspirationGrid(photos) {
+  function renderInspirationGrid(photos, needle) {
     const grid = document.getElementById('inspiration-grid');
     if (!grid) return;
     grid.innerHTML = '';
     if (!photos.length) {
       const empty = document.createElement('p');
       empty.className = 'gallery-empty lang-fade';
-      empty.setAttribute('data-es', 'La galería llegará pronto.');
-      empty.setAttribute('data-en', 'The gallery is coming soon.');
-      empty.textContent = 'The gallery is coming soon.';
+      if (needle) {
+        empty.setAttribute('data-es', 'No encontramos diseños con ese nombre. Prueba otra palabra.');
+        empty.setAttribute('data-en', 'No designs matched that search. Try another word.');
+        empty.textContent = 'No designs matched that search. Try another word.';
+      } else {
+        empty.setAttribute('data-es', 'La galería llegará pronto.');
+        empty.setAttribute('data-en', 'The gallery is coming soon.');
+        empty.textContent = 'The gallery is coming soon.';
+      }
       grid.appendChild(empty);
       applyLangToDOM(currentLang);
       return;
@@ -1380,6 +1420,22 @@
       check.textContent = '✓';
       card.appendChild(img);
       card.appendChild(title);
+
+      const tags = photoTags(ph);
+      if (tags.length) {
+        const chipRow = document.createElement('span');
+        chipRow.style.display = 'flex';
+        chipRow.style.flexWrap = 'wrap';
+        chipRow.style.gap = '0.25rem';
+        tags.slice(0, 4).forEach(t => {
+          const chip = document.createElement('span');
+          chip.className = 'wz-chip';
+          chip.textContent = t;
+          chipRow.appendChild(chip);
+        });
+        card.appendChild(chipRow);
+      }
+
       card.appendChild(check);
       card.addEventListener('click', () => toggleInspiration(ph, card));
       frag.appendChild(card);
@@ -1396,7 +1452,8 @@
       if (!res.ok) throw new Error('gallery fetch failed');
       const data = await res.json();
       const photos = data.photos || [];
-      renderInspirationGrid(photos);
+      wzAllPhotos = photos;
+      applySearchFilter();
       if (preselectId && grid) {
         const match = photos.find(ph => String(ph.id) === preselectId);
         if (match) {

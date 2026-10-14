@@ -152,3 +152,105 @@ test.describe('step 2 · event details', () => {
     await expect(page.locator('#servings')).toHaveValue('40');
   });
 });
+
+test.describe('step 3 · gallery search and tags', () => {
+  async function gotoDesign(page: Page) {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+  }
+
+  test('searches by title, accent- and case-insensitively', async ({ page }) => {
+    await gotoDesign(page);
+    await expect(page.locator('.inspiration-card')).toHaveCount(2);
+    await page.fill('#wz-search', 'PLAZA SESAMO');
+    await expect(page.locator('.inspiration-card')).toHaveCount(1);
+    await expect(page.locator('.inspiration-card')).toContainText('Sesame Street');
+  });
+
+  test('searches by tag when tags are present', async ({ page }) => {
+    await gotoDesign(page);
+    await page.fill('#wz-search', 'magic');
+    await expect(page.locator('.inspiration-card')).toHaveCount(1);
+    await expect(page.locator('.inspiration-card')).toContainText('Unicorn');
+  });
+
+  test('renders tag chips only for photos that have tags', async ({ page }) => {
+    await gotoDesign(page);
+    await expect(page.locator('.inspiration-card[data-photo-id="g1"] .wz-chip')).toHaveCount(2);
+    await expect(page.locator('.inspiration-card[data-photo-id="g2"] .wz-chip')).toHaveCount(0);
+  });
+
+  test('a missing or malformed tags field does not break rendering', async ({ page }) => {
+    await mockApi(page, {
+      gallery: {
+        photos: [
+          { id: 'x1', product_id: 'p1', title: 'No Tags', image_url: 'https://example.test/a.jpg', tags: 'not-an-array' },
+          { id: 'x2', product_id: 'p1', title: 'Plain', image_url: 'https://example.test/b.jpg' },
+        ],
+      },
+    });
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await expect(page.locator('.inspiration-card')).toHaveCount(2);
+    await expect(page.locator('.wz-chip')).toHaveCount(0);
+    await expect(page.locator('#wz-search')).toBeVisible();
+  });
+
+  test('step 3 never blocks advancing', async ({ page }) => {
+    await gotoDesign(page);
+    await expect(page.locator('#wz-next')).toBeEnabled();
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="product"]')).toBeVisible();
+  });
+
+  test('a failed upload shows the inline error while still on the design step', async ({ page }) => {
+    await mockApi(page, { uploadStatus: 500 });
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+
+    await page.setInputFiles('#reference_image', {
+      name: 'cake.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+    });
+
+    // #form-error lives outside the panels (next to the nav) precisely so this
+    // message is visible on the step that produced it, not stranded until step 6.
+    await expect(page.locator('#form-error')).toBeVisible();
+    await expect(page.locator('#form-error')).not.toBeEmpty();
+  });
+
+  test('advancing clears a stale error from the previous step', async ({ page }) => {
+    await mockApi(page, { uploadStatus: 500 });
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.setInputFiles('#reference_image', {
+      name: 'cake.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+    });
+    await expect(page.locator('#form-error')).toBeVisible();
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="product"]')).toBeVisible();
+    await expect(page.locator('#form-error')).toBeHidden();
+  });
+});
