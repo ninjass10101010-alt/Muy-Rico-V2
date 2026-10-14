@@ -1553,23 +1553,39 @@ In `quote.html`, inside the wizard block, add after `buildProductTiles(); update
 
 - [ ] **Step 7: Update `initializeQuoteForm` to use the tile model**
 
-In `quote.html`, replace the body of `initializeQuoteForm` (currently lines 930-944) with:
+In `quote.html`, replace the body of `initializeQuoteForm` with:
 
 ```js
   function initializeQuoteForm() {
     const params = new URLSearchParams(window.location.search);
-    const requestedType = params.get('type') || 'cake';
+    const requestedType = params.get('type');
     // Guard: an unknown ?type= would crash createItemCard (itemLabels[type] is
     // undefined) and take down the whole init (no item card, gallery stuck).
     const type = itemTypeTemplates[requestedType] ? requestedType : 'cake';
     const inspirationId = params.get('inspiration');
-    toggleProduct(type);
+    // Only an explicit ?type= seeds a product tile and its card; a plain visit
+    // leaves step 4's gate meaningful (nothing pre-chosen).
+    if (requestedType) toggleProduct(type);
     applyLangToDOM(currentLang);
     loadInspirationGallery(inspirationId);
   }
 ```
 
+> **Why seeding is conditional.** Step 4 asks the customer what they want made, and its gate is "at least one product chosen". Seeding a default cake on every visit would pre-answer that question, so the gate could never block and the step-4 tests could never fail. `?type=` is the only thing that pre-selects.
+
 This drops `initCustomQtyToggles()` (now called by `toggleProduct`) and `updateAddButtonVisibility()` (now `updateProductTiles()`).
+
+**Two additions beyond the tile machinery, both required by this task's own tests:**
+
+1. A delegated listener pair on the cards container, because nothing else re-evaluates the step-5 gate as the customer types:
+   ```js
+   document.getElementById('items-container').addEventListener('input', syncNav);
+   document.getElementById('items-container').addEventListener('change', syncNav);
+   ```
+   Without it, filling a card's required field would never enable Next.
+2. `updateProductTiles()` inside the existing `setLang` wrapper, because `#wz-product-count`'s text is chosen from `currentLang` — same reason Task 2 put `syncNav()` there.
+
+**Placement matters.** Put the tile machinery after `buildOccasionTiles()` inside the wizard block, not at the old `updateAddButtonVisibility` stub's location. That stub sits *above* `const wizard` / `wzPanels` / `wzNext`, and `updateProductTiles()` calls `syncNav()`, which reads those `const`s — executing there throws a temporal-dead-zone `ReferenceError`.
 
 - [ ] **Step 8: Run the tests to verify they pass**
 
@@ -1896,14 +1912,46 @@ with:
 
 The scroll is removed because the wizard owns navigation now and scrolling away from step 1 would strand the visitor below the fold.
 
-- [ ] **Step 4: Re-run to confirm the deep links resolve against the filter**
+- [ ] **Step 4: Harden the `?type=` guard against prototype keys**
+
+Task 6's review found a pre-existing hole in the guard this task is responsible for: `itemTypeTemplates[requestedType]` is truthy for inherited `Object.prototype` keys, so `?type=constructor` (or `__proto__`, `toString`, …) passes the guard, seeds a card whose label lookups return `undefined`, and lets the customer submit a `product_type` the server rejects with a 400 (`Invalid product_type`, `orders/workers/api.js:3927`). A mistyped shareable link is the realistic trigger.
+
+In `quote.html`'s `initializeQuoteForm`, replace:
+
+```js
+    const type = itemTypeTemplates[requestedType] ? requestedType : 'cake';
+```
+
+with:
+
+```js
+    // Object.hasOwn, not a truthiness check: itemTypeTemplates["constructor"] is
+    // truthy via Object.prototype, which would seed a card the server rejects.
+    const type = Object.hasOwn(itemTypeTemplates, requestedType) ? requestedType : 'cake';
+```
+
+Add a test alongside the existing deep-link ones:
+
+```ts
+  test('a prototype-key ?type= falls back to cake instead of seeding a bogus card', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await mockApi(page);
+    await openQuote(page, '?type=constructor');
+    await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(1);
+    await expect(page.locator('.item-card[data-type="constructor"]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+```
+
+- [ ] **Step 5: Re-run to confirm the deep links resolve against the filter**
 
 Because `renderInspirationGrid` is now called through `applySearchFilter()`, verify preselection still finds its card. Run the tests from Step 1.
 
 Run: `npx playwright test tests/quote-wizard.spec.ts -g "deep links"`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add quote.html tests/quote-wizard.spec.ts
