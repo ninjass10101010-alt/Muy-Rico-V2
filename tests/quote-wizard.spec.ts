@@ -276,3 +276,100 @@ test.describe('step 3 · gallery search and tags', () => {
     await expect(page.locator('.gallery-empty')).toHaveCount(0);
   });
 });
+
+test.describe('steps 4 and 5 · products and details', () => {
+  async function gotoProduct(page: Page) {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="product"]')).toBeVisible();
+  }
+
+  test('offers four product tiles and gates on at least one', async ({ page }) => {
+    await gotoProduct(page);
+    await expect(page.locator('.wz-tile[data-kind="product"]')).toHaveCount(4);
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await expect(page.locator('#wz-next')).toBeEnabled();
+  });
+
+  test('two products produce two cards; the third is allowed; the fourth is blocked', async ({ page }) => {
+    await gotoProduct(page);
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('.wz-tile[data-kind="product"][data-value="cakepops"]');
+    await page.click('.wz-tile[data-kind="product"][data-value="cupcakes"]');
+    await expect(page.locator('.item-card')).toHaveCount(3);
+    await expect(page.locator('.wz-tile[data-kind="product"][data-value="custom"]')).toBeDisabled();
+    await expect(page.locator('.wz-tile[data-kind="product"][data-value="custom"]')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('deselecting a product removes its card and its typed values', async ({ page }) => {
+    await gotoProduct(page);
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('.wz-tile[data-kind="product"][data-value="cakepops"]');
+    await page.click('#wz-next');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Chocolate');
+    await page.click('#wz-back');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await expect(page.locator('.item-card')).toHaveCount(1);
+    await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(0);
+  });
+
+  test('step 5 gates until each card has its required fields', async ({ page }) => {
+    await gotoProduct(page);
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="details"]')).toBeVisible();
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Vanilla');
+    await expect(page.locator('#wz-next')).toBeEnabled();
+  });
+
+  test('design intent reveals the note field only when customizing', async ({ page }) => {
+    await gotoProduct(page);
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Vanilla');
+    await expect(page.locator('#wz_design_note')).toBeHidden();
+    await page.check('input[name="wz_design_intent"][value="customize"]');
+    await expect(page.locator('#wz_design_note')).toBeVisible();
+    await page.check('input[name="wz_design_intent"][value="match"]');
+    await expect(page.locator('#wz_design_note')).toBeHidden();
+  });
+
+  test('the product-count line re-translates with the page language', async ({ page }) => {
+    await gotoProduct(page);
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await expect(page.locator('#wz-product-count')).toHaveText('1 of 3 products selected');
+    await page.click('#btn-es');
+    await expect(page.locator('#wz-product-count')).toHaveText('1 de 3 productos elegidos');
+  });
+
+  test('a card ✕ removes the product and re-enables its tile', async ({ page }) => {
+    await gotoProduct(page);
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.item-card[data-type="cake"] .remove-item-btn')).toBeHidden();
+    await page.click('#wz-back');
+    await page.click('.wz-tile[data-kind="product"][data-value="cakepops"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.item-card[data-type="cake"] .remove-item-btn')).toBeVisible();
+    await page.click('.item-card[data-type="cake"] .remove-item-btn');
+    await expect(page.locator('.item-card')).toHaveCount(1);
+    await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(0);
+    await expect(page.locator('.wz-tile[data-kind="product"][data-value="cake"]')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#wz-product-count')).toHaveText('1 of 3 products selected');
+    // Re-selecting the removed product appends a fresh card: productTypes and
+    // the DOM must stay in step, so no stale typed values may survive.
+    await page.click('#wz-back');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.item-card')).toHaveCount(2);
+    await expect(page.locator('.item-card[data-type="cake"] input[name="cake_flavor"]')).toHaveValue('');
+  });
+});

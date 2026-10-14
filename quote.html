@@ -570,6 +570,7 @@
                data-es="Elige uno o más — puedes combinar."
                data-en="Pick one or more — you can combine.">Pick one or more — you can combine.</p>
             <div class="wz-tile-grid" id="wz-product-tiles"></div>
+            <p id="wz-product-count" class="form-help" style="margin-top: 0.9rem;"></p>
           </section>
 
           <!-- Step 5 · Details -->
@@ -580,6 +581,36 @@
                data-es="Mientras más detalle, más rápida la cotización."
                data-en="The more detail, the faster the quote.">The more detail, the faster the quote.</p>
             <div id="items-container" class="space-y-6"></div>
+
+            <div class="form-section" style="margin-top: 2rem;">
+              <div class="form-group">
+                <label for="dietary" class="form-label lang-fade" data-es="Restricciones alimentarias" data-en="Dietary needs">Dietary needs</label>
+                <input type="text" id="dietary" name="dietary" class="form-input"
+                       data-es-placeholder="ej. sin nueces, sin huevo, vegano"
+                       data-en-placeholder="e.g. nut-free, eggless, vegan"
+                       placeholder="e.g. nut-free, eggless, vegan">
+              </div>
+
+              <div class="form-group" style="margin-top: 1.2rem;">
+                <span class="form-label lang-fade" data-es="¿Quieres cambios al diseño?" data-en="Any changes to the design?">Any changes to the design?</span>
+                <label class="checkbox-label" style="display:flex; margin-top:0.4rem;">
+                  <input type="radio" name="wz_design_intent" value="match" checked>
+                  <span class="lang-fade" data-es="Cópialo lo más parecido posible" data-en="Match it as closely as possible">Match it as closely as possible</span>
+                </label>
+                <label class="checkbox-label" style="display:flex; margin-top:0.4rem;">
+                  <input type="radio" name="wz_design_intent" value="customize">
+                  <span class="lang-fade" data-es="Quiero cambiar algunas cosas" data-en="I'd like to change some things">I'd like to change some things</span>
+                </label>
+              </div>
+
+              <div class="form-group" id="wz_design_note_group" style="margin-top: 1rem;" hidden>
+                <label for="wz_design_note" class="form-label lang-fade" data-es="¿Qué te gustaría cambiar?" data-en="What would you like to change?">What would you like to change?</label>
+                <textarea id="wz_design_note" name="wz_design_note" rows="3" class="form-input"
+                          data-es-placeholder="ej. cambiar los pisos, quitar los juguetes, más flores"
+                          data-en-placeholder="e.g. change the tiers, remove the toys, more flowers"
+                          placeholder="e.g. change the tiers, remove the toys, more flowers"></textarea>
+              </div>
+            </div>
           </section>
 
           <!-- Step 6 · Contact -->
@@ -977,12 +1008,13 @@
 
   function removeItem(itemId) {
     const card = document.querySelector(`[data-item-id="${itemId}"]`);
-    if (card) card.remove();
-  }
-
-  function updateAddButtonVisibility() {
-    // The add-item modal was replaced by the step-4 product tiles; Task 6 owns
-    // the replacement. Kept as a no-op so initializeQuoteForm stays callable.
+    if (!card) return;
+    const type = card.dataset.type;
+    const i = wizard.productTypes.indexOf(type);
+    if (i >= 0) wizard.productTypes.splice(i, 1);
+    card.remove();
+    updateProductTiles();
+    syncNav();
   }
 
   function initCustomQtyToggles() {
@@ -1176,6 +1208,103 @@
 
   buildOccasionTiles();
 
+  const PRODUCT_TILES = [
+    { value: 'cake', icon: '🎂', es: 'Pastel', en: 'Cake', descEs: 'Pasteles personalizados', descEn: 'Custom cakes' },
+    { value: 'cakepops', icon: '🍭', es: 'Cakepops', en: 'Cakepops', descEs: 'Por docena', descEn: 'By the dozen' },
+    { value: 'cupcakes', icon: '🧁', es: 'Pastelitos', en: 'Cupcakes', descEs: 'Por docena', descEn: 'By the dozen' },
+    { value: 'custom', icon: '✨', es: 'Otra cosa', en: 'Something else', descEs: 'Galletas, flan y más', descEn: 'Cookies, flan and more' },
+  ];
+
+  function buildProductTiles() {
+    const grid = document.getElementById('wz-product-tiles');
+    if (!grid) return;
+    const frag = document.createDocumentFragment();
+    PRODUCT_TILES.forEach(t => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'wz-tile';
+      btn.dataset.kind = 'product';
+      btn.dataset.value = t.value;
+      btn.setAttribute('aria-pressed', 'false');
+
+      const icon = document.createElement('span');
+      icon.className = 'wz-tile-icon';
+      icon.textContent = t.icon;
+      icon.setAttribute('aria-hidden', 'true');
+
+      const label = document.createElement('span');
+      label.className = 'wz-tile-label lang-fade';
+      label.setAttribute('data-es', t.es);
+      label.setAttribute('data-en', t.en);
+      label.textContent = t.en;
+
+      const desc = document.createElement('span');
+      desc.className = 'wz-tile-desc lang-fade';
+      desc.setAttribute('data-es', t.descEs);
+      desc.setAttribute('data-en', t.descEn);
+      desc.textContent = t.descEn;
+
+      btn.appendChild(icon);
+      btn.appendChild(label);
+      btn.appendChild(desc);
+      btn.addEventListener('click', () => toggleProduct(t.value));
+      frag.appendChild(btn);
+    });
+    grid.appendChild(frag);
+  }
+
+  function updateProductTiles() {
+    const atCap = wizard.productTypes.length >= 3;
+    document.querySelectorAll('.wz-tile[data-kind="product"]').forEach(tile => {
+      const on = wizard.productTypes.includes(tile.dataset.value);
+      tile.setAttribute('aria-pressed', on ? 'true' : 'false');
+      tile.disabled = !on && atCap;
+    });
+    document.querySelectorAll('.item-card .remove-item-btn').forEach(btn => {
+      btn.style.display = wizard.productTypes.length > 1 ? '' : 'none';
+    });
+    const count = document.getElementById('wz-product-count');
+    if (count) {
+      const n = wizard.productTypes.length;
+      count.textContent = currentLang === 'es'
+        ? `${n} de 3 productos elegidos`
+        : `${n} of 3 products selected`;
+    }
+    syncNav();
+  }
+
+  function toggleProduct(type) {
+    const idx = wizard.productTypes.indexOf(type);
+    if (idx >= 0) {
+      const card = document.querySelector(`.item-card[data-type="${type}"]`);
+      if (card) removeItem(card.dataset.itemId);
+      return;
+    }
+    if (wizard.productTypes.length >= 3) return;
+    wizard.productTypes.push(type);
+    const container = document.getElementById('items-container');
+    container.appendChild(createItemCard(type));
+    initCustomQtyToggles();
+    updateProductTiles();
+    applyLangToDOM(currentLang);
+  }
+
+  buildProductTiles();
+  updateProductTiles();
+
+  const designNoteGroup = document.getElementById('wz_design_note_group');
+  document.querySelectorAll('input[name="wz_design_intent"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      designNoteGroup.hidden = document.querySelector('input[name="wz_design_intent"]:checked').value !== 'customize';
+    });
+  });
+  designNoteGroup.hidden = true;
+
+  // Cards are created dynamically, so listen on the container: the step-5 gate
+  // must re-evaluate as each card's required fields are filled.
+  document.getElementById('items-container').addEventListener('input', syncNav);
+  document.getElementById('items-container').addEventListener('change', syncNav);
+
   const PHOTO_TAGS_FALLBACK = Object.freeze([]);
 
   function photoTags(ph) {
@@ -1223,16 +1352,14 @@
 
   function initializeQuoteForm() {
     const params = new URLSearchParams(window.location.search);
-    const requestedType = params.get('type') || 'cake';
+    const requestedType = params.get('type');
     // Guard: an unknown ?type= would crash createItemCard (itemLabels[type] is
     // undefined) and take down the whole init (no item card, gallery stuck).
     const type = itemTypeTemplates[requestedType] ? requestedType : 'cake';
     const inspirationId = params.get('inspiration');
-    const container = document.getElementById('items-container');
-    const card = createItemCard(type);
-    container.appendChild(card);
-    updateAddButtonVisibility();
-    initCustomQtyToggles();
+    // Only an explicit ?type= seeds a product tile and its card; a plain visit
+    // leaves step 4's gate meaningful (nothing pre-chosen).
+    if (requestedType) toggleProduct(type);
     applyLangToDOM(currentLang);
     loadInspirationGallery(inspirationId);
   }
@@ -1492,9 +1619,10 @@
   setLang = function (lang) {
     _setLang(lang);
     updateInspirationCount();
-    // #wz-reason has no data-es/data-en — syncNav() chooses its text from
-    // currentLang, so it must re-run when the language changes.
-    syncNav();
+    // #wz-reason and #wz-product-count carry no data-es/data-en — their text is
+    // chosen from currentLang in syncNav()/updateProductTiles(), so both must
+    // re-run when the language changes.
+    updateProductTiles();
   };
 
   // Initialize form on DOM ready
