@@ -1949,7 +1949,7 @@ Add a test alongside the existing deep-link ones:
 Because `renderInspirationGrid` is now called through `applySearchFilter()`, verify preselection still finds its card. Run the tests from Step 1.
 
 Run: `npx playwright test tests/quote-wizard.spec.ts -g "deep links"`
-Expected: PASS (4 tests)
+Expected: PASS (5 tests — Step 4 adds the prototype-key case)
 
 - [ ] **Step 6: Commit**
 
@@ -2223,12 +2223,42 @@ Expected: PASS (4 tests)
 
 If Step 4 fails on overflow, the cause is almost always the sticky `.wz-nav` or the `auto-fit` grid at 320px. Apply the narrowest fix: for the grid, `.wz-tile-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }` inside a `@media (max-width: 400px)` block; for the nav, it already stacks at 640px, so check that `.wz-nav .btn { width: 100%; }` is present. Re-run until it passes.
 
-- [ ] **Step 6: Run the full suite**
+- [ ] **Step 6: Fix the Spanish singular/plural agreement on the product count**
+
+Task 6's review found a copy bug in the product-count line. `updateProductTiles` builds it as `` `${n} de 3 productos elegidos` ``, which reads wrong for a single product — Spanish needs the singular `elegido` when `n === 1`.
+
+In `quote.html`'s `updateProductTiles`, replace the Spanish branch:
+
+```js
+      count.textContent = currentLang === 'es'
+        ? `${n} de 3 productos elegidos`
+        : `${n} of 3 products selected`;
+```
+
+with:
+
+```js
+      count.textContent = currentLang === 'es'
+        ? `${n} de 3 producto${n === 1 ? '' : 's'} elegido${n === 1 ? '' : 's'}`
+        : `${n} of 3 products selected`;
+```
+
+Then pin it by appending to the existing "two products produce two cards…" test in `tests/quote-wizard.spec.ts`:
+
+```ts
+    await page.evaluate(() => (window as any).__wz.setLang('es'));
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await expect(page.locator('#wz-product-count')).toContainText('1 de 3 producto elegido');
+```
+
+`setLang` is exposed as `window.__wz.setLang` by Step 3 of this task, so this must come after it. The test browser defaults to English, hence the explicit switch. Nothing currently covers the count copy.
+
+- [ ] **Step 7: Run the full suite**
 
 Run: `npx playwright test`
 Expected: PASS (all suites including `cta-band.spec.ts`).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add quote.html tests/quote-wizard.spec.ts
