@@ -15,6 +15,7 @@ export const TYPE_LABELS: Record<QuoteItemType, string> = {
 };
 
 const CAKE_TOPPINGS = ["Sprinkles", "Fresh Fruit", "Chocolate Ganache", "Caramel Drip", "Edible Flowers", "Fondant Decorations"];
+const CAKE_SERVINGS = ["6-8", "10-12", "15-20", "20-30", "30+"];
 const POP_FLAVORS = ["Chocolate", "Vanilla", "Strawberry"];
 const DIPS = ["Milk Chocolate", "White Chocolate"];
 const TOPPING_STYLES = ["Marble", "Sprinkles", "Chocolate Drizzle", "Chocolate Accessories", "Fondant Accessories"];
@@ -131,11 +132,20 @@ export default function QuoteItemComposer({ initial, submitLabel, onSubmit, onCa
           <input value={cakeFlavorText} onChange={(e) => setCakeFlavorText(e.target.value)} placeholder="Cake flavor *" className={inputCls} />
           <input value={filling} onChange={(e) => setFilling(e.target.value)} placeholder="Filling" className={inputCls} />
           <input value={frostingText} onChange={(e) => setFrostingText(e.target.value)} placeholder="Frosting" className={inputCls} />
-          <select value={servingSize} onChange={(e) => setServingSize(e.target.value)} className={inputCls}>
+          <select
+            value={servingSize}
+            onChange={(e) => setServingSize(e.target.value)}
+            className={inputCls}
+          >
             <option value="">Serving size…</option>
-            {["6-8", "10-12", "15-20", "20-30", "30+"].map((s) => (
+            {CAKE_SERVINGS.map((s) => (
               <option key={s} value={s}>{s} servings</option>
             ))}
+            {/* The customer wizard collects an exact count (e.g. "25"); render it as
+                a real option so it shows as selected instead of appearing blank. */}
+            {servingSize && !CAKE_SERVINGS.includes(servingSize) && (
+              <option value={servingSize}>{servingSize} servings</option>
+            )}
           </select>
           <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1">
             {CAKE_TOPPINGS.map((t) => (
