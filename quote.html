@@ -1359,7 +1359,9 @@
     const requestedType = params.get('type');
     // Guard: an unknown ?type= would crash createItemCard (itemLabels[type] is
     // undefined) and take down the whole init (no item card, gallery stuck).
-    const type = itemTypeTemplates[requestedType] ? requestedType : 'cake';
+    // Object.hasOwn, not a truthiness check: itemTypeTemplates["constructor"] is
+    // truthy via Object.prototype, which would seed a card the server rejects.
+    const type = Object.hasOwn(itemTypeTemplates, requestedType) ? requestedType : 'cake';
     const inspirationId = params.get('inspiration');
     // Only an explicit ?type= seeds a product tile and its card; a plain visit
     // leaves step 4's gate meaningful (nothing pre-chosen).
@@ -1622,11 +1624,7 @@
         if (match) {
           const card = Array.from(grid.querySelectorAll('.inspiration-card'))
             .find(c => c.dataset.photoId === String(match.id));
-          if (card) {
-            toggleInspiration(match, card);
-            const section = document.getElementById('inspiration-section');
-            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+          if (card) toggleInspiration(match, card);
         }
       }
     } catch (err) {

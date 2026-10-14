@@ -442,3 +442,45 @@ test.describe('step 6 · submit payload', () => {
     await expect(page.locator('#wz-next')).toBeEnabled();
   });
 });
+
+test.describe('deep links', () => {
+  test('?type=cakepops pre-selects the tile and its card', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page, '?type=cakepops');
+    await expect(page.locator('.wz-tile[data-kind="product"][data-value="cakepops"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.item-card[data-type="cakepops"]')).toHaveCount(1);
+  });
+
+  test('an unknown ?type= falls back to cake without throwing', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await mockApi(page);
+    await openQuote(page, '?type=lasagna');
+    await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(1);
+    expect(errors).toEqual([]);
+  });
+
+  test('?inspiration=<id> pre-selects that gallery card', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page, '?inspiration=g2');
+    await expect(page.locator('.inspiration-card[data-photo-id="g2"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.inspiration-card[data-photo-id="g1"]')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('a wizard always opens on step 1 even with seeds', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page, '?type=cake&inspiration=g1');
+    await expect(page.locator('.wz-panel[data-step="occasion"]')).toBeVisible();
+    await expect(page.locator('#wz-progress')).toHaveAttribute('aria-valuenow', '10');
+  });
+
+  test('a prototype-key ?type= falls back to cake instead of seeding a bogus card', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await mockApi(page);
+    await openQuote(page, '?type=constructor');
+    await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(1);
+    await expect(page.locator('.item-card[data-type="constructor"]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+});
