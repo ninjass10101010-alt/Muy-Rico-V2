@@ -600,8 +600,13 @@
                         placeholder="e.g. I'm imagining a two-tier cake with fresh flowers…"></textarea>
             </div>
 
-            <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-top: 16px; font-size: 14px; color: var(--clay-deep);"></div>
           </section>
+
+          <!-- The shared error region sits OUTSIDE the panels, next to the nav.
+               handleFile() on the design step reports oversize/type/network errors
+               through showError() -> #form-error; inside the contact panel that
+               message would be invisible until step 6. -->
+          <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-top: 16px; font-size: 14px; color: var(--clay-deep);"></div>
 
           <!-- Nav -->
           <div class="wz-nav">
@@ -1061,17 +1066,28 @@
     wzProgress.setAttribute('aria-valuenow', String(value));
   }
 
+  // The very first render happens on load, when the visitor is looking at the
+  // hero. Scrolling then would yank them past it, so only scroll on real step
+  // changes — i.e. every show() after the first.
+  let wzScrollOnShow = false;
+
   function show(stepId) {
     wizard.step = stepId;
     wzPanels.forEach(p => { p.hidden = p.dataset.step !== stepId; });
     updateProgress();
     syncNav();
+    // A stale error from a previous step must not follow the customer forward.
+    const err = document.getElementById('form-error');
+    if (err) { err.textContent = ''; err.style.display = 'none'; }
     const heading = document.querySelector(`.wz-panel[data-step="${stepId}"] .wz-heading`);
     if (heading) heading.focus({ preventScroll: true });
-    document.getElementById('quote-form-section').scrollIntoView({
-      behavior: prefersReduced ? 'auto' : 'smooth',
-      block: 'start',
-    });
+    if (wzScrollOnShow) {
+      document.getElementById('quote-form-section').scrollIntoView({
+        behavior: prefersReduced ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+    wzScrollOnShow = true;
     reapplyLang();
   }
 
