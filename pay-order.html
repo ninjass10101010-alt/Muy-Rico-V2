@@ -64,50 +64,45 @@
 
 const WORKER = 'https://muy-rico-checkout.bexgarcia0208.workers.dev';
 const params = new URLSearchParams(location.search);
-const INV_ID = params.get('inv') || '';
+const O_ID = params.get('o') || '';
 const TOKEN = params.get('t') || '';
 const PAID_FLAG = params.get('paid') === 'stripe';
 
 const STR = {
   en: {
-    loading: 'Loading…', hi: (n) => `Hi ${n},`, invoiceHash: (num) => `Invoice ${num}`,
-    total: 'Total', deposit: 'Deposit due now (50%)', balance: 'Balance at pickup',
+    loading: 'Loading…', hi: (n) => `Hi ${n},`, orderHash: (n) => `Order #${n}`,
+    total: 'Total', paid: 'Paid to date', balance: 'Balance due',
     payCard: (amt) => `Pay ${amt} by Card`, or: 'or', confirming: 'Confirming your payment…',
     confirmLong: 'Still confirming — you will receive a confirmation email shortly.',
-    successT: 'Payment received!', successB: 'Thank you! We just emailed your confirmation — see you soon!',
-    alreadyT: 'Invoice already paid', alreadyB: 'Thank you! This invoice is already settled — no further action needed.',
+    successT: 'Payment received!', successB: 'Thank you! We just emailed your receipt — see you soon!',
+    alreadyT: 'Balance already paid', alreadyB: 'Thank you! This order has no balance due — no further action needed.',
     invalidT: 'Link not available', invalidB: 'This payment link is invalid or no longer active. Please contact us and we will help you.',
     errPay: 'Payment could not be completed. Please try again or contact us.',
     processing: 'Processing…', secure: 'Secure payment via Stripe & PayPal',
-    fullLabel: (amt) => `Pay in full — ${amt}`,
-    depositLabel: (amt) => `Pay 50% deposit — ${amt}`,
+    payments: 'Payments received', none: 'No payments recorded yet.',
+    pickup: 'Pickup',
   },
   es: {
-    loading: 'Cargando…', hi: (n) => `Hola ${n},`, invoiceHash: (num) => `Factura ${num}`,
-    total: 'Total', deposit: 'Depósito a pagar ahora (50%)', balance: 'Restante al recoger',
+    loading: 'Cargando…', hi: (n) => `Hola ${n},`, orderHash: (n) => `Pedido #${n}`,
+    total: 'Total', paid: 'Pagado a la fecha', balance: 'Saldo pendiente',
     payCard: (amt) => `Pagar ${amt} con tarjeta`, or: 'o', confirming: 'Confirmando tu pago…',
     confirmLong: 'Seguimos confirmando — recibirás un correo de confirmación en breve.',
-    successT: '¡Pago recibido!', successB: '¡Gracias! Acabamos de enviarte la confirmación — ¡hasta pronto!',
-    alreadyT: 'Factura ya pagada', alreadyB: '¡Gracias! Esta factura ya está pagada — no necesitas hacer nada más.',
+    successT: '¡Pago recibido!', successB: '¡Gracia! Acabamos de enviarte tu recibo — ¡hasta pronto!',
+    alreadyT: 'Saldo ya pagado', alreadyB: '¡Gracias! Este pedido no tiene saldo pendiente — no necesitas hacer nada más.',
     invalidT: 'Enlace no disponible', invalidB: 'Este enlace de pago no es válido o ya no está activo. Contáctanos y con gusto te ayudamos.',
     errPay: 'No se pudo completar el pago. Intenta de nuevo o contáctanos.',
     processing: 'Procesando…', secure: 'Pago seguro con Stripe y PayPal',
-    fullLabel: (amt) => `Pago completo — ${amt}`,
-    depositLabel: (amt) => `Depósito (50%) — ${amt}`,
+    payments: 'Pagos recibidos', none: 'Aún no hay pagos registrados.',
+    pickup: 'Recogida',
   },
 };
 let lang = 'es';
-let invoice = null; // payable payload
+let order = null; // payable payload
 let state = 'loading';
-let payMode = 'deposit';
 let paying = false;
 const t = () => STR[lang];
 const money = (c) => '$' + (Number(c) / 100).toFixed(2);
-const modeAllows = (m) => {
-  if (invoice.payment_options === 'full') return m === 'full';
-  if (invoice.payment_options === 'deposit') return m === 'deposit';
-  return true;
-};
+const chargeCents = () => order.balanceCents;
 
 function setLang(l) { lang = l; document.documentElement.lang = l; render(); paintLangButtons(); }
 function setLangSilently(l) { lang = l; document.documentElement.lang = l; }
@@ -120,7 +115,6 @@ function paintLangButtons() {
   document.getElementById('btnEs').setAttribute('aria-pressed', String(lang === 'es'));
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = String(s ?? ''); return d.innerHTML; }
-function chargeCents() { return payMode === 'full' ? invoice.total_cents : invoice.deposit_cents; }
 
 function render() {
   const app = document.getElementById('app');
@@ -148,41 +142,37 @@ function render() {
 
 function payBody() {
   const s = t();
-  const itemsRows = (invoice.items || []).map(i =>
-    `<tr><td>${esc(i.description)}</td><td>&times;${esc(i.qty)}</td></tr>`).join('');
-  const showDeposit = invoice.payment_options !== 'full';
-  const modes = [];
-  if (invoice.payment_options === 'both') {
-    modes.push(`<label class="mode"><input type="radio" name="paymode" value="deposit" ${payMode === 'deposit' ? 'checked' : ''}><span>${esc(s.depositLabel(money(invoice.deposit_cents)))}</span></label>`);
-    modes.push(`<label class="mode"><input type="radio" name="paymode" value="full" ${payMode === 'full' ? 'checked' : ''}><span>${esc(s.fullLabel(money(invoice.total_cents)))}</span></label>`);
-  }
+  const itemsRows = (order.items || []).map(i =>
+    `<tr><td>${esc(i.name)}</td><td>&times;${esc(i.qty)}</td></tr>`).join('');
+  const paymentRows = (order.payments || []).map(p =>
+    `<tr><td>${esc(p.date)}</td><td>${esc(p.methodLabel)}</td><td>${money(p.amountCents)}</td></tr>`).join('');
   const btnLabel = paying
     ? `<span class="spin" style="border-color:rgba(250,246,236,.3);border-top-color:#FAF6EC"></span>${esc(s.processing)}`
     : esc(s.payCard(money(chargeCents())));
   return `
-    <h1>${esc(s.invoiceHash(invoice.number))}</h1>
-    <p class="sub">${esc(s.hi(invoice.customer_name))}</p>
+    <h1>${esc(s.orderHash(order.orderId))}</h1>
+    <p class="sub">${esc(s.hi(order.customerName))}${order.pickupDate ? ` · ${esc(s.pickup)} ${esc(order.pickupDate)}` : ''}</p>
     ${itemsRows ? `<table class="items">${itemsRows}</table>` : ''}
     <table class="totals">
-      <tr class="hi"><td>${esc(s.total)}</td><td>${money(invoice.total_cents)}</td></tr>
-      ${showDeposit ? `<tr><td>${esc(s.deposit)}</td><td>${money(invoice.deposit_cents)}</td></tr>
-      <tr><td>${esc(s.balance)}</td><td>${money(invoice.balance_cents)}</td></tr>` : ''}
+      <tr><td>${esc(s.total)}</td><td>${money(order.totalCents)}</td></tr>
+      <tr><td>${esc(s.paid)}</td><td>&minus;${money(order.paidCents)}</td></tr>
+      <tr class="hi"><td>${esc(s.balance)}</td><td>${money(order.balanceCents)}</td></tr>
     </table>
-    ${modes.length ? `<div class="mode-group">${modes.join('')}</div>` : ''}
+    <h2 style="font-size:13px;margin:18px 0 6px;color:#8a8078;text-transform:uppercase;letter-spacing:1px;">${esc(s.payments)}</h2>
+    ${paymentRows ? `<table class="items">${paymentRows}</table>` : `<p class="msg muted">${esc(s.none)}</p>`}
     <button class="btn-pay" id="btnCard" ${paying ? 'disabled' : ''}>${btnLabel}</button>
     <div class="divider">${esc(s.or)}</div>
     <div id="paypal-area"></div>
     <p class="msg muted"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>${esc(s.secure)}</p>`;
 }
 
-async function loadInvoice() {
-  const res = await fetch(`${WORKER}/invoice/${encodeURIComponent(INV_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
+async function loadOrder() {
+  const res = await fetch(`${WORKER}/order/${encodeURIComponent(O_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
   if (!res.ok) { state = 'invalid'; render(); return; }
-  invoice = await res.json();
-  setLangSilently(invoice.language === 'en' ? 'en' : 'es');
-  payMode = invoice.payment_options === 'full' ? 'full' : 'deposit';
-  if (invoice.paid || invoice.status === 'converted') { state = 'already'; }
-  else if (invoice.status === 'void') { state = 'invalid'; }
+  order = await res.json();
+  setLangSilently(order.language === 'en' ? 'en' : 'es');
+  if (order.paid) { state = 'already'; }
+  else if (order.status === 'cancelled') { state = 'invalid'; }
   else if (PAID_FLAG) { state = 'confirming'; pollForPaid(); }
   else { state = 'payable'; }
   render();
@@ -192,10 +182,10 @@ async function pollForPaid() {
   for (let i = 0; i < 12; i++) {
     await new Promise(r => setTimeout(r, 2500));
     try {
-      const res = await fetch(`${WORKER}/invoice/${encodeURIComponent(INV_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
+      const res = await fetch(`${WORKER}/order/${encodeURIComponent(O_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
       if (res.ok) {
-        const inv = await res.json();
-        if (inv.paid) { state = 'success'; render(); return; }
+        const o = await res.json();
+        if (o.paid) { state = 'success'; render(); return; }
       }
     } catch { /* keep polling */ }
   }
@@ -203,14 +193,6 @@ async function pollForPaid() {
 }
 
 function wirePayButtons() {
-  document.querySelectorAll('input[name="paymode"]').forEach((r) =>
-    r.addEventListener('change', (e) => {
-      if (paying) return;
-      payMode = e.target.value === 'full' ? 'full' : 'deposit';
-      const btn = document.getElementById('btnCard');
-      if (btn) btn.textContent = t().payCard(money(chargeCents()));
-    })
-  );
   document.getElementById('btnCard').addEventListener('click', payByCard);
   renderPayPal();
 }
@@ -222,12 +204,15 @@ async function payByCard() {
   btn.disabled = true;
   btn.innerHTML = `<span class="spin" style="border-color:rgba(250,246,236,.3);border-top-color:#FAF6EC"></span>${esc(t().processing)}`;
   try {
-    const res = await fetch(`${WORKER}/invoice/checkout`, {
+    const res = await fetch(`${WORKER}/order/checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: Number(INV_ID), token: TOKEN, origin: location.origin, mode: payMode }),
+      body: JSON.stringify({ id: Number(O_ID), token: TOKEN, origin: location.origin }),
     });
     const data = await res.json();
+    // 409 means the balance changed or was settled while this page was open —
+    // reload the payable payload instead of sending a stale charge.
+    if (res.status === 409) { paying = false; await loadOrder(); return; }
     if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed');
     window.location = data.url;
   } catch (e) {
@@ -254,16 +239,16 @@ async function renderPayPal() {
       createOrder: (_data, actions) => actions.order.create({
         purchase_units: [{
           amount: { value: (chargeCents() / 100).toFixed(2) },
-          custom_id: `i${invoice.id}:${TOKEN}`,
+          custom_id: `o${order.orderId}:${TOKEN}`,
         }],
       }),
       onApprove: async (data) => {
         try {
           state = 'confirming'; render();
-          const res = await fetch(`${WORKER}/invoice/paypal-capture`, {
+          const res = await fetch(`${WORKER}/order/paypal-capture`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: invoice.id, token: TOKEN, paypalOrderId: data.orderID, mode: payMode }),
+            body: JSON.stringify({ id: order.orderId, token: TOKEN, paypalOrderId: data.orderID }),
           });
           if (!res.ok) throw new Error('capture failed');
           state = 'success'; render();
@@ -272,7 +257,7 @@ async function renderPayPal() {
           state = 'pay-error'; render();
         }
       },
-      onError: (err) => { console.error(err); state = 'pay-error'; render(); },
+      onError: (err) => { console.error(err); { state = 'pay-error'; render(); } },
     }).render('#paypal-area');
   } catch (e) {
     console.error('paypal render failed', e);
@@ -289,9 +274,9 @@ function loadScript(src) {
 document.getElementById('btnEn').addEventListener('click', () => setLang('en'));
 document.getElementById('btnEs').addEventListener('click', () => setLang('es'));
 
-if (!INV_ID || !TOKEN) { state = 'invalid'; }
+if (!O_ID || !TOKEN) { state = 'invalid'; }
 render();
-if (state !== 'invalid') loadInvoice();
+if (state !== 'invalid') loadOrder();
 paintLangButtons();
 </script>
 </body>
