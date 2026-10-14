@@ -78,3 +78,35 @@ test.describe('wizard shell', () => {
     await expect(page.locator('.wz-progress-seg.done')).toHaveCount(1);
   });
 });
+
+test.describe('step 1 · occasion tiles', () => {
+  test('renders six tiles and selecting one unlocks Next', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await expect(page.locator('.wz-tile[data-kind="occasion"]')).toHaveCount(6);
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Quinceañera"]');
+    await expect(page.locator('#wz-next')).toBeEnabled();
+    await expect(page.locator('#occasion')).toHaveValue('Quinceañera');
+  });
+
+  test('advancing to step 2 marks two progress segments done', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await expect(page.locator('.wz-progress-seg.done')).toHaveCount(1);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="event"]')).toBeVisible();
+    await expect(page.locator('.wz-progress-seg.done')).toHaveCount(2);
+    await expect(page.locator('#wz-progress')).toHaveAttribute('aria-valuenow', '30');
+  });
+
+  test('selected tile is marked pressed and only one stays pressed', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Wedding"]');
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await expect(page.locator('.wz-tile[data-kind="occasion"][aria-pressed="true"]')).toHaveCount(1);
+    await expect(page.locator('.wz-tile[data-kind="occasion"][data-value="Birthday"]')).toHaveAttribute('aria-pressed', 'true');
+  });
+});

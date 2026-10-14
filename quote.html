@@ -469,7 +469,9 @@
                data-es="Elige la ocasión para tu pedido."
                data-en="Pick the occasion for your order.">Pick the occasion for your order.</p>
 
-            <!-- The select is the value source; step-1 tiles drive it in Task 3. -->
+            <div class="wz-tile-grid" id="wz-occasion-tiles"></div>
+
+            <!-- The select is the value source for the submit collector; the tiles drive it. -->
             <div hidden>
               <select id="occasion" name="occasion" class="form-input">
                 <option value="" data-es="Seleccionar..." data-en="Select...">Select...</option>
@@ -1107,6 +1109,57 @@
     const idx = STEP_ORDER.indexOf(wizard.step);
     if (idx < STEP_ORDER.length - 1) show(STEP_ORDER[idx + 1]);
   });
+
+  const OCCASION_TILES = [
+    { value: 'Birthday', icon: '🎂', es: 'Cumpleaños', en: 'Birthday' },
+    { value: 'Quinceañera', icon: '👑', es: 'Quinceañera', en: 'Quinceañera' },
+    { value: 'Wedding', icon: '💍', es: 'Boda', en: 'Wedding' },
+    { value: 'Baby Shower', icon: '🧸', es: 'Baby Shower', en: 'Baby Shower' },
+    { value: 'Anniversary', icon: '💐', es: 'Aniversario', en: 'Anniversary' },
+    { value: 'Other', icon: '✨', es: 'Otro', en: 'Other' },
+  ];
+
+  function buildOccasionTiles() {
+    const grid = document.getElementById('wz-occasion-tiles');
+    if (!grid) return;
+    const frag = document.createDocumentFragment();
+    OCCASION_TILES.forEach(t => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'wz-tile';
+      btn.dataset.kind = 'occasion';
+      btn.dataset.value = t.value;
+      btn.setAttribute('aria-pressed', 'false');
+
+      const icon = document.createElement('span');
+      icon.className = 'wz-tile-icon';
+      icon.textContent = t.icon;
+      icon.setAttribute('aria-hidden', 'true');
+
+      const label = document.createElement('span');
+      label.className = 'wz-tile-label lang-fade';
+      label.setAttribute('data-es', t.es);
+      label.setAttribute('data-en', t.en);
+      label.textContent = t.en;
+
+      btn.appendChild(icon);
+      btn.appendChild(label);
+      btn.addEventListener('click', () => selectOccasion(t.value));
+      frag.appendChild(btn);
+    });
+    grid.appendChild(frag);
+  }
+
+  function selectOccasion(value) {
+    document.getElementById('occasion').value = value;
+    document.querySelectorAll('.wz-tile[data-kind="occasion"]').forEach(tile => {
+      tile.setAttribute('aria-pressed', tile.dataset.value === value ? 'true' : 'false');
+    });
+    syncNav();
+    updateProgress();
+  }
+
+  buildOccasionTiles();
 
   // Prevent customers from picking a past desired date (mirrors the
   // pickup-date min rule in order.html). Server does not enforce this.
