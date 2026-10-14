@@ -65,6 +65,10 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
   const depositRequired = items.some((i) => i.productId.includes("cake")) || total >= 50;
   const depositAmount = +(total * 0.10).toFixed(2);
   const [collectDeposit, setCollectDeposit] = useState(true);
+  // What the customer already put down when the order is taken as "partial".
+  const [partialPaid, setPartialPaid] = useState("");
+  const partialPaidValue = Math.max(0, Number(partialPaid) || 0);
+  const partialBalance = Math.max(0, +(total - partialPaidValue).toFixed(2));
 
   function addItem() {
     const p = products.find((pr) => pr.id === productPick);
@@ -119,6 +123,7 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
     setNotes("");
     setFoodColoring("");
     setLanguage("es");
+    setPartialPaid("");
     setFlavorSelections({});
   }
 
@@ -169,6 +174,20 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
       }
     }
 
+    // A partial payment is only meaningful if the amount paid is on the ledger,
+    // otherwise every balance reads the full total. Validate before the order
+    // exists so there is never a "partial" order with no deposit row.
+    if (paymentStatus === "partial") {
+      if (partialPaidValue <= 0) {
+        setErrorMsg("Enter the amount the customer already paid for the partial balance.");
+        return;
+      }
+      if (partialPaidValue >= total) {
+        setErrorMsg("That amount covers the whole order — use \"Paid in full\" instead.");
+        return;
+      }
+    }
+
     // Determine effective payment status: deposit → partial
     const effectiveStatus: PaymentStatus = depositRequired && collectDeposit && paymentStatus === "paid"
       ? "partial"
@@ -192,8 +211,18 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
       language,
     });
 
+    // What goes on the ledger alongside the order: either the 10% deposit
+    // (collected on a "paid in full" order that converts to partial) or the
+    // amount entered on an explicit partial payment.
+    const ledgerAmount =
+      depositRequired && collectDeposit && paymentStatus === "paid"
+        ? depositAmount
+        : paymentStatus === "partial"
+          ? partialPaidValue
+          : 0;
+
     // Record the deposit payment if collecting one
-    if (result?.id && depositRequired && collectDeposit && paymentMethod) {
+    if (result?.id && ledgerAmount > 0 && paymentMethod) {
       try {
         await createPayment({
           id: newId("pay"),
@@ -205,7 +234,7 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
           // server (api.js generateLabelsForOrder) use.
           orderNumber: `MR-${result.id}`,
           customerName: finalCustomerName || "Walk-in Customer",
-          amount: depositAmount,
+          amount: ledgerAmount,
           method: paymentMethod,
           date: new Date().toISOString(),
         });
@@ -358,17 +387,48 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
               {(["paid", "unpaid", "partial"] as PaymentStatus[]).map((s) => (
                 <button
                   key={s}
-                  onClick={() => setPaymentStatus(s)}
-                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium capitalize transition ${
+                  onClick={() => {
+                    setPaymentStatus(s);
+                    // Prefill with the 10% deposit when one is required so the
+                    // common "deposit taken, balance at pickup" case is one click.
+                    if (s === "partial" && !partialPaid && depositRequired) setPartialPaid(String(depositAmount));
+                  }}
+                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${
                     paymentStatus === s
                       ? "border-palm bg-palm text-white"
                       : "border-sand-200 text-cocoa-muted hover:border-sand-300"
                   }`}
                 >
-                  {s}
+                  {s === "paid" ? "Paid in full" : s === "partial" ? "Partial" : "Unpaid"}
                 </button>
               ))}
             </div>
+            {paymentStatus === "partial" && (
+              <div className="mt-2 rounded-xl border border-sand-200 bg-white p-2.5 text-xs">
+                <label className="mb-1 block text-cocoa-muted">Amount already paid</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-cocoa-muted">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={partialPaid}
+                    onChange={(e) => setPartialPaid(e.target.value)}
+                    placeholder="0.00"
+                    className="w-28 rounded-md border border-sand-200 px-2 py-1 text-right outline-none focus:border-palm"
+                  />
+                  <span className="text-cocoa-muted">
+                    Balance at pickup: <span className="font-semibold text-coral">${partialBalance.toFixed(2)}</span>
+                  </span>
+                </div>
+                {depositRequired && (
+                  <p className="mt-1 text-cocoa-muted/70">10% deposit on this order is ${depositAmount.toFixed(2)}.</p>
+                )}
+                {partialPaidValue >= total && total > 0 && (
+                  <p className="mt-1 text-hibiscus">That covers the full total — use "Paid in full".</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
