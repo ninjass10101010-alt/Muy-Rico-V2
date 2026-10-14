@@ -117,8 +117,11 @@ test.describe('custom product type', () => {
     await mockApi(page);
     await openQuote(page, '?type=custom');
     const card = page.locator('.item-card[data-type="custom"]');
+    // Assert existence and structure, not on-screen visibility: from Task 2 onward
+    // this card lives inside the hidden "details" step panel, so a visibility
+    // assertion would fail for a reason unrelated to what this test proves.
     await expect(card).toHaveCount(1);
-    await expect(card.locator('input[name="name"]')).toBeVisible();
+    await expect(card.locator('input[name="name"]')).toHaveCount(1);
     await expect(card.locator('input[name="name"]')).toHaveAttribute('required', '');
   });
 });
@@ -243,15 +246,17 @@ test.describe('wizard shell', () => {
     await expect(page.locator('#wz-reason')).not.toBeEmpty();
   });
 
-  test('progress segments fill as steps complete', async ({ page }) => {
+  test('progress marks the current step on load', async ({ page }) => {
     await mockApi(page);
     await openQuote(page);
-    await expect(page.locator('.wz-progress-seg.done')).toHaveCount(0);
-    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    // updateProgress() marks every segment up to and including the current step,
+    // so step 1 on load means exactly one segment is done.
     await expect(page.locator('.wz-progress-seg.done')).toHaveCount(1);
   });
 });
 ```
+
+Advancing progress is asserted in Task 3, once there is a way to answer step 1. There is deliberately no tile-click test here: the occasion tiles do not exist until Task 3.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -483,8 +488,13 @@ In `quote.html`, replace the entire `<form id="quote-form" novalidate>` … `</f
                         placeholder="e.g. I'm imagining a two-tier cake with fresh flowers…"></textarea>
             </div>
 
-            <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-top: 16px; font-size: 14px; color: var(--clay-deep);"></div>
           </section>
+
+          <!-- The shared error region sits OUTSIDE the panels, next to the nav.
+               handleFile() on the design step reports oversize/type/network errors
+               through showError() -> #form-error; inside the contact panel that
+               message would be invisible until step 6. -->
+          <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-top: 16px; font-size: 14px; color: var(--clay-deep);"></div>
 
           <!-- Nav -->
           <div class="wz-nav">
@@ -598,17 +608,28 @@ In `quote.html`, insert this immediately after the existing `initCustomQtyToggle
     wzProgress.setAttribute('aria-valuenow', String(value));
   }
 
+  // The very first render happens on load, when the visitor is looking at the
+  // hero. Scrolling then would yank them past it, so only scroll on real step
+  // changes — i.e. every show() after the first.
+  let wzScrollOnShow = false;
+
   function show(stepId) {
     wizard.step = stepId;
     wzPanels.forEach(p => { p.hidden = p.dataset.step !== stepId; });
     updateProgress();
     syncNav();
+    // A stale error from a previous step must not follow the customer forward.
+    const err = document.getElementById('form-error');
+    if (err) { err.textContent = ''; err.style.display = 'none'; }
     const heading = document.querySelector(`.wz-panel[data-step="${stepId}"] .wz-heading`);
     if (heading) heading.focus({ preventScroll: true });
-    document.getElementById('quote-form-section').scrollIntoView({
-      behavior: prefersReduced ? 'auto' : 'smooth',
-      block: 'start',
-    });
+    if (wzScrollOnShow) {
+      document.getElementById('quote-form-section').scrollIntoView({
+        behavior: prefersReduced ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+    wzScrollOnShow = true;
     reapplyLang();
   }
 
@@ -700,7 +721,9 @@ Expected: PASS (4 tests)
 - [ ] **Step 11: Verify nothing regressed**
 
 Run: `npx playwright test`
-Expected: PASS (all suites). If the custom-type test fails, the `initializeQuoteForm` rewrite in Task 6 is the cause — check that Task 1's changes are intact.
+Expected: PASS (all suites).
+
+Note on the Task 1 test: it asserts the card exists and carries a required name input — deliberately **not** that the card is visible, because from this task onward the card lives inside the hidden `details` panel. If it fails, Task 1's map/template additions are missing or the collector selector was narrowed.
 
 - [ ] **Step 12: Commit**
 
@@ -737,6 +760,17 @@ test.describe('step 1 · occasion tiles', () => {
     await page.click('.wz-tile[data-kind="occasion"][data-value="Quinceañera"]');
     await expect(page.locator('#wz-next')).toBeEnabled();
     await expect(page.locator('#occasion')).toHaveValue('Quinceañera');
+  });
+
+  test('advancing to step 2 marks two progress segments done', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await expect(page.locator('.wz-progress-seg.done')).toHaveCount(1);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="event"]')).toBeVisible();
+    await expect(page.locator('.wz-progress-seg.done')).toHaveCount(2);
+    await expect(page.locator('#wz-progress')).toHaveAttribute('aria-valuenow', '30');
   });
 
   test('selected tile is marked pressed and only one stays pressed', async ({ page }) => {
@@ -1053,6 +1087,47 @@ test.describe('step 3 · gallery search and tags', () => {
     await expect(page.locator('#wz-next')).toBeEnabled();
     await page.click('#wz-next');
     await expect(page.locator('.wz-panel[data-step="product"]')).toBeVisible();
+  });
+
+  test('a failed upload shows the inline error while still on the design step', async ({ page }) => {
+    await mockApi(page, { uploadStatus: 500 });
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+
+    await page.setInputFiles('#reference_image', {
+      name: 'cake.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+    });
+
+    // #form-error lives outside the panels (next to the nav) precisely so this
+    // message is visible on the step that produced it, not stranded until step 6.
+    await expect(page.locator('#form-error')).toBeVisible();
+    await expect(page.locator('#form-error')).not.toBeEmpty();
+  });
+
+  test('advancing clears a stale error from the previous step', async ({ page }) => {
+    await mockApi(page, { uploadStatus: 500 });
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.setInputFiles('#reference_image', {
+      name: 'cake.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+    });
+    await expect(page.locator('#form-error')).toBeVisible();
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="product"]')).toBeVisible();
+    await expect(page.locator('#form-error')).toBeHidden();
   });
 });
 ```
@@ -2015,6 +2090,18 @@ test.describe('bilingual, motion and layout', () => {
     await expect(page.locator('.wz-panel[data-step="occasion"] .wz-heading')).toContainText('What are we celebrating?');
   });
 
+  test('the gating reason re-translates when the language toggles', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    // Step 1 with nothing chosen: Next is gated, so a reason is on screen.
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await expect(page.locator('#wz-reason')).toContainText('Elige una ocasión');
+    await page.evaluate(() => (window as any).__wz.setLang('en'));
+    // #wz-reason carries no data-es/data-en (its text is chosen in syncNav from
+    // currentLang), so this guards the setLang wrapper fix against regression.
+    await expect(page.locator('#wz-reason')).toContainText('Choose an occasion');
+  });
+
   test('no horizontal overflow at any width', async ({ page }) => {
     await mockApi(page);
     for (const width of [1024, 861, 390, 320]) {
@@ -2043,6 +2130,14 @@ test.describe('bilingual, motion and layout', () => {
     );
     expect(anim).toBe('none');
     await ctx.close();
+  });
+
+  test('a fresh load does not auto-scroll past the hero', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    // Guards the wzScrollOnShow flag: the first show() on load must not scroll.
+    const scrollY = await page.evaluate(() => window.scrollY);
+    expect(scrollY).toBe(0);
   });
 
   test('focus lands on the step heading after advancing', async ({ page }) => {
