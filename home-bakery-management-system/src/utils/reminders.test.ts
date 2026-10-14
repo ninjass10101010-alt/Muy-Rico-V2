@@ -19,7 +19,7 @@ function mkOrder(partial: Partial<Order>): Order {
     customerId: null,
     customerName: "Test",
     phone: "",
-    email: "",
+    email: "", language: "es",
     items: [],
     source: "website",
     status: "pending",

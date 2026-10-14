@@ -952,7 +952,7 @@ async function getOrder(id, env, actor) {
 
 async function updateOrder(id, request, env, ctx, actor) {
   const body = await request.json();
-  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring', 'customer_id', 'email', 'customer_name'];
+  const allowed = ['status', 'payment_status', 'notes', 'pickup_date', 'pickup_time', 'payment_method', 'payment_sub_method', 'food_coloring', 'customer_id', 'email', 'customer_name', 'language'];
   const sets = [], binds = [];
   for (const f of allowed) {
     if (body[f] === undefined) continue;
@@ -960,6 +960,7 @@ async function updateOrder(id, request, env, ctx, actor) {
     if (f === 'payment_status' && !ALLOWED_PAYSTAT.includes(body[f])) return json({ error: 'Invalid payment_status' }, 400);
     if (f === 'status' && !ALLOWED_STATUS.includes(body[f])) return json({ error: 'Invalid status' }, 400);
     if (f === 'email') { const v = String(body.email || '').trim(); if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return json({ error: 'Invalid email' }, 400); }
+    if (f === 'language' && !['en', 'es'].includes(String(body.language))) return json({ error: 'Invalid language' }, 400);
     sets.push(`${f} = ?`); binds.push(body[f]);
   }
 

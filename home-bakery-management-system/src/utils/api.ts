@@ -145,6 +145,7 @@ export async function updateOrder(
     email?: string;
     customer_id?: string | null;
     customer_name?: string;
+    language?: "en" | "es";
     items_json?: OrderItemPatch[];
     discount_cents?: number;
   }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import Modal from "./ui/Modal";
 import ProductIcon from "./ProductIcon";
@@ -9,7 +9,7 @@ import type { OrderItem, OrderSource, PaymentMethod, PaymentStatus } from "../ty
 import { PAYMENT_METHOD_LABELS, ONLINE_ONLY } from "../utils/format";
 
 export default function OrderModal({ open, onClose, defaultDueDate }: { open: boolean; onClose: () => void; defaultDueDate?: string }) {
-  const { products, customers, handleCreateCustomer, profile, apiCreateOrder, generateReceipt, refreshPayments } = useStore();
+  const { products, customers, orders, handleCreateCustomer, profile, apiCreateOrder, generateReceipt, refreshPayments } = useStore();
   const [customerMode, setCustomerMode] = useState<"existing" | "new">("new");
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -29,6 +29,22 @@ export default function OrderModal({ open, onClose, defaultDueDate }: { open: bo
   const [errorMsg, setErrorMsg] = useState("");
   const [foodColoring, setFoodColoring] = useState("");
   const [language, setLanguage] = useState<"es" | "en">("es");
+
+  // Inherit the customer's last-used email language so a statement/receipt
+  // doesn't silently go out in the wrong language. Falls back to Spanish.
+  useEffect(() => {
+    const name = customerMode === "existing"
+      ? customers.find((c) => c.id === customerId)?.name ?? ""
+      : customerName;
+    const norm = String(name || "").trim().toLowerCase();
+    if (!norm) return;
+    const match = orders
+      .filter((o) =>
+        (customerId && o.customerId === customerId) ||
+        String(o.customerName || "").trim().toLowerCase() === norm)
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
+    if (match) setLanguage(match.language === "en" ? "en" : "es");
+  }, [customerId, customerName, customerMode, orders, customers]);
 
   // Show food coloring field when order has cupcakes, cakepops, or custom cake
   const COLORABLE_PRODUCTS = ['prod_cupcakes', 'prod_cakepop', 'prod_custom_cake'];

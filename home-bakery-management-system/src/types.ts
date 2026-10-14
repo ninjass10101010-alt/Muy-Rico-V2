@@ -123,6 +123,7 @@ export interface Order {
   customerName: string;
   phone: string;
   email: string;
+  language: "en" | "es";
   items: OrderItem[];
   source: OrderSource;
   status: OrderStatus;

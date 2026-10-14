@@ -14,7 +14,7 @@ import { useReminders } from "../hooks/useReminders";
 const mockedUseReminders = useReminders as unknown as ReturnType<typeof vi.fn>;
 
 const mkOrder = (partial: Partial<Order>): Order => ({
-  id: "1", orderNumber: "MR-1", customerId: null, customerName: "Test", phone: "", email: "", items: [],
+  id: "1", orderNumber: "MR-1", customerId: null, customerName: "Test", phone: "", email: "", language: "es", items: [],
   source: "website", status: "pending", paymentMethod: null, paymentSubMethod: null, paymentStatus: "unpaid",
   subtotal: 0, discount: 0, total: 40, dueDate: "2026-06-11T10:00:00.000Z", createdAt: "2026-06-01T00:00:00.000Z",
   notes: "", inventoryDeducted: false, foodColoring: null, ...partial,

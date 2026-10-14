@@ -401,6 +401,22 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 <p className="font-medium text-cocoa">{selected.customerName}</p>
                 <p className="text-xs text-cocoa-muted">{selected.phone}</p>
                 <p className="text-xs text-cocoa-muted">{selected.email || "No email"}</p>
+                <button
+                  title="Email language — used for statements, receipts and reminders"
+                  onClick={async () => {
+                    const next = selected.language === "en" ? "es" : "en";
+                    try {
+                      await apiUpdateOrder(Number(selected.id), { language: next });
+                      setSelected((prev) => (prev && prev.id === selected.id ? { ...prev, language: next } : prev));
+                      void refreshOrders();
+                    } catch (err: any) {
+                      console.error("Failed to update language:", err);
+                    }
+                  }}
+                  className="mt-1 inline-flex items-center gap-1 rounded-full border border-sand-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-cocoa-muted hover:border-palm hover:text-palm"
+                >
+                  Email language: {selected.language === "en" ? "English" : "Español"} ✎
+                </button>
                 {relinkOrderId === selected.id ? (
                   <div className="flex items-center gap-2 mt-1">
                     <input

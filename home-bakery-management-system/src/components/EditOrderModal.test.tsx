@@ -16,7 +16,7 @@ vi.mock("../context/StoreContext", () => ({
 }));
 
 const mkOrder = (partial: Partial<Order>): Order => ({
-  id: "7", orderNumber: "MR-7", customerId: null, customerName: "Gena Romain", phone: "555", email: "",
+  id: "7", orderNumber: "MR-7", customerId: null, customerName: "Gena Romain", phone: "555", email: "", language: "es",
   items: [{ productId: "prod_cupcakes", name: "Cupcakes (Vanilla)", emoji: "🧁", qty: 12, price: 3.5 }],
   source: "website", status: "pending", paymentMethod: null, paymentSubMethod: null, paymentStatus: "partial",
   subtotal: 42, discount: 0, total: 42, dueDate: "2026-09-05", createdAt: "2026-08-31", notes: "",
