@@ -494,6 +494,13 @@
                data-en="This helps us quote accurately.">This helps us quote accurately.</p>
             <div class="form-row form-row-2">
               <div class="form-group">
+                <label for="servings" class="form-label lang-fade" data-es="Número de porciones *" data-en="Number of servings *">Number of servings *</label>
+                <input type="number" id="servings" name="servings" min="1" required class="form-input" placeholder="25">
+                <p class="form-help lang-fade"
+                   data-es="¿Cuántos invitados planeas servir?"
+                   data-en="How many guests do you plan to serve?">How many guests do you plan to serve?</p>
+              </div>
+              <div class="form-group">
                 <label for="desired_date" class="form-label lang-fade" data-es="Fecha del evento *" data-en="Event date *">Event date *</label>
                 <input type="date" id="desired_date" name="desired_date" required class="form-input">
               </div>
@@ -995,6 +1002,7 @@
   const wizard = {
     step: 'occasion',
     productTypes: [],
+    servings: '',
   };
 
   const wzPanels = Array.from(document.querySelectorAll('.wz-panel'));
@@ -1015,6 +1023,8 @@
   function canAdvance(stepId) {
     if (stepId === 'occasion') return !!document.getElementById('occasion').value;
     if (stepId === 'event') {
+      const servings = Number(document.getElementById('servings').value);
+      if (!Number.isFinite(servings) || servings < 1) return false;
       const date = document.getElementById('desired_date').value;
       if (!date) return false;
       const today = new Date();
@@ -1160,6 +1170,12 @@
   }
 
   buildOccasionTiles();
+
+  document.getElementById('servings').addEventListener('input', (e) => {
+    wizard.servings = e.target.value.trim();
+    syncNav();
+  });
+  document.getElementById('desired_date').addEventListener('change', syncNav);
 
   // Prevent customers from picking a past desired date (mirrors the
   // pickup-date min rule in order.html). Server does not enforce this.

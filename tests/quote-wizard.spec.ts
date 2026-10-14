@@ -110,3 +110,45 @@ test.describe('step 1 · occasion tiles', () => {
     await expect(page.locator('.wz-tile[data-kind="occasion"][data-value="Birthday"]')).toHaveAttribute('aria-pressed', 'true');
   });
 });
+
+test.describe('step 2 · event details', () => {
+  test('servings and date are required to advance; budget is not', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="event"]')).toBeVisible();
+    await expect(page.locator('#wz-next')).toBeDisabled();
+
+    await page.fill('#servings', '25');
+    await expect(page.locator('#wz-next')).toBeDisabled();
+
+    await page.fill('#desired_date', '2099-06-01');
+    await expect(page.locator('#wz-next')).toBeEnabled();
+    await expect(page.locator('#budget')).toHaveValue('');
+  });
+
+  test('a past date does not advance', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '10');
+    await page.fill('#desired_date', '2000-01-01');
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await expect(page.locator('#wz-reason')).toBeVisible();
+  });
+
+  test('a valid step 2 answer survives Back and Forward', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '40');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-back');
+    await expect(page.locator('.wz-panel[data-step="occasion"]')).toBeVisible();
+    await page.click('#wz-next');
+    await expect(page.locator('#servings')).toHaveValue('40');
+  });
+});
