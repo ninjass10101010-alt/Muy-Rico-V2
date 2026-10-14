@@ -1343,6 +1343,9 @@
   setLang = function (lang) {
     _setLang(lang);
     updateInspirationCount();
+    // #wz-reason has no data-es/data-en — syncNav() chooses its text from
+    // currentLang, so it must re-run when the language changes.
+    syncNav();
   };
 
   // Initialize form on DOM ready
