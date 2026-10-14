@@ -306,6 +306,14 @@ test.describe('steps 4 and 5 · products and details', () => {
     await expect(page.locator('.item-card')).toHaveCount(3);
     await expect(page.locator('.wz-tile[data-kind="product"][data-value="custom"]')).toBeDisabled();
     await expect(page.locator('.wz-tile[data-kind="product"][data-value="custom"]')).toHaveAttribute('aria-pressed', 'false');
+
+    // Pin the Spanish singular copy: three products are selected, so drop the
+    // cupcakes first — removing the cake then leaves exactly one, which must
+    // read "producto elegido" (singular) rather than "productos elegidos".
+    await page.evaluate(() => (window as any).__wz.setLang('es'));
+    await page.click('.wz-tile[data-kind="product"][data-value="cupcakes"]');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await expect(page.locator('#wz-product-count')).toContainText('1 de 3 producto elegido');
   });
 
   test('deselecting a product removes its card and its typed values', async ({ page }) => {
@@ -347,7 +355,7 @@ test.describe('steps 4 and 5 · products and details', () => {
     await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
     await expect(page.locator('#wz-product-count')).toHaveText('1 of 3 products selected');
     await page.click('#btn-es');
-    await expect(page.locator('#wz-product-count')).toHaveText('1 de 3 productos elegidos');
+    await expect(page.locator('#wz-product-count')).toHaveText('1 de 3 producto elegido');
   });
 
   test('a card ✕ removes the product and re-enables its tile', async ({ page }) => {
@@ -482,5 +490,94 @@ test.describe('deep links', () => {
     await expect(page.locator('.item-card[data-type="cake"]')).toHaveCount(1);
     await expect(page.locator('.item-card[data-type="constructor"]')).toHaveCount(0);
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe('bilingual, motion and layout', () => {
+  // The Playwright browser defaults to en-US, so the page opens in English and
+  // the Spanish-first assertions below would fail for a reason unrelated to the
+  // wizard. Pin a Spanish locale for this group; the tests still toggle to
+  // English explicitly where the brief's assertions require it.
+  test.use({ locale: 'es-ES' });
+
+  test('every step heading renders in Spanish and English', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    const heads = [
+      ['occasion', '¿Qué vamos a celebrar?'],
+      ['event', '¿Cuándo y para cuántos?'],
+      ['design', 'Elige un diseño'],
+      ['product', '¿Qué vamos a hacer?'],
+      ['details', 'Cuéntanos los detalles'],
+      ['contact', 'Casi listo'],
+    ] as const;
+
+    for (const [step, es] of heads) {
+      await page.evaluate((s) => (window as any).__wz.show(s), step);
+      await expect(page.locator(`.wz-panel[data-step="${step}"] .wz-heading`)).toContainText(es);
+    }
+
+    await page.evaluate(() => (window as any).__wz.setLang('en'));
+    await page.evaluate(() => (window as any).__wz.show('occasion'));
+    await expect(page.locator('.wz-panel[data-step="occasion"] .wz-heading')).toContainText('What are we celebrating?');
+  });
+
+  test('the gating reason re-translates when the language toggles', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    // Step 1 with nothing chosen: Next is gated, so a reason is on screen.
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await expect(page.locator('#wz-reason')).toContainText('Elige una ocasión');
+    await page.evaluate(() => (window as any).__wz.setLang('en'));
+    // #wz-reason carries no data-es/data-en (its text is chosen in syncNav from
+    // currentLang), so this guards the setLang wrapper fix against regression.
+    await expect(page.locator('#wz-reason')).toContainText('Choose an occasion');
+  });
+
+  test('no horizontal overflow at any width', async ({ page }) => {
+    await mockApi(page);
+    for (const width of [1024, 861, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await openQuote(page, '?type=cake');
+      for (const step of ['occasion', 'event', 'design', 'product', 'details', 'contact']) {
+        await page.evaluate((s) => (window as any).__wz.show(s), step);
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow, `overflow at ${width}px on ${step}`).toBeLessThanOrEqual(0);
+      }
+    }
+  });
+
+  test('reduced motion still navigates every step', async ({ browser }) => {
+    const ctx = await browser.newContext({ reducedMotion: 'reduce' });
+    const page = await ctx.newPage();
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="event"]')).toBeVisible();
+    const anim = await page.evaluate(
+      () => getComputedStyle(document.querySelector('.wz-panel[data-step="event"]')!).animationName,
+    );
+    expect(anim).toBe('none');
+    await ctx.close();
+  });
+
+  test('a fresh load does not auto-scroll past the hero', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    // Guards the wzScrollOnShow flag: the first show() on load must not scroll.
+    const scrollY = await page.evaluate(() => window.scrollY);
+    expect(scrollY).toBe(0);
+  });
+
+  test('focus lands on the step heading after advancing', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    const focused = await page.evaluate(() => document.activeElement?.id || '');
+    expect(focused).toBe('wz-h-event');
   });
 });

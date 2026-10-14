@@ -1267,7 +1267,7 @@
     if (count) {
       const n = wizard.productTypes.length;
       count.textContent = currentLang === 'es'
-        ? `${n} de 3 productos elegidos`
+        ? `${n} de 3 producto${n === 1 ? '' : 's'} elegido${n === 1 ? '' : 's'}`
         : `${n} of 3 products selected`;
     }
     syncNav();
@@ -1651,6 +1651,10 @@
     // re-run when the language changes.
     updateProductTiles();
   };
+
+  // Test seam: Playwright drives step changes that would otherwise need a full
+  // click path. Namespaced so it cannot collide with a global named "show".
+  window.__wz = { show, setLang };
 
   // Initialize form on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
