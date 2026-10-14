@@ -1305,6 +1305,10 @@
   document.getElementById('items-container').addEventListener('input', syncNav);
   document.getElementById('items-container').addEventListener('change', syncNav);
 
+  ['customer_name', 'email'].forEach(id => {
+    document.getElementById(id).addEventListener('input', syncNav);
+  });
+
   const PHOTO_TAGS_FALLBACK = Object.freeze([]);
 
   function photoTags(ph) {
@@ -1413,8 +1417,28 @@
           }
         }
       });
+      // Servings is a wizard-level question (step 2) so it is asked once and
+      // stamped onto every cake in the request.
+      if (type === 'cake' && wizard.servings) details.serving_size = wizard.servings;
       items.push({ product_type: type, details });
     });
+
+    const dietary = document.getElementById('dietary').value
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const intent = (document.querySelector('input[name="wz_design_intent"]:checked') || {}).value;
+    const designNote = document.getElementById('wz_design_note').value.trim();
+    const designParts = [];
+    if (intent === 'customize') {
+      designParts.push(currentLang === 'es'
+        ? `Cambios al diseño: ${designNote}`
+        : `Design changes: ${designNote}`);
+    }
+    const customerComments = document.getElementById('comments').value.trim();
+    if (customerComments) designParts.push(customerComments);
+    const comments = designParts.filter(Boolean).join('\n\n');
 
     if (items.length === 0) {
       showError(currentLang === 'es' ? 'Agrega al menos un artículo.' : 'Please add at least one item.');
@@ -1447,7 +1471,9 @@
           phone: document.getElementById('phone').value.trim() || null,
           language: currentLang,
           occasion: document.getElementById('occasion').value || null,
-          comments: document.getElementById('comments').value.trim() || null,
+          serving_size: wizard.servings || null,
+          dietary,
+          comments: comments || null,
           desired_date: document.getElementById('desired_date').value || null,
           budget: document.getElementById('budget').value.trim() || null,
           items,
@@ -1461,6 +1487,9 @@
         const notice = document.getElementById('quote-notice');
         if (notice) notice.style.display = 'none';
         formSuccess.style.display = 'block';
+        const nav = document.querySelector('.wz-nav');
+        if (nav) nav.style.display = 'none';
+        wzReason.hidden = true;
         formSuccess.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'center' });
       } else {
         showError(data.error || 'Something went wrong. Please try again.');

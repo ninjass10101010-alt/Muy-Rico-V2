@@ -373,3 +373,72 @@ test.describe('steps 4 and 5 · products and details', () => {
     await expect(page.locator('.item-card[data-type="cake"] input[name="cake_flavor"]')).toHaveValue('');
   });
 });
+
+test.describe('step 6 · submit payload', () => {
+  async function fillToContact(page: Page) {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Wedding"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '25');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.fill('#budget', '$150-200');
+    await page.click('#wz-next');
+    await page.click('.inspiration-card[data-photo-id="g1"]');
+    await page.click('#wz-next');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Chocolate');
+    await page.fill('#dietary', 'nut-free, eggless');
+    await page.check('input[name="wz_design_intent"][value="customize"]');
+    await page.fill('#wz_design_note', 'Add gold leaf');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="contact"]')).toBeVisible();
+  }
+
+  test('Next becomes the submit action on the last step', async ({ page }) => {
+    await fillToContact(page);
+    await expect(page.locator('#wz-next')).toHaveText(/Submit Quote Request/);
+  });
+
+  test('posts servings, dietary and the combined comment', async ({ page }) => {
+    let body: any = null;
+    await page.route('**/api/quotes', async (route) => {
+      if (route.request().method() !== 'POST') return route.fulfill({ status: 404, json: {} });
+      body = JSON.parse(route.request().postData() || '{}');
+      return route.fulfill({ status: 201, json: { ok: true, id: 1 } });
+    });
+    await fillToContact(page);
+    await page.fill('#customer_name', 'Maria');
+    await page.fill('#email', 'maria@example.test');
+    await page.fill('#comments', 'Please deliver at noon');
+    await page.click('#wz-next');
+
+    await expect(page.locator('#form-success')).toBeVisible();
+    expect(body.occasion).toBe('Wedding');
+    expect(body.serving_size).toBe('25');
+    expect(body.budget).toBe('$150-200');
+    expect(body.desired_date).toBe('2099-06-01');
+    expect(body.dietary).toEqual(['nut-free', 'eggless']);
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0].product_type).toBe('cake');
+    expect(body.items[0].details.cake_flavor).toBe('Chocolate');
+    expect(body.items[0].details.serving_size).toBe('25');
+    expect(body.inspiration).toHaveLength(1);
+    expect(body.inspiration[0].id).toBe('g1');
+    expect(body.reference_image_url).toBeNull();
+    expect(body.comments).toContain('Add gold leaf');
+    expect(body.comments).toContain('Please deliver at noon');
+    expect(body.quoted_price).toBeUndefined();
+  });
+
+  test('contact step gates until name and a valid email are present', async ({ page }) => {
+    await fillToContact(page);
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await page.fill('#customer_name', 'Maria');
+    await page.fill('#email', 'not-an-email');
+    await expect(page.locator('#wz-next')).toBeDisabled();
+    await page.fill('#email', 'maria@example.test');
+    await expect(page.locator('#wz-next')).toBeEnabled();
+  });
+});
