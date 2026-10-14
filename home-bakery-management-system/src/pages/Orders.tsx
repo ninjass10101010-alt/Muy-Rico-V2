@@ -35,6 +35,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
   const { orders, products, payments, customers, apiDeductInventory, recordPayment, profile, apiUpdateOrder, apiDeleteOrder, handleRelinkOrder, refreshOrders, refreshPayments, refreshLabelTemplates, receipts, resendReceipt, generateReceipt, handleSendOrderStatement, handleSendOverdueStatements } = useStore();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [payFilter, setPayFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Order | null>(null);
   const [payFor, setPayFor] = useState<Order | null>(null);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
@@ -67,6 +68,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
     return orders
       .filter((o) => (statusFilter === "all" ? true : o.status === statusFilter))
       .filter((o) => (sourceFilter === "all" ? true : o.source === sourceFilter))
+      .filter((o) => (payFilter === "all" ? true : o.paymentStatus === payFilter))
       .filter((o) =>
         search
           ? o.customerName.toLowerCase().includes(search.toLowerCase()) ||
@@ -74,7 +76,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
           : true,
       )
       .sort((a, b) => urgencyRank(a) - urgencyRank(b));
-  }, [orders, statusFilter, sourceFilter, search]);
+  }, [orders, statusFilter, sourceFilter, payFilter, search]);
 
   const lastStatementAt = useMemo(() => {
     const sent = orderEvents.filter((e) => e.event === "statement:sent");
@@ -198,6 +200,12 @@ export default function Orders({ search, setPage, setLabelFilter }: {
           options={["all", "website", "in-person"]}
           label="Source"
         />
+        <FilterSelect
+          value={payFilter}
+          onChange={setPayFilter}
+          options={["all", "unpaid", "partial", "paid"]}
+          label="Payment"
+        />
         <span className="ml-auto text-sm text-cocoa-muted">{filtered.length} orders</span>
       </div>
 
@@ -227,7 +235,10 @@ export default function Orders({ search, setPage, setLabelFilter }: {
             )}
             {unpaid > 0 && (
               <button
-                onClick={() => setStatusFilter("awaiting_payment")}
+                // "Unpaid" is a PAYMENT status, not an order status — filtering
+                // on status 'awaiting_payment' here matched nothing and left the
+                // table empty next to a "1 Unpaid" badge.
+                onClick={() => { setStatusFilter("all"); setPayFilter("unpaid"); }}
                 className="rounded-full bg-coral-light/30 px-2.5 py-1 font-semibold text-coral ring-1 ring-inset ring-coral/30 transition hover:bg-coral-light/40"
               >
                 {unpaid} Unpaid
