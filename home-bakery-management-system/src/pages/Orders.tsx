@@ -303,7 +303,10 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 return (
                 <tr key={o.id} className="cursor-pointer hover:bg-sand-50" style={{ borderLeft: `3px solid ${borderColor}` }} onClick={() => { setSelected(o); setLabelGenResult(null); setDueEdit(null); setDueError(null); setMarkPayError(""); setStmtMsg(""); setStmtEmailDraft(""); setOrderEvents([]); eventsFetchId.current = Number(o.id); fetchOrder(Number(o.id)).then((r) => { if (eventsFetchId.current !== Number(o.id)) return; setOrderEvents(r.events); }).catch(() => {}); }}>
                   <td className="px-4 py-3 font-medium text-cocoa">{o.orderNumber}</td>
-                  <td className="px-4 py-3 text-cocoa-muted">{o.customerName}</td>
+                  <td className="px-4 py-3 text-cocoa-muted">
+                    {o.customerName}
+                    {o.email && <span className="block text-[10px] text-cocoa-muted/70">{o.email}</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={o.source}>{o.source}</Badge>
                   </td>
@@ -397,6 +400,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
               <div>
                 <p className="font-medium text-cocoa">{selected.customerName}</p>
                 <p className="text-xs text-cocoa-muted">{selected.phone}</p>
+                <p className="text-xs text-cocoa-muted">{selected.email || "No email"}</p>
                 {relinkOrderId === selected.id ? (
                   <div className="flex items-center gap-2 mt-1">
                     <input
