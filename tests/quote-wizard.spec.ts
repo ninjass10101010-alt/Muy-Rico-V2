@@ -36,9 +36,11 @@ test.describe('custom product type', () => {
     await mockApi(page);
     await openQuote(page, '?type=custom');
     const card = page.locator('.item-card[data-type="custom"]');
+    // Assert existence and structure, not on-screen visibility: from Task 2 onward
+    // this card lives inside the hidden "details" step panel, so a visibility
+    // assertion would fail for a reason unrelated to what this test proves.
     await expect(card).toHaveCount(1);
-    await card.scrollIntoViewIfNeeded();
-    await expect(card.locator('input[name="name"]')).toBeVisible();
+    await expect(card.locator('input[name="name"]')).toHaveCount(1);
     await expect(card.locator('input[name="name"]')).toHaveAttribute('required', '');
   });
 });
