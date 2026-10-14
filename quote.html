@@ -539,7 +539,7 @@
                  data-en="Or upload a reference image (JPG/PNG/WEBP, max 5MB)">
                  Or upload a reference image (JPG/PNG/WEBP, max 5MB)
               </p>
-              <div id="image-dropzone" class="dropzone" style="
+              <div id="image-dropzone" class="dropzone" role="button" tabindex="0" style="
                 border: 2px dashed var(--hairline-strong);
                 border-radius: 14px;
                 padding: 32px;
@@ -788,6 +788,14 @@
   let uploadedImageUrl = null;
 
   dropzone.addEventListener('click', () => fileInput.click());
+
+  // The file input is display:none, so without this a keyboard-only customer
+  // cannot open the picker at all — Enter/Space must do what the click does.
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    fileInput.click();
+  });
 
   dropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -1168,6 +1176,8 @@
   // implicit submission a customer expects after typing their email is gone.
   document.getElementById('quote-form').addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
+    // An IME confirming a composition with Enter must not advance the step.
+    if (e.isComposing) return;
     const t = e.target;
     // Textareas need Enter for newlines; the gallery search is search-as-you-type.
     if (t.tagName === 'TEXTAREA' || t.id === 'wz-search') return;
@@ -1404,7 +1414,7 @@
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    formError.style.display = 'none';
+    hideError();
     formSuccess.style.display = 'none';
 
     const customerName = document.getElementById('customer_name').value.trim();

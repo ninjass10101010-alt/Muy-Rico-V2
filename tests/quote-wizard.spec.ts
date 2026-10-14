@@ -669,10 +669,11 @@ test.describe('bilingual, motion and layout', () => {
   test('a fresh load does not steal focus into the form', async ({ page }) => {
     await mockApi(page);
     await openQuote(page);
-    // Focus is gated by the same flag as scrolling. Stealing it on load drops
-    // screen-reader users into the form before they have read the hero.
-    const focusedClass = await page.evaluate(() => document.activeElement?.className || '');
-    expect(focusedClass).not.toContain('wz-heading');
+    // Focus is gated by the same flag as scrolling. Assert nothing took focus at
+    // all — not merely that the heading did not, which would pass if a tile or a
+    // header link had stolen it instead.
+    const focused = await page.evaluate(() => document.activeElement?.tagName || '');
+    expect(focused).toBe('BODY');
   });
 
   test('focus lands on the step heading after advancing', async ({ page }) => {
@@ -761,8 +762,43 @@ test.describe('keyboard', () => {
     await expect(page.locator('#comments')).toHaveValue('line one\nline two');
     await expect(page.locator('#form-success')).toBeHidden();
   });
-});
 
+  test('Enter in the gallery search does not advance the step', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+    await page.fill('#wz-search', 'unicorn');
+    await page.focus('#wz-search');
+    await page.keyboard.press('Enter');
+    // The search box is search-as-you-type; Enter must not skip the design step.
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+  });
+
+  test('the dropzone is reachable and openable by keyboard', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="design"]')).toBeVisible();
+    const dropzone = page.locator('#image-dropzone');
+    await expect(dropzone).toHaveAttribute('role', 'button');
+    await expect(dropzone).toHaveAttribute('tabindex', '0');
+    // Tab order alone is not enough: the picker must actually open on Enter.
+    await dropzone.focus();
+    await expect(dropzone).toBeFocused();
+    const chooserOpened = page.waitForEvent('filechooser', { timeout: 5000 });
+    await page.keyboard.press('Enter');
+    await expect(await chooserOpened).toBeTruthy();
+  });
+});
 test('the cake card does not re-ask for a serving size', async ({ page }) => {
   await mockApi(page);
   await openQuote(page);
