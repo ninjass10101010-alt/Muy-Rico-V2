@@ -45,6 +45,13 @@ describe('isStatementEligible', () => {
     expect(isStatementEligible(ORDER({ email: '  ' }), { balanceCents: 2000, today })).toBe(false);
     expect(isStatementEligible(ORDER(), { balanceCents: 0, today })).toBe(false);
   });
+  it('allows a future pickup date only when overdue is not required', () => {
+    const mustBeOverdue = { requireOverdue: true };
+    const anyDate = { requireOverdue: false };
+    expect(isStatementEligible(ORDER({ pickup_date: '2026-10-14' }), { balanceCents: 2000, today, ...mustBeOverdue })).toBe(false);
+    expect(isStatementEligible(ORDER({ pickup_date: '2026-10-14' }), { balanceCents: 2000, today, ...anyDate })).toBe(true);
+    expect(isStatementEligible(ORDER({ pickup_date: null }), { balanceCents: 2000, today, ...anyDate })).toBe(true);
+  });
 });
 
 describe('selectStatementRecipients', () => {

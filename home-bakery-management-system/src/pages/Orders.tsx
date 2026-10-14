@@ -743,9 +743,7 @@ export default function Orders({ search, setPage, setLabelFilter }: {
                 </div>
               )}
               {(() => {
-                const today = new Date().toISOString().slice(0, 10);
-                const overdue = !!selected.dueDate && selected.dueDate < today && selected.status !== "cancelled";
-                const canSend = selected.paymentStatus !== "paid" && !!selected.email && overdue;
+                const canSend = selected.paymentStatus !== "paid" && !!selected.email && selected.status !== "cancelled";
                 if (selected.paymentStatus === "paid") return null;
                 return (
                   <div className="space-y-2 pt-2 border-t border-sand-100">

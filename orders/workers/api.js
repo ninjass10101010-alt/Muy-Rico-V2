@@ -3538,12 +3538,12 @@ async function logStatement(env, order, { paidCents, balanceCents, emailResult, 
   ).bind(order.id, actor || 'system', status === 'sent' ? 'statement:sent' : 'statement:failed').run();
 }
 
-async function deliverStatement(env, order, actor) {
+async function deliverStatement(env, order, actor, opts = {}) {
   const today = new Date().toISOString().slice(0, 10);
   const payments = await loadActivePayments(env, order.id);
   const balanceCents = orderBalanceCents(order, payments);
   if (!String(order.email || '').trim()) return { outcome: 'no-email', balanceCents };
-  if (!isStatementEligible(order, { balanceCents, today })) return { outcome: 'not-eligible', balanceCents };
+  if (!isStatementEligible(order, { balanceCents, today, requireOverdue: opts.requireOverdue !== false })) return { outcome: 'not-eligible', balanceCents };
 
   const token = await ensurePayToken(env, order);
   const emailResult = await sendStatementEmail(env, order, payments, balanceCents, token);
@@ -3568,7 +3568,7 @@ async function sendOrderStatement(orderId, env, actor) {
     "FROM orders o LEFT JOIN customers c ON c.id = o.customer_id WHERE o.id = ?"
   ).bind(orderId).first();
   if (!order) return json({ error: 'Not found' }, 404);
-  const result = await deliverStatement(env, order, actor);
+  const result = await deliverStatement(env, order, actor, { requireOverdue: false });
   if (result.outcome === 'no-email') return json({ error: 'Order has no email' }, 400);
   if (result.outcome === 'not-eligible') {
     return json({ error: 'Not eligible for a balance statement' }, 409);

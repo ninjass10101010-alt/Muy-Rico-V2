@@ -12,11 +12,16 @@ export function orderBalanceCents(order, activePayments) {
   return remaining > 0 ? remaining : 0;
 }
 
-/** Overdue + unpaid + has email + not cancelled. `today` is 'YYYY-MM-DD'. */
-export function isStatementEligible(order, { balanceCents, today }) {
+/**
+ * Balance-statement eligibility. Requires a non-cancelled order, an email, and a
+ * positive balance. Overdue (pickup strictly in the past) is required for BULK
+ * "remind all overdue" sends; a targeted single-order send may go out for an
+ * order due today or in the future (e.g. collecting the balance at pickup).
+ */
+export function isStatementEligible(order, { balanceCents, today, requireOverdue = true }) {
   if (!order || order.status === 'cancelled') return false;
   const pickup = typeof order.pickup_date === 'string' ? order.pickup_date.slice(0, 10) : '';
-  if (!pickup || pickup >= today) return false;
+  if (requireOverdue && (!pickup || pickup >= today)) return false;
   if (!String(order.email || '').trim()) return false;
   return Number(balanceCents) > 0;
 }
