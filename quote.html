@@ -1405,6 +1405,13 @@
       card.className = 'inspiration-card';
       card.dataset.photoId = String(ph.id);
       card.setAttribute('aria-pressed', 'false');
+      // Re-apply selection on every render: this function rebuilds the whole grid,
+      // so a card that survives a filter round-trip must not come back unselected
+      // (clicking it would then remove it from the request).
+      if (selectedInspiration.some(s => s.id === ph.id)) {
+        card.classList.add('selected');
+        card.setAttribute('aria-pressed', 'true');
+      }
       const img = document.createElement('img');
       img.className = 'gallery-card-img';
       img.src = ph.image_url;

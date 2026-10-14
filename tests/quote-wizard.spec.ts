@@ -253,4 +253,26 @@ test.describe('step 3 · gallery search and tags', () => {
     await expect(page.locator('.wz-panel[data-step="product"]')).toBeVisible();
     await expect(page.locator('#form-error')).toBeHidden();
   });
+
+  test('a selected card keeps its selected state through a filter round-trip', async ({ page }) => {
+    await gotoDesign(page);
+    await page.click('.inspiration-card[data-photo-id="g1"]');
+    await expect(page.locator('.inspiration-card[data-photo-id="g1"]')).toHaveAttribute('aria-pressed', 'true');
+    await page.fill('#wz-search', 'sesame');
+    await expect(page.locator('.inspiration-card[data-photo-id="g1"]')).toHaveCount(0);
+    await page.fill('#wz-search', '');
+    await expect(page.locator('.inspiration-card[data-photo-id="g1"]')).toHaveCount(1);
+    await expect(page.locator('.inspiration-card[data-photo-id="g1"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#inspiration-count')).toContainText('1');
+  });
+
+  test('the no-results empty state appears and clears', async ({ page }) => {
+    await gotoDesign(page);
+    await page.fill('#wz-search', 'zzzz');
+    await expect(page.locator('.inspiration-card')).toHaveCount(0);
+    await expect(page.locator('.gallery-empty')).toContainText('No designs matched');
+    await page.fill('#wz-search', '');
+    await expect(page.locator('.inspiration-card')).toHaveCount(2);
+    await expect(page.locator('.gallery-empty')).toHaveCount(0);
+  });
 });
