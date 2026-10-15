@@ -331,6 +331,122 @@
     }
     .wz-search { margin-bottom: 1rem; }
 
+    /* ── Live order ticket ── */
+    .wz-ticket {
+      position: relative;
+      overflow: hidden;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-widget, 14px);
+      box-shadow: 0 12px 28px rgba(30, 70, 54, 0.06);
+      padding: 1rem 1.1rem 1.05rem;
+      margin: 0 0 1.5rem;
+    }
+    .wz-ticket::before,
+    .wz-ticket::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--cream);
+      border: 1px solid var(--hairline-strong);
+      transform: translateY(-50%);
+    }
+    .wz-ticket::before { left: -11px; }
+    .wz-ticket::after { right: -11px; }
+    .wz-ticket-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.7rem;
+    }
+    .wz-ticket-eyebrow {
+      font-family: var(--font-sans);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--forest-soft);
+    }
+    .wz-ticket-step {
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--forest);
+      font-variant-numeric: tabular-nums;
+    }
+    .wz-ticket-list {
+      list-style: none;
+      margin: 0;
+      padding: 0.75rem 0 0;
+      display: grid;
+      gap: 0.65rem 0.9rem;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      border-top: 1px dashed var(--hairline-strong);
+    }
+    .wz-ticket-slot {
+      position: relative;
+      min-width: 0;
+      padding-left: 0.85rem;
+    }
+    .wz-ticket-slot::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.32em;
+      width: 0.42rem;
+      height: 0.42rem;
+      border-radius: 50%;
+      border: 1.5px solid var(--hairline-strong);
+      background: transparent;
+    }
+    .wz-ticket-slot[data-complete="true"]::before {
+      background: var(--forest);
+      border-color: var(--forest);
+    }
+    .wz-ticket-key {
+      display: block;
+      font-family: var(--font-sans);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--forest-soft);
+    }
+    .wz-ticket-value {
+      display: block;
+      min-height: 2.35em;
+      font-family: var(--font-sans);
+      font-size: 0.86rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--color-text-cocoa);
+      overflow-wrap: anywhere;
+    }
+    .wz-ticket-design {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-height: 2.35em;
+    }
+    .wz-ticket-thumb {
+      flex: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      object-fit: cover;
+      border: 1px solid var(--hairline);
+      background: var(--cream-deep);
+    }
+    .wz-ticket-thumb[hidden] { display: none; }
+    @media (max-width: 720px) {
+      .wz-ticket-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .wz-ticket-slot[data-slot="contact"] { grid-column: 1 / -1; }
+    }
+
     .wz-reason {
       font-family: var(--font-sans); font-size: 0.82rem;
       color: var(--clay-deep); margin: 0.9rem 0 0;
@@ -339,12 +455,23 @@
 
     .wz-nav {
       position: sticky; bottom: 0; display: flex; gap: 0.75rem;
-      padding: 1rem 0; margin-top: 1.5rem;
+      padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom, 0px));
+      margin-top: 1.5rem;
       background: linear-gradient(to top, var(--cream) 70%, transparent);
     }
     .wz-nav #wz-next { margin-left: auto; }
+    /* The nav is sticky, so the content above it must reserve room for it or the
+       last field in a step (the comments box) sits underneath the bar forever. */
+    .wz-panels-pad { height: 0; }
     @media (max-width: 640px) {
-      .wz-nav { flex-direction: column-reverse; }
+      .wz-nav {
+        flex-direction: column-reverse;
+        /* A translucent gradient lets the textarea show through under the sticky
+           bar. Solid cream plus padding keeps the last field clearable. */
+        background: var(--cream);
+        border-top: 1px solid var(--hairline);
+        padding-top: 0.85rem;
+      }
       .wz-nav .btn { width: 100%; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -458,6 +585,39 @@
           <span class="wz-progress-seg"></span>
           <span class="wz-progress-seg"></span>
         </div>
+
+        <section class="wz-ticket" id="wz-ticket" aria-labelledby="wz-ticket-eyebrow">
+          <div class="wz-ticket-head">
+            <span class="wz-ticket-eyebrow lang-fade" id="wz-ticket-eyebrow"
+                  data-es="La orden" data-en="Your order">Your order</span>
+            <span class="wz-ticket-step" id="wz-ticket-step" aria-hidden="true">1/6</span>
+          </div>
+          <ol class="wz-ticket-list">
+            <li class="wz-ticket-slot" data-slot="occasion" data-complete="false">
+              <span class="wz-ticket-key lang-fade" data-es="Celebración" data-en="Occasion">Occasion</span>
+              <span class="wz-ticket-value" id="wz-ticket-occasion">Not chosen</span>
+            </li>
+            <li class="wz-ticket-slot" data-slot="event" data-complete="false">
+              <span class="wz-ticket-key lang-fade" data-es="Evento" data-en="Event">Event</span>
+              <span class="wz-ticket-value" id="wz-ticket-event">Not chosen</span>
+            </li>
+            <li class="wz-ticket-slot" data-slot="design" data-complete="false">
+              <span class="wz-ticket-key lang-fade" data-es="Diseño" data-en="Design">Design</span>
+              <span class="wz-ticket-design">
+                <img class="wz-ticket-thumb" id="wz-ticket-design-img" alt="" aria-hidden="true" hidden>
+                <span class="wz-ticket-value" id="wz-ticket-design-text">Not chosen</span>
+              </span>
+            </li>
+            <li class="wz-ticket-slot" data-slot="product" data-complete="false">
+              <span class="wz-ticket-key lang-fade" data-es="Productos" data-en="Products">Products</span>
+              <span class="wz-ticket-value" id="wz-ticket-product">Not chosen</span>
+            </li>
+            <li class="wz-ticket-slot" data-slot="contact" data-complete="false">
+              <span class="wz-ticket-key lang-fade" data-es="Contacto" data-en="Contact">Contact</span>
+              <span class="wz-ticket-value" id="wz-ticket-contact">Not chosen</span>
+            </li>
+          </ol>
+        </section>
 
         <form id="quote-form" novalidate>
 
@@ -661,6 +821,11 @@
                     data-es="Siguiente" data-en="Next" disabled>Next</button>
           </div>
           <p id="wz-reason" class="wz-reason" role="status" aria-live="polite"></p>
+
+          <!-- The sticky nav overlays the last panel, so pad the last step by the
+               nav's own height. Measure it in JS after layout so the number is
+               exact instead of guessed per breakpoint. -->
+          <div id="wz-nav-spacer" aria-hidden="true"></div>
         </form>
 
         <!-- Success panel lives OUTSIDE the form: hiding the form on success
@@ -712,8 +877,10 @@
   // attributes, because their text is computed at render time: #wz-reason (the
   // REASONS map, re-applied by syncNav), #wz-product-count (re-applied by
   // updateProductTiles) and #inspiration-count (re-applied by updateInspirationCount).
-  // Each has its own wrapper so it re-renders on a language change — do not
-  // "fix" them into data attributes without moving that re-render too.
+  // Ticket values and empty/status text are also computed: updateTicket() renders
+  // them from currentLang whenever navigation, selection, input, upload, or
+  // language state changes. Do not "fix" these into data attributes without
+  // moving those re-renders too.
   function applyLangToDOM(lang) {
     const btnEs = document.getElementById('btn-es');
     const btnEn = document.getElementById('btn-en');
@@ -786,6 +953,9 @@
   const previewImg = document.getElementById('preview-img');
   const previewFilename = document.getElementById('preview-filename');
   let uploadedImageUrl = null;
+  // Declared before the wizard state machine because updateTicket()—called by
+  // syncNav() while scripts are still evaluating—reads the current selection.
+  let selectedInspiration = [];
 
   dropzone.addEventListener('click', () => fileInput.click());
 
@@ -848,6 +1018,7 @@
         // A retry that succeeds must clear the previous attempt's failure, or the
         // customer sees a stale error under a photo that actually uploaded.
         hideError();
+        updateTicket();
       } else {
         showError(data.error || 'Upload failed');
       }
@@ -1054,6 +1225,19 @@
   const wzBack = document.getElementById('wz-back');
   const wzNext = document.getElementById('wz-next');
   const wzReason = document.getElementById('wz-reason');
+  const wzTicketStep = document.getElementById('wz-ticket-step');
+  const wzTicketValues = {
+    occasion: document.getElementById('wz-ticket-occasion'),
+    event: document.getElementById('wz-ticket-event'),
+    design: document.getElementById('wz-ticket-design-text'),
+    product: document.getElementById('wz-ticket-product'),
+    contact: document.getElementById('wz-ticket-contact'),
+  };
+  const wzTicketSlots = {};
+  document.querySelectorAll('.wz-ticket-slot').forEach(slot => {
+    wzTicketSlots[slot.dataset.slot] = slot;
+  });
+  const wzTicketDesignImg = document.getElementById('wz-ticket-design-img');
 
   const REASONS = {
     occasion: { es: 'Elige una ocasión para continuar.', en: 'Choose an occasion to continue.' },
@@ -1112,6 +1296,117 @@
     wzNext.textContent = currentLang === 'es'
       ? wzNext.getAttribute('data-es')
       : wzNext.getAttribute('data-en');
+    updateTicket();
+  }
+
+  function ticketEmptyText() {
+    return currentLang === 'es' ? 'Sin elegir' : 'Not chosen';
+  }
+
+  function setTicketSlot(name, text, complete) {
+    const slot = wzTicketSlots[name];
+    const value = wzTicketValues[name];
+    if (!slot || !value) return;
+    slot.dataset.complete = complete ? 'true' : 'false';
+    if (value.textContent !== text) value.textContent = text;
+  }
+
+  function setTicketImage(src) {
+    if (!wzTicketDesignImg) return;
+    if (src) {
+      if (wzTicketDesignImg.getAttribute('src') !== src) wzTicketDesignImg.setAttribute('src', src);
+      wzTicketDesignImg.hidden = false;
+    } else {
+      wzTicketDesignImg.removeAttribute('src');
+      wzTicketDesignImg.hidden = true;
+    }
+  }
+
+  function occasionLabel() {
+    const select = document.getElementById('occasion');
+    const option = select ? select.selectedOptions[0] : null;
+    if (!option || !option.value) return '';
+    return option.getAttribute(`data-${currentLang}`) || option.value;
+  }
+
+  function productLabel(value) {
+    const found = PRODUCT_TILES.find(t => t.value === value);
+    return found ? (currentLang === 'es' ? found.es : found.en) : value;
+  }
+
+  function eventTicket() {
+    const servings = document.getElementById('servings').value.trim();
+    const date = document.getElementById('desired_date').value;
+    const unit = currentLang === 'es' ? 'porciones' : 'servings';
+    if (servings && date) return { text: `${servings} · ${date}`, complete: canAdvance('event') };
+    if (servings) return { text: `${servings} ${unit}`, complete: false };
+    if (date) return { text: date, complete: false };
+    return { text: '', complete: false };
+  }
+
+  function designTicket() {
+    const total = selectedInspiration.length + (uploadedImageUrl ? 1 : 0);
+    const first = selectedInspiration[0];
+    let image = first && first.image_url ? first.image_url : '';
+    if (!image && previewImg && previewDiv && previewDiv.style.display !== 'none' && previewImg.src.indexOf('data:image') === 0) {
+      image = previewImg.src;
+    }
+    if (!image && uploadedImageUrl) image = uploadedImageUrl;
+    const count = currentLang === 'es'
+      ? (total === 1 ? '1 diseño' : `${total} diseños`)
+      : (total === 1 ? '1 design' : `${total} designs`);
+    return { total, text: count, image };
+  }
+
+  function productTicket() {
+    const cards = Array.from(document.querySelectorAll('.item-card'));
+    const names = wizard.productTypes.map(productLabel).filter(Boolean);
+    if (!names.length || !cards.length) return { text: '', complete: false };
+    let missing = 0;
+    cards.forEach(card => {
+      card.querySelectorAll('[required]').forEach(el => {
+        if (!String(el.value).trim()) missing += 1;
+      });
+    });
+    if (missing === 0) {
+      return {
+        text: `${names.join(', ')} · ${currentLang === 'es' ? 'detalles listos' : 'details complete'}`,
+        complete: true,
+      };
+    }
+    const missingText = currentLang === 'es'
+      ? (missing === 1 ? 'falta 1 campo' : `faltan ${missing} campos`)
+      : (missing === 1 ? '1 field missing' : `${missing} fields missing`);
+    return { text: `${names.join(', ')} · ${missingText}`, complete: false };
+  }
+
+  function updateTicket() {
+    if (!wzTicketStep) return;
+    const occasion = occasionLabel();
+    setTicketSlot('occasion', occasion || ticketEmptyText(), !!occasion);
+    const event = eventTicket();
+    setTicketSlot('event', event.text || ticketEmptyText(), event.complete);
+    const design = designTicket();
+    setTicketSlot('design', design.total > 0 ? design.text : ticketEmptyText(), design.total > 0);
+    setTicketImage(design.total > 0 ? design.image : '');
+    const product = productTicket();
+    setTicketSlot('product', product.text || ticketEmptyText(), product.complete);
+    const name = document.getElementById('customer_name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const contactValue = name || email;
+    setTicketSlot('contact', contactValue || ticketEmptyText(), canAdvance('contact'));
+  }
+
+  // The sticky nav overlays the content above it. Reserve its measured height so
+  // the last field in a step (the comments box) can scroll clear of the bar
+  // instead of sitting underneath it forever. Re-measured on resize because the
+  // bar switches from a single row to stacked full-width buttons at 640px.
+  function syncNavSpacer() {
+    const spacer = document.getElementById('wz-nav-spacer');
+    const nav = document.querySelector('.wz-nav');
+    if (!spacer || !nav) return;
+    const height = nav.getBoundingClientRect().height;
+    spacer.style.height = height > 0 ? `${Math.ceil(height)}px` : '0';
   }
 
   function updateProgress() {
@@ -1119,6 +1414,7 @@
     wzSegs.forEach((seg, i) => seg.classList.toggle('done', i <= idx));
     const value = STEP_PROGRESS[wizard.step] || 0;
     wzProgress.setAttribute('aria-valuenow', String(value));
+    if (wzTicketStep) wzTicketStep.textContent = `${idx + 1}/6`;
   }
 
   // The very first render happens on load, when the visitor is looking at the
@@ -1334,6 +1630,9 @@
   document.getElementById('items-container').addEventListener('input', syncNav);
   document.getElementById('items-container').addEventListener('change', syncNav);
 
+  syncNavSpacer();
+  window.addEventListener('resize', syncNavSpacer);
+
   ['customer_name', 'email'].forEach(id => {
     document.getElementById(id).addEventListener('input', syncNav);
   });
@@ -1539,7 +1838,6 @@
   });
 
   // ─── Inspiration gallery picker ─────────────────────────────────────────
-  let selectedInspiration = [];
 
   function updateInspirationCount() {
     const el = document.getElementById('inspiration-count');
@@ -1567,6 +1865,7 @@
       card.setAttribute('aria-pressed', 'true');
     }
     updateInspirationCount();
+    updateTicket();
   }
 
   function renderInspirationGrid(photos, needle) {

@@ -861,3 +861,129 @@ test('a gallery failure shows the failure copy and still advances', async ({ pag
   await expect(page.locator('.gallery-empty')).toContainText('Could not load the gallery');
   await expect(page.locator('#wz-next')).toBeEnabled();
 });
+
+test.describe('order ticket', () => {
+  test('starts empty and marks the current step position', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await expect(page.locator('#wz-ticket')).toBeVisible();
+    await expect(page.locator('#wz-ticket-step')).toHaveText('1/6');
+    await expect(page.locator('#wz-ticket-occasion')).toHaveText('Not chosen');
+    await expect(page.locator('#wz-ticket-event')).toHaveText('Not chosen');
+    await expect(page.locator('#wz-ticket-design-text')).toHaveText('Not chosen');
+    await expect(page.locator('#wz-ticket-product')).toHaveText('Not chosen');
+    await expect(page.locator('#wz-ticket-contact')).toHaveText('Not chosen');
+    await expect(page.locator('.wz-ticket-slot[data-complete="true"]')).toHaveCount(0);
+  });
+
+  test('records the occasion and advances the ticket position', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await expect(page.locator('#wz-ticket-occasion')).toHaveText('Birthday');
+    await expect(page.locator('.wz-ticket-slot[data-slot="occasion"]')).toHaveAttribute('data-complete', 'true');
+    await page.click('#wz-next');
+    await expect(page.locator('#wz-ticket-step')).toHaveText('2/6');
+  });
+
+  test('records servings and the event date together', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '25');
+    await page.fill('#desired_date', '2099-06-01');
+    await expect(page.locator('#wz-ticket-event')).toHaveText('25 · 2099-06-01');
+    await expect(page.locator('.wz-ticket-slot[data-slot="event"]')).toHaveAttribute('data-complete', 'true');
+  });
+
+  test('shows the selected design with its photo', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.click('.inspiration-card[data-photo-id="g1"]');
+    await expect(page.locator('#wz-ticket-design-text')).toHaveText('1 design');
+    await expect(page.locator('#wz-ticket-design-img')).toBeVisible();
+    await expect(page.locator('.wz-ticket-slot[data-slot="design"]')).toHaveAttribute('data-complete', 'true');
+  });
+
+  test('tracks product choices and detail completeness', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '20');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.click('#wz-next');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await expect(page.locator('#wz-ticket-product')).toContainText('Cake');
+    await expect(page.locator('#wz-ticket-product')).toContainText('1 field missing');
+    await expect(page.locator('.wz-ticket-slot[data-slot="product"]')).toHaveAttribute('data-complete', 'false');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Vanilla');
+    await expect(page.locator('#wz-ticket-product')).toContainText('details complete');
+    await expect(page.locator('.wz-ticket-slot[data-slot="product"]')).toHaveAttribute('data-complete', 'true');
+  });
+
+  test('records the contact name when it is entered', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.evaluate(() => (window as any).__wz.show('contact'));
+    await page.fill('#customer_name', 'Maria');
+    await page.fill('#email', 'maria@example.test');
+    await expect(page.locator('#wz-ticket-contact')).toHaveText('Maria');
+    await expect(page.locator('.wz-ticket-slot[data-slot="contact"]')).toHaveAttribute('data-complete', 'true');
+  });
+
+  test('translates ticket labels and pending values with the page', async ({ page }) => {
+    await mockApi(page);
+    await openQuote(page);
+    await page.evaluate(() => (window as any).__wz.setLang('es'));
+    await expect(page.locator('.wz-ticket-slot[data-slot="occasion"] .wz-ticket-key')).toHaveText('Celebración');
+    await expect(page.locator('#wz-ticket-occasion')).toHaveText('Sin elegir');
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await expect(page.locator('#wz-ticket-occasion')).toHaveText('Cumpleaños');
+  });
+
+  test('the sticky nav never covers the last field on mobile', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-US' });
+    const page = await ctx.newPage();
+    await mockApi(page);
+    await openQuote(page);
+    await page.click('.wz-tile[data-kind="occasion"][data-value="Birthday"]');
+    await page.click('#wz-next');
+    await page.fill('#servings', '25');
+    await page.fill('#desired_date', '2099-06-01');
+    await page.click('#wz-next');
+    await page.click('#wz-next');
+    await page.click('.wz-tile[data-kind="product"][data-value="cake"]');
+    await page.click('#wz-next');
+    await page.fill('.item-card[data-type="cake"] input[name="cake_flavor"]', 'Vanilla');
+    await page.click('#wz-next');
+    await expect(page.locator('.wz-panel[data-step="contact"]')).toBeVisible();
+
+    // The nav is sticky, so it must not sit on top of the textarea. scrollIntoView
+    // with block:'end' deliberately aligns the box's bottom to the viewport bottom,
+    // which is under a sticky bar by construction — so scroll and re-measure.
+    const clear = await page.evaluate(async () => {
+      const comments = document.getElementById('comments');
+      const nav = document.querySelector('.wz-nav');
+      const navBottom = nav.getBoundingClientRect().bottom;
+      for (let i = 0; i < 60; i++) {
+        window.scrollBy(0, window.innerHeight * 0.5);
+        await new Promise((r) => setTimeout(r, 30));
+        const r = comments.getBoundingClientRect();
+        if (r.top >= navBottom) return true;
+        if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 1) return r.top >= navBottom;
+      }
+      return false;
+    });
+    expect(clear).toBe(true);
+    await ctx.close();
+  });
+});
