@@ -86,7 +86,7 @@
     var v = variantOf(el);
     var vars = {};
     for (var k in TO[v]) vars[k] = TO[v][k];
-    vars.scrollTrigger = { trigger: el, start: TOKENS.startReveal, toggleActions: 'play none none reverse' };
+    vars.scrollTrigger = { trigger: el, start: TOKENS.startReveal, toggleActions: 'play none none none' };
     vars.duration = TOKENS.revealDur;
     vars.ease = 'power3.out';
     gsap.fromTo(el, FROM[v], vars);
@@ -99,7 +99,7 @@
     });
     if (!kids.length) return;
     var tl = gsap.timeline({
-      scrollTrigger: { trigger: group, start: TOKENS.startReveal, toggleActions: 'play none none reverse' }
+      scrollTrigger: { trigger: group, start: TOKENS.startReveal, toggleActions: 'play none none none' }
     });
     kids.forEach(function (kid, i) {
       kid.dataset.motionBound = '1';

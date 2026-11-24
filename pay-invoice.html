@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Factura — Muy Rico Bakery</title>
-<link rel="icon" href="/qr_muy_rico.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -13,7 +13,8 @@
   /* Editorial Panadería: matches the main site (cream paper, forest ink,
      clay accent, Playfair Display + Figtree). Kept self-contained so the
      payment page stays a fast, dependency-free landing surface. */
-  body { font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF6EC; margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 32px 16px; color: #243B30; }
+  body { font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF6EC; margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; justify-content: center; align-items: flex-start; padding: 32px 16px; color: #243B30; }
+  :focus-visible { outline: 2.5px solid #BC5548; outline-offset: 3px; border-radius: 2px; }
   .card { background: #FFFDF7; border: 1px solid rgba(30,70,54,.16); border-radius: 24px; box-shadow: 0 2px 18px rgba(30,70,54,.06); padding: 32px 28px; max-width: 460px; width: 100%; }
   .logo { display: block; margin: 0 auto 16px; max-width: 140px; }
   h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 22px; margin: 0 0 4px; text-align: center; color: #1E4636; }
@@ -27,7 +28,7 @@
   table.items td:last-child { text-align: center; white-space: nowrap; color: #5A7066; }
   table.totals { width: 100%; border-collapse: collapse; background: #F2ECDD; border-radius: 14px; margin: 16px 0 20px; }
   table.totals td { padding: 10px 14px; font-size: 14px; color: #5A7066; }
-  table.totals td:last-child { text-align: right; }
+  table.totals td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
   table.totals tr.hi td { font-weight: 700; color: #1E4636; font-size: 15px; }
   .btn-pay { display: block; width: 100%; border: 0; border-radius: 999px; padding: 16px; font-size: 16px; font-weight: 700; background: #1E4636; color: #FAF6EC; cursor: pointer; margin-bottom: 14px; transition: background .2s, transform .12s; }
   .btn-pay:hover:not(:disabled) { background: #16352A; }
@@ -45,6 +46,7 @@
   .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(30,70,54,.24); border-top-color: #1E4636; border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -3px; margin-right: 6px; }
   @keyframes sp { to { transform: rotate(360deg); } }
   .foot { text-align: center; color: #5A7066; font-size: 12px; margin-top: 24px; }
+  .foot a { color: #43685A; text-decoration: underline; text-underline-offset: 3px; }
 </style>
 </head>
 <body>
@@ -55,7 +57,7 @@
     <button id="btnEs" type="button">ES</button>
   </div>
   <div id="app" aria-live="polite"><p class="msg muted"><span class="spin"></span><span id="loadingTxt">Cargando…</span></p></div>
-  <div class="foot">Muy Rico Bakery · Holland, MI</div>
+  <div class="foot">Muy Rico Bakery · Holland, MI · <a href="tel:+16162183582">(616) 218-3582</a></div>
 </div>
 
 <script>
@@ -169,22 +171,29 @@ function payBody() {
     </table>
     ${modes.length ? `<div class="mode-group">${modes.join('')}</div>` : ''}
     <button class="btn-pay" id="btnCard" ${paying ? 'disabled' : ''}>${btnLabel}</button>
-    <div class="divider">${esc(s.or)}</div>
+    <div class="divider" id="or-divider" style="display:none">${esc(s.or)}</div>
     <div id="paypal-area"></div>
     <p class="msg muted"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>${esc(s.secure)}</p>`;
 }
 
 async function loadInvoice() {
-  const res = await fetch(`${WORKER}/invoice/${encodeURIComponent(INV_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
-  if (!res.ok) { state = 'invalid'; render(); return; }
-  invoice = await res.json();
-  setLangSilently(invoice.language === 'en' ? 'en' : 'es');
-  payMode = invoice.payment_options === 'full' ? 'full' : 'deposit';
-  if (invoice.paid || invoice.status === 'converted') { state = 'already'; }
-  else if (invoice.status === 'void') { state = 'invalid'; }
-  else if (PAID_FLAG) { state = 'confirming'; pollForPaid(); }
-  else { state = 'payable'; }
-  render();
+  try {
+    const res = await fetch(`${WORKER}/invoice/${encodeURIComponent(INV_ID)}/payable?t=${encodeURIComponent(TOKEN)}`);
+    if (!res.ok) { state = 'invalid'; render(); return; }
+    invoice = await res.json();
+    setLangSilently(invoice.language === 'en' ? 'en' : 'es');
+    paintLangButtons();
+    payMode = invoice.payment_options === 'full' ? 'full' : 'deposit';
+    if (invoice.paid || invoice.status === 'converted') { state = 'already'; }
+    else if (invoice.status === 'void') { state = 'invalid'; }
+    else if (PAID_FLAG) { state = 'confirming'; pollForPaid(); }
+    else { state = 'payable'; }
+    render();
+  } catch (e) {
+    console.error(e);
+    state = 'invalid';
+    render();
+  }
 }
 
 async function pollForPaid() {
@@ -272,7 +281,10 @@ async function renderPayPal() {
         }
       },
       onError: (err) => { console.error(err); state = 'pay-error'; render(); },
-    }).render('#paypal-area');
+    }).render('#paypal-area').then(() => {
+      const d = document.getElementById('or-divider');
+      if (d) d.style.display = '';
+    });
   } catch (e) {
     console.error('paypal render failed', e);
   }

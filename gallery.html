@@ -9,25 +9,26 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Galería — Muy Rico | Holland, MI" />
   <meta property="og:description" content="Inspiration from our portfolio of past creations. Request a quote for your custom cake." />
-  <meta property="og:image" content="hero-bolillos.webp" />
+  <meta property="og:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Galería — Muy Rico | Holland, MI" />
   <meta property="twitter:description" content="Inspiration from our portfolio of past creations. Request a quote for your custom cake." />
-  <meta property="twitter:image" content="hero-bolillos.webp" />
+  <meta property="twitter:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="motion.js"></script>
 </head>
 <body>
+  <a href="#main-content" class="skip-link lang-fade" data-es="Saltar al contenido" data-en="Skip to main content">Skip to main content</a>
 
   <header class="mobile-header" id="mobile-header" style="display:none;">
     <div class="mobile-brand">
@@ -88,7 +89,7 @@
       </div>
     </header>
 
-    <main class="main-content">
+    <main class="main-content" id="main-content" tabindex="-1">
       <section class="featured-section" id="gallery">
         <div class="section-head reveal" style="max-width:var(--shell-max);margin-left:auto;margin-right:auto;">
           <p class="eyebrow"><span class="lang-fade" data-es="Nuestro Álbum" data-en="Our Album">Our Album</span></p>
@@ -103,8 +104,40 @@
             Nuestro portafolio de creaciones pasadas. Encuentra inspiración y solicita una cotización para tu pastel personalizado.
           </p>
         </div>
-        <div id="gallery-root" class="gallery-albums" aria-live="polite"></div>
+        <nav class="category-pills gallery-album-pills" id="gallery-album-pills" aria-label="Albums" hidden></nav>
+        <div id="gallery-root" class="gallery-albums" aria-live="polite" aria-busy="true">
+          <div class="gallery-album" aria-hidden="true">
+            <div class="gallery-skeleton-head"></div>
+            <div class="gallery-grid">
+              <div class="gallery-skeleton-card"><div class="gallery-skeleton-img"></div><div class="gallery-skeleton-line"></div><div class="gallery-skeleton-btn"></div></div>
+              <div class="gallery-skeleton-card"><div class="gallery-skeleton-img"></div><div class="gallery-skeleton-line"></div><div class="gallery-skeleton-btn"></div></div>
+              <div class="gallery-skeleton-card"><div class="gallery-skeleton-img"></div><div class="gallery-skeleton-line"></div><div class="gallery-skeleton-btn"></div></div>
+              <div class="gallery-skeleton-card"><div class="gallery-skeleton-img"></div><div class="gallery-skeleton-line"></div><div class="gallery-skeleton-btn"></div></div>
+            </div>
+          </div>
+        </div>
       </section>
+    </main>
+
+    <dialog id="gallery-lightbox" class="gallery-lightbox" closedby="any" aria-labelledby="lightbox-title">
+      <div class="lightbox-surface">
+        <div class="lightbox-header">
+          <span class="lightbox-counter" id="lightbox-counter">1 / 1</span>
+          <button type="button" class="lightbox-close" id="lightbox-close" autofocus aria-label="Close">&times;</button>
+        </div>
+        <div class="lightbox-stage">
+          <img id="lightbox-img" src="" alt="" />
+        </div>
+        <div class="lightbox-footer">
+          <h1 class="lightbox-title" id="lightbox-title"></h1>
+          <div class="lightbox-controls">
+            <button type="button" class="btn btn-ghost btn-sm" id="lightbox-prev">&larr; <span class="lang-fade" data-es="Anterior" data-en="Prev">Prev</span></button>
+            <button type="button" class="btn btn-ghost btn-sm" id="lightbox-next"><span class="lang-fade" data-es="Siguiente" data-en="Next">Next</span> &rarr;</button>
+            <a class="btn btn-forest" id="lightbox-quote-btn" href="quote.html"><span class="lang-fade" data-es="Solicitar cotización" data-en="Request a quote">Request a quote</span></a>
+          </div>
+        </div>
+      </div>
+    </dialog>
 
       <footer class="site-footer">
         <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="lazy"/>
@@ -129,8 +162,9 @@
           </div>
           <div class="footer-social">
             <span class="footer-accept-label lang-fade" data-es="Síguenos" data-en="Follow Us">Follow Us</span>
-            <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link social-link-fb">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              <span>Facebook</span>
             </a>
           </div>
         </div>
@@ -143,7 +177,6 @@
           </a>
         </div>
       </footer>
-    </main>
   </div>
 
   <script>
@@ -164,6 +197,7 @@
     }
 
     function applyLangToDOM(lang) {
+      document.documentElement.lang = lang;
       const btnEs = document.getElementById('btn-es');
       const btnEn = document.getElementById('btn-en');
       if (btnEs) {
@@ -189,6 +223,13 @@
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
         el.textContent = el.getAttribute('data-' + lang);
       });
+      const closeBtn = document.getElementById('lightbox-close');
+      if (closeBtn) closeBtn.setAttribute('aria-label', lang === 'es' ? 'Cerrar' : 'Close');
+      const pillsNav = document.getElementById('gallery-album-pills');
+      if (pillsNav) pillsNav.setAttribute('aria-label', lang === 'es' ? 'Álbumes' : 'Albums');
+      if (typeof renderLightboxContent === 'function' && lightboxEl && lightboxEl.open) {
+        renderLightboxContent();
+      }
     }
 
     const persistLang = (lang) => {
@@ -199,6 +240,64 @@
       persistLang(lang);
       currentLang = lang;
       applyLangToDOM(lang);
+    }
+
+    let galleryPhotos = [];
+    let lightboxIdx = -1;
+    const lightboxEl = document.getElementById('gallery-lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxTitle = document.getElementById('lightbox-title');
+    const lightboxCounter = document.getElementById('lightbox-counter');
+    const lightboxQuoteBtn = document.getElementById('lightbox-quote-btn');
+    const lightboxPrev = document.getElementById('lightbox-prev');
+    const lightboxNext = document.getElementById('lightbox-next');
+    const lightboxClose = document.getElementById('lightbox-close');
+
+    function renderLightboxContent() {
+      if (lightboxIdx < 0 || lightboxIdx >= galleryPhotos.length) return;
+      const ph = galleryPhotos[lightboxIdx];
+      const title = currentLang === 'es' ? (ph.title_es || ph.title) : ph.title;
+      if (lightboxImg) {
+        lightboxImg.src = ph.image_url;
+        lightboxImg.alt = title || 'Muy Rico';
+      }
+      if (lightboxTitle) lightboxTitle.textContent = title || '';
+      if (lightboxCounter) lightboxCounter.textContent = `${lightboxIdx + 1} / ${galleryPhotos.length}`;
+      if (lightboxQuoteBtn) lightboxQuoteBtn.href = `quote.html?inspiration=${encodeURIComponent(ph.id)}`;
+      if (lightboxPrev) lightboxPrev.disabled = galleryPhotos.length <= 1;
+      if (lightboxNext) lightboxNext.disabled = galleryPhotos.length <= 1;
+    }
+
+    function openLightbox(idx) {
+      if (!lightboxEl || !galleryPhotos.length) return;
+      lightboxIdx = Math.max(0, Math.min(idx, galleryPhotos.length - 1));
+      renderLightboxContent();
+      if (!lightboxEl.open) lightboxEl.showModal();
+    }
+
+    function stepLightbox(delta) {
+      if (!galleryPhotos.length) return;
+      lightboxIdx = (lightboxIdx + delta + galleryPhotos.length) % galleryPhotos.length;
+      renderLightboxContent();
+    }
+
+    if (lightboxEl) {
+      if (lightboxClose) lightboxClose.addEventListener('click', () => lightboxEl.close());
+      if (lightboxPrev) lightboxPrev.addEventListener('click', () => stepLightbox(-1));
+      if (lightboxNext) lightboxNext.addEventListener('click', () => stepLightbox(1));
+      lightboxEl.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); stepLightbox(-1); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); stepLightbox(1); }
+      });
+      if (!('closedBy' in HTMLDialogElement.prototype)) {
+        const outside = (e, dialog) => {
+          const r = dialog.getBoundingClientRect();
+          return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        };
+        let pressedOutside = false;
+        lightboxEl.addEventListener('pointerdown', (e) => { pressedOutside = outside(e, lightboxEl); });
+        lightboxEl.addEventListener('pointerup', (e) => { if (pressedOutside && outside(e, lightboxEl)) lightboxEl.close(); });
+      }
     }
 
     function groupPhotos(photos) {
@@ -220,15 +319,48 @@
       return [...map.values()].sort((a, b) => a.product_display_order - b.product_display_order);
     }
 
+    function renderAlbumPills(groups) {
+      const pillsNav = document.getElementById('gallery-album-pills');
+      if (!pillsNav) return;
+      if (!groups || groups.length <= 1) {
+        pillsNav.hidden = true;
+        pillsNav.innerHTML = '';
+        return;
+      }
+      pillsNav.hidden = false;
+      pillsNav.innerHTML = groups.map(g => `
+        <button type="button" class="category-pill" data-album-target="album-${escapeHtml(g.product_id)}">
+          <span class="lang-fade" data-es="${escapeHtml(g.product_name_es)}" data-en="${escapeHtml(g.product_name)}">${escapeHtml(currentLang === 'es' ? g.product_name_es : g.product_name)}</span>
+          <span class="filter-count">${g.photos.length}</span>
+        </button>
+      `).join('');
+      pillsNav.querySelectorAll('[data-album-target]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = document.getElementById(btn.getAttribute('data-album-target'));
+          if (target) {
+            pillsNav.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+          }
+        });
+      });
+    }
+
     function renderGallery(photos) {
       const root = document.getElementById('gallery-root');
       if (!root) return;
+      root.setAttribute('aria-busy', 'false');
       if (!photos.length) {
+        galleryPhotos = [];
+        renderAlbumPills([]);
         root.innerHTML = `<p class="gallery-empty lang-fade" data-es="Nuestro álbum llegará pronto." data-en="Our album is coming soon.">Our album is coming soon.</p>`;
         applyLangToDOM(currentLang);
         return;
       }
       const groups = groupPhotos(photos);
+      galleryPhotos = groups.flatMap(g => g.photos);
+      renderAlbumPills(groups);
+      let flatIndex = 0;
       root.innerHTML = groups.map(g => `
         <section class="gallery-album" id="album-${escapeHtml(g.product_id)}" data-motion="clip">
           <div class="gallery-album-header">
@@ -240,9 +372,13 @@
               const title = ph.title;
               const titleEs = ph.title_es || ph.title;
               const href = `quote.html?inspiration=${encodeURIComponent(ph.id)}`;
+              const idx = flatIndex++;
+              const zoomAria = (currentLang === 'es' ? 'Ver en grande: ' : 'View larger: ') + (currentLang === 'es' ? titleEs : title);
               return `
                 <article class="gallery-card" data-motion="rise">
-                  <img class="gallery-card-img" src="${escapeHtml(ph.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" />
+                  <button type="button" class="gallery-card-zoom" data-photo-idx="${idx}" aria-label="${escapeHtml(zoomAria)}">
+                    <img class="gallery-card-img" src="${escapeHtml(ph.image_url)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async" />
+                  </button>
                   <div class="gallery-card-body">
                     <h3 class="gallery-card-title lang-fade" data-es="${escapeHtml(titleEs)}" data-en="${escapeHtml(title)}">${escapeHtml(title)}</h3>
                     <a class="gallery-request-btn lang-fade" href="${href}"
@@ -253,11 +389,21 @@
           </div>
         </section>
       `).join('');
+      if (!root.dataset.zoomBound) {
+        root.dataset.zoomBound = '1';
+        root.addEventListener('click', (e) => {
+          const btn = e.target.closest('.gallery-card-zoom');
+          if (!btn) return;
+          openLightbox(Number(btn.dataset.photoIdx));
+        });
+      }
       applyLangToDOM(currentLang);
       if (window.initGalleryReveals) initGalleryReveals();
-      if (location.hash) {
-        const target = document.querySelector(location.hash);
-        if (target) target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+      if (location.hash && location.hash.length > 1) {
+        try {
+          const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+          if (target) target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+        } catch (e) {}
       }
     }
 
@@ -271,6 +417,8 @@
       } catch (err) {
         console.warn(err);
         if (root) {
+          root.setAttribute('aria-busy', 'false');
+          renderAlbumPills([]);
           root.innerHTML = `<p class="gallery-empty lang-fade" data-es="No se pudo cargar el álbum." data-en="Could not load the album.">Could not load the album.</p>`;
           applyLangToDOM(currentLang);
         }

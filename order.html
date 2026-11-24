@@ -11,13 +11,13 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Ordenar — Muy Rico | Holland, MI" />
   <meta property="og:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
-  <meta property="og:image" content="hero-bolillos.webp" />
+  <meta property="og:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Ordenar — Muy Rico | Holland, MI" />
   <meta property="twitter:description" content="Traditional sweet bread, tortillas, and cookies baked to order. Choose your items and coordinate local pickup." />
-  <meta property="twitter:image" content="hero-bolillos.webp" />
+  <meta property="twitter:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <!-- Favicon: MR monogram -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -164,11 +164,14 @@
       min-width: 22px;
       text-align: center;
     }
+    .floating-cart-total {
+      font-variant-numeric: tabular-nums;
+      padding-left: 0.55rem;
+      border-left: 1px solid rgba(250, 246, 236, 0.28);
+      font-weight: 700;
+    }
 
     /* Product tile — enhanced states */
-    .product-tile {
-      cursor: pointer;
-    }
     .product-tile.in-cart {
       box-shadow: 0 0 0 2px var(--forest) !important;
     }
@@ -388,8 +391,28 @@
     .tile-actions {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-      flex-wrap: wrap;
+      gap: 0.5rem;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
+    }
+    .tile-quote-row {
+      margin-top: 0.85rem;
+      padding-top: 0.65rem;
+      border-top: 1px solid var(--hairline);
+    }
+    .tile-quote-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--forest);
+      min-height: 36px;
+      transition: color 0.2s ease, gap 0.2s ease;
+    }
+    .tile-quote-link:hover {
+      color: var(--clay-text);
+      gap: 0.55rem;
     }
 
     @media (max-width: 820px) {
@@ -447,7 +470,7 @@
     #stripe-payment-element { margin-bottom: 1.2rem; min-height: 44px; }
 
     .payment-error {
-      color: #c0392b; font-size: 0.82rem; margin-top: 0.5rem; font-weight: 500;
+      color: var(--clay-text); font-size: 0.82rem; margin-top: 0.5rem; font-weight: 500;
     }
 
     .btn-loading {
@@ -458,7 +481,7 @@
     .payment-back a {
       color: var(--color-text-muted); text-decoration: none; font-weight: 500;
     }
-    .payment-back a:hover { color: var(--color-accent-coral); }
+    .payment-back a:hover { color: var(--clay-text); }
 
     .flavor-selects { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.8rem; }
     .flavor-selects select {
@@ -471,31 +494,40 @@
     .flavor-selects select:focus { border-color: var(--forest); box-shadow: 0 0 0 3px rgba(30,70,54,0.10); }
 
     /* Pack sizes (bulk pricing) */
-    .pack-selects { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0.4rem; }
+    .pack-selects {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.45rem;
+      margin: 0.5rem 0 0.9rem;
+    }
+    @media (max-width: 360px) {
+      .pack-selects { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tile-bottom { flex-wrap: wrap; }
+      .tile-actions { flex-wrap: wrap; }
+    }
     .pack-option {
-      display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start;
-      padding: 0.45rem 0.75rem; border: 1.5px solid var(--hairline);
-      border-radius: 16px; cursor: pointer; background: var(--cream); transition: all 0.18s ease;
+      display: flex; flex-direction: column; justify-content: space-between;
+      gap: 0.2rem; align-items: flex-start; min-height: 68px;
+      padding: 0.55rem 0.65rem; border: 1.5px solid var(--hairline);
+      border-radius: 14px; cursor: pointer; background: rgba(255, 253, 247, 0.78); transition: all 0.18s ease;
       position: relative;
     }
     .pack-option:hover { border-color: var(--hairline-strong); }
     .pack-option.selected {
       border-color: var(--forest);
-      background: var(--cream-deep);
-      box-shadow: none;
+      background: var(--paper);
+      box-shadow: 0 0 0 2px rgba(30, 70, 54, 0.12);
     }
     .pack-btn {
-      background: none; border: none; font-weight: 600; font-size: 0.88rem;
-      cursor: pointer; padding: 0.35rem 0; color: var(--color-text-cocoa); text-align: left;
-      min-height: 44px;
-      display: flex; align-items: center;
+      background: none; border: none; font-weight: 600; font-size: 0.78rem;
+      line-height: 1.25; cursor: pointer; padding: 0; color: var(--forest); text-align: left;
     }
     .pack-badge {
-      display: inline-block; background: var(--clay); color: #fff;
-      font-size: 0.72rem; font-weight: 700; padding: 0.12rem 0.5rem; border-radius: 6px;
-      margin-top: 0.1rem; letter-spacing: 0.02em;
+      display: inline-block; background: var(--clay-text); color: #fff;
+      font-size: 0.68rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 6px;
+      letter-spacing: 0.02em; white-space: nowrap;
     }
-    .pack-unit-price { font-size: 0.72rem; color: var(--color-text-muted); }
+    .pack-unit-price { font-size: 0.72rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
     /* ── Adults-only bachelor-party section ── */
     .adults-inner {
@@ -525,7 +557,7 @@
       border-radius: 50px;
       background: rgba(188, 85, 72, 0.1);
       border: 1px solid rgba(188, 85, 72, 0.35);
-      color: var(--clay);
+      color: var(--clay-text);
       font-size: 0.72rem;
       font-weight: 800;
       letter-spacing: 0.08em;
@@ -569,7 +601,7 @@
       border-radius: 14px;
       background: rgba(188, 85, 72, 0.08);
       border: 1px solid rgba(188, 85, 72, 0.3);
-      color: var(--clay);
+      color: var(--clay-text);
       font-size: 0.88rem;
       font-weight: 600;
       line-height: 1.5;
@@ -627,7 +659,7 @@
       border-radius: 50px;
       background: rgba(188, 85, 72, 0.1);
       border: 1px solid rgba(188, 85, 72, 0.35);
-      color: var(--clay);
+      color: var(--clay-text);
       font-size: 0.7rem;
       font-weight: 800;
       letter-spacing: 0.08em;
@@ -635,25 +667,20 @@
       white-space: nowrap;
     }
 
-    /* Age-gate modal */
-    .adult-gate-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.3);
-      z-index: 60;
-    }
-    .adult-gate-card {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+    /* Native <dialog> age-gate modal */
+    dialog.adult-gate-dialog {
+      margin: auto;
       width: min(92vw, 460px);
       background: var(--cream);
       border: 1px solid var(--hairline);
       border-radius: 18px;
+      padding: 0;
+      box-shadow: 0 20px 60px rgba(30, 70, 54, 0.24);
+      color: var(--color-text-cocoa);
+      overflow: hidden;
+    }
+    .adult-gate-card {
       padding: 2.2rem 2rem;
-      box-shadow: 0 20px 60px rgba(30, 70, 54, 0.18);
       text-align: center;
     }
     .adult-gate-emoji { font-size: 2.4rem; margin-bottom: 0.6rem; }
@@ -703,16 +730,16 @@
     .adult-gate-actions .btn { min-width: 130px; }
 
   /* ── Pastel overrides for menu page ── */
-  .product-tile { background: var(--tint-card); }
-  .product-tile:nth-child(6n+1) { --tint-card: #E6F2E4; }
-  .product-tile:nth-child(6n+2) { --tint-card: #F9EDE2; }
-  .product-tile:nth-child(6n+3) { --tint-card: #F2E6F0; }
-  .product-tile:nth-child(6n+4) { --tint-card: #E6EEF6; }
-  .product-tile:nth-child(6n+5) { --tint-card: #F7EBE4; }
-  .product-tile:nth-child(6n+6) { --tint-card: #EAF0E8; }
+  .products-grid .product-tile:nth-child(6n+1) { background: #E6F2E4; }
+  .products-grid .product-tile:nth-child(6n+2) { background: #F9EDE2; }
+  .products-grid .product-tile:nth-child(6n+3) { background: #F2E6F0; }
+  .products-grid .product-tile:nth-child(6n+4) { background: #E6EEF6; }
+  .products-grid .product-tile:nth-child(6n+5) { background: #F7EBE4; }
+  .products-grid .product-tile:nth-child(6n+6) { background: #EAF0E8; }
   </style>
   </head>
   <body class="page-order">
+  <a href="#main-content" class="skip-link lang-fade" data-es="Saltar al contenido" data-en="Skip to main content">Skip to main content</a>
 
   <!-- Toast container -->
   <div class="toast-container" id="toast-container" aria-live="polite"></div>
@@ -722,6 +749,7 @@
     <span class="ui-icon"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M230.14,58.87A8,8,0,0,0,224,56H62.68L56.6,22.57A8,8,0,0,0,48.73,16H24a8,8,0,0,0,0,16h18L67.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,160,204a28,28,0,1,0,28-28H91.17a8,8,0,0,1-7.87-6.57L80.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,230.14,58.87ZM104,204a12,12,0,1,1-12-12A12,12,0,0,1,104,204Zm96,0a12,12,0,1,1-12-12A12,12,0,0,1,200,204Zm4-74.57A8,8,0,0,1,196.1,136H77.22L65.59,72H214.41Z"/></svg></span>
     <span class="lang-fade" data-es="Ver Pedido" data-en="View Order">Ver Pedido</span>
     <span class="floating-cart-badge" id="floating-cart-badge">0</span>
+    <span class="floating-cart-total" id="floating-cart-total">$0.00</span>
   </button>
 
   <!-- Mobile Header (shows at ≤820px) -->
@@ -784,7 +812,7 @@
       </div>
     </header>
 
-    <main class="main-content">
+    <main class="main-content" id="main-content" tabindex="-1">
 
       <div class="success-banner" id="success-banner">
         <span class="ui-icon"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg></span>
@@ -851,7 +879,7 @@
                products from /api/products when JS + API are available. -->
 
           <article class="product-tile reveal has-hero has-packs" id="tile-prod_cookie" data-category="Cookies" data-name="Galleta de Chispas de Chocolate" data-name-en="Chocolate Chip Coqui" data-price="4.00" data-icon="cookies.svg" data-toast-emoji="cookies.svg" data-has-packs="1" data-pack-price="16" data-pack-qty="4" data-pack-label="Pack of 4">
-            <div class="tile-hero"><img class="tile-hero-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
+            <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-cookies.webp" alt="Chocolate chip cookies" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Galleta de Chispas de Chocolate" data-en="Chocolate Chip Coqui">Galleta de Chispas de Chocolate</h3>
             <p class="tile-desc lang-fade" data-es="Classic soft-baked chocolate chip cookie. Pack pricing: 4/$16, 6/$22, 12/$40." data-en="Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;. Pack pricing: 4/$16, 6/$22, 12/$40.">Chocolate chip cookie. Hold. Up. 4oz of pure happiness. These chocolate chip cookies are a staple comfort treat. The definition of &quot;Treat yo self&quot;. Pack pricing: 4/$16, 6/$22, 12/$40.</p>
             <div class="pack-selects">
@@ -871,7 +899,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-prod_cookie">$4.00</span>
+              <span class="tile-price" id="price-prod_cookie">$16.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -884,7 +912,7 @@
           </article>
 
           <article class="product-tile reveal has-hero has-packs" id="tile-prod_conchas" data-category="Bread" data-name="Conchas" data-name-en="Conchas" data-price="4.00" data-icon="conchas.svg" data-toast-emoji="conchas.svg" data-has-packs="1" data-pack-price="16" data-pack-qty="4" data-pack-label="Pack of 4">
-            <div class="tile-hero"><img class="tile-hero-img" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
+            <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-conchas.webp" alt="Conchas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Conchas" data-en="Conchas">Conchas</h3>
             <p class="tile-desc lang-fade"
                data-es="Este pan mexicano es un ícono. Suave y esponjoso con vainilla y canela en la masa. La hermosa cobertura en forma de concha viene en vainilla, chocolate y fresa. Honestamente, lo necesitas para acompañar tu café."
@@ -916,7 +944,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-prod_conchas">$4.00</span>
+              <span class="tile-price" id="price-prod_conchas">$16.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -929,7 +957,7 @@
           </article>
 
           <article class="product-tile reveal has-hero has-packs" id="tile-prod_bolillos" data-category="Bread" data-name="Bolillos" data-name-en="Bolillos" data-price="2.00" data-icon="bolillos.svg" data-toast-emoji="bolillos.svg" data-has-packs="1" data-pack-price="8" data-pack-qty="4" data-pack-label="Pack of 4">
-            <div class="tile-hero"><img class="tile-hero-img" src="menu-bolillos.webp" alt="Bolillos" loading="lazy"/></div>
+            <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-bolillos.webp" alt="Bolillos" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Bolillos" data-en="Bolillos">Bolillos</h3>
             <p class="tile-desc lang-fade"
                data-es="Este pan de inspiración mexicano-francesa tiene una corteza crujiente y un centro suave. Estos bolillos son perfectos para todas tus necesidades de sándwich/torta. Pero seamos sinceros, calienta ese bolillo, úntale mantequilla y deja que la felicidad te invada."
@@ -953,7 +981,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-prod_bolillos">$2.00</span>
+              <span class="tile-price" id="price-prod_bolillos">$8.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -966,7 +994,7 @@
           </article>
 
           <article class="product-tile reveal has-hero" id="tile-prod_tortillas" data-category="Bread" data-name="Tortillas de Harina (1 docena)" data-name-en="Flour Tortillas (1 dozen)" data-price="6.00" data-icon="tortilla.svg" data-toast-emoji="tortilla.svg">
-            <div class="tile-hero"><img class="tile-hero-img" src="menu-tortillas.webp" alt="Flour tortillas" loading="lazy"/></div>
+            <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-tortillas.webp" alt="Flour tortillas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Tortillas de Harina" data-en="Flour Tortillas">Tortillas de Harina</h3>
             <p class="tile-desc lang-fade"
                data-es="Tortillas hechas a mano, suaves, ligeras y mantecosas. Imagina conmigo... tacos, quesadillas, con mantequilla y sal... realmente no hay momento en que una tortilla no sea necesaria. Así que, en conclusión... necesitas algunas."
@@ -987,7 +1015,7 @@
           </article>
 
           <article class="product-tile reveal has-hero has-packs" id="tile-prod_empanadas" data-category="Bread" data-name="Empanadas" data-name-en="Empanadas" data-price="3.00" data-icon="empanada.svg" data-toast-emoji="empanada.svg" data-has-flavors="1" data-has-packs="1" data-pack-price="12" data-pack-qty="4" data-pack-label="Pack of 4">
-            <div class="tile-hero"><img class="tile-hero-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
+            <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-empanadas.webp" alt="Empanadas" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Empanadas" data-en="Empanadas">Empanadas</h3>
             <p class="tile-desc lang-fade"
                data-es="Empanadas doradas y rellenas a mano. Crujientes por fuera, sabrosas por dentro. Hechas a la orden con tu relleno favorito."
@@ -1022,7 +1050,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-prod_empanadas">$3.00</span>
+              <span class="tile-price" id="price-prod_empanadas">$12.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -1035,7 +1063,7 @@
           </article>
 
 <article class="product-tile reveal has-hero has-packs" id="tile-prod_cakepop" data-category="Cakepops" data-name="Cakepops Básicos" data-name-en="Basic Cakepops" data-price="3.00" data-icon="cakepop.svg" data-toast-emoji="cakepop.svg" data-has-flavors="1" data-has-packs="1" data-pack-price="12" data-pack-qty="4" data-pack-label="Pack of 4">
-             <div class="tile-hero"><img class="tile-hero-img" src="menu-cakepops.webp" alt="Cakepops" loading="lazy"/></div>
+             <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-cakepops.webp" alt="Cakepops" loading="lazy"/></div>
              <h3 class="tile-title lang-fade" data-es="Cakepops" data-en="Cakepops">Cakepops</h3>
              <p class="tile-desc lang-fade"
                 data-es="Una bolita de pastel perfecta y dulce, personalizable. Elige el sabor del pastel, el baño de chocolate y la cobertura."
@@ -1080,7 +1108,7 @@
               </div>
             </div>
             <div class="tile-bottom">
-              <span class="tile-price" id="price-prod_cakepop">$3.00</span>
+              <span class="tile-price" id="price-prod_cakepop">$12.00</span>
               <div class="tile-actions">
                 <div class="qty-stepper">
                   <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -1088,13 +1116,15 @@
                   <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
                 </div>
                 <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
-                <a href="quote.html?type=cakepops" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>
               </div>
+            </div>
+            <div class="tile-quote-row">
+              <a href="quote.html?type=cakepops" class="tile-quote-link lang-fade" data-es="¿Personalizado? Cotizar &rarr;" data-en="Custom design? Get a Quote &rarr;">Custom design? Get a Quote &rarr;</a>
             </div>
           </article>
 
 <article class="product-tile reveal has-hero" id="tile-prod_custom_cake" data-category="Cakes" data-name="Custom Cake" data-name-en="Custom Cake" data-price="35.00" data-icon="cake.svg" data-toast-emoji="cake.svg" data-has-flavors="1">
-            <div class="tile-hero"><img class="tile-hero-img" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
+            <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Pastel Personalizado" data-en="Custom Cake">Custom Cake</h3>
             <p class="tile-desc lang-fade"
                data-es="Pastel de 8 pulgadas, 2 capas, hecho al momento. Elige el sabor del pastel y el betún."
@@ -1123,13 +1153,15 @@
                   <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
                 </div>
                 <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
-                <a href="quote.html?type=cake" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>
               </div>
+            </div>
+            <div class="tile-quote-row">
+              <a href="quote.html?type=cake" class="tile-quote-link lang-fade" data-es="¿Personalizado? Cotizar &rarr;" data-en="Custom design? Get a Quote &rarr;">Custom design? Get a Quote &rarr;</a>
             </div>
           </article>
 
 <article class="product-tile reveal has-hero" id="tile-prod_cupcakes" data-category="Cupcakes" data-name="Cupcakes (6)" data-name-en="Cupcakes (6)" data-price="18.00" data-icon="cupcake.svg" data-toast-emoji="cupcake.svg" data-has-flavors="1">
-            <div class="tile-hero"><img class="tile-hero-img" src="menu-cupcakes.webp" alt="Cupcakes" loading="lazy"/></div>
+            <div class="tile-hero"><span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span><img class="tile-hero-img" src="menu-cupcakes.webp" alt="Cupcakes" loading="lazy"/></div>
             <h3 class="tile-title lang-fade" data-es="Pastelitos (6)" data-en="Cupcakes (6)">Cupcakes (6)</h3>
             <p class="tile-desc lang-fade"
                data-es="Seis pastelitos de tamaño estándar, hechos al momento. Elige el sabor del pastel y el betún. Un sabor por tanda."
@@ -1157,8 +1189,10 @@
                   <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
                 </div>
                 <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
-                <a href="quote.html?type=cupcakes" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>
               </div>
+            </div>
+            <div class="tile-quote-row">
+              <a href="quote.html?type=cupcakes" class="tile-quote-link lang-fade" data-es="¿Personalizado? Cotizar &rarr;" data-en="Custom design? Get a Quote &rarr;">Custom design? Get a Quote &rarr;</a>
             </div>
           </article>
 
@@ -1174,7 +1208,7 @@
       </section>
 
       <!-- ADULTS ONLY (18+) -->
-      <section class="boutiques-section" id="adults-only" style="padding:4rem 4rem 5rem;">
+      <section class="boutiques-section" id="adults-only">
         <div class="adults-inner">
 
           <!-- LOCKED STATE (default; visible without JS) -->
@@ -1218,17 +1252,17 @@
       </section>
 
       <!-- AGE GATE MODAL -->
-      <div id="adult-gate-modal" class="adult-gate-overlay" role="dialog" aria-modal="true" aria-labelledby="adult-gate-title">
+      <dialog id="adult-gate-modal" class="adult-gate-dialog" closedby="any" aria-labelledby="adult-gate-title">
         <div class="adult-gate-card">
           <div class="adult-gate-emoji">🥂</div>
-          <h3 class="adult-gate-title lang-fade" data-es="Solo Adultos — 18+" data-en="Adults Only — 18+" id="adult-gate-title">Adults Only — 18+</h3>
+          <h1 class="adult-gate-title lang-fade" data-es="Solo Adultos — 18+" data-en="Adults Only — 18+" id="adult-gate-title">Adults Only — 18+</h1>
           <p class="adult-gate-text lang-fade"
              data-es="Este contenido incluye artículos para fiestas con temática adulta para celebraciones de despedida de soltero/a. Debes tener 18 años o más para verlo."
              data-en="This content includes adult-themed party items for bachelor/bachelorette celebrations. You must be 18 years or older to view it.">
             This content includes adult-themed party items for bachelor/bachelorette celebrations. You must be 18 years or older to view it.
           </p>
           <label class="adult-check-row" for="adult-confirm">
-            <input type="checkbox" id="adult-confirm" onchange="updateAdultEnterState()" />
+            <input type="checkbox" id="adult-confirm" autofocus onchange="updateAdultEnterState()" />
             <span class="adult-check-label lang-fade"
                data-es="Confirmo que soy mayor de 18 años"
                data-en="I confirm I am 18 years of age or older">I confirm I am 18 years of age or older</span>
@@ -1242,7 +1276,7 @@
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
 
       <!-- QUOTE CTA -->
       <section class="order-section">
@@ -1265,7 +1299,7 @@
       </section>
 
       <!-- ORDER FORM SECTION -->
-      <section class="boutiques-section" style="padding:4rem 4rem 5rem;" id="order-form">
+      <section class="boutiques-section" id="order-form">
         <div class="order-panel" id="order-panel">
 
           <!-- Cart summary -->
@@ -1298,17 +1332,17 @@
             <div class="form-grid">
               <div class="field">
                 <label for="name" class="lang-fade" data-es="Nombre completo" data-en="Full name">Nombre completo</label>
-                <input type="text" id="name" required
+                <input type="text" id="name" name="name" autocomplete="name" required
                        data-es-placeholder="Tu nombre" data-en-placeholder="Your name" placeholder="Tu nombre" />
               </div>
               <div class="field">
                 <label for="email" class="lang-fade" data-es="Correo electrónico" data-en="Email address">Correo electrónico</label>
-                <input type="email" id="email" required
+                <input type="email" id="email" name="email" autocomplete="email" autocorrect="off" autocapitalize="none" spellcheck="false" required
                        data-es-placeholder="tu@email.com" data-en-placeholder="you@email.com" placeholder="tu@email.com" />
               </div>
               <div class="field">
                 <label for="phone" class="lang-fade" data-es="Teléfono" data-en="Phone">Teléfono</label>
-                <input type="tel" id="phone" required pattern="[0-9\s\-\(\)\+]+"
+                <input type="tel" id="phone" name="phone" autocomplete="tel" required pattern="[0-9\s\-\(\)\+]+"
                        data-es-placeholder="(616) 218-3582" data-en-placeholder="(616) 218-3582" placeholder="(616) 218-3582" />
               </div>
               <div class="field">
@@ -1320,7 +1354,7 @@
                   <option value="Email" data-es="Correo" data-en="Email">Correo</option>
                 </select>
               </div>
-              <div class="field">
+              <div class="field full">
                 <label for="date" class="lang-fade" data-es="Fecha deseada de recogida" data-en="Desired pickup date">Fecha deseada de recogida</label>
                 <input type="date" id="date" required />
               </div>
@@ -1390,7 +1424,7 @@
               <div class="payment-panel" id="panel-manual">
                 <p class="hint lang-fade" data-es="Envía tu pago manualmente y confirma abajo. Tu pedido quedará pendiente hasta que verifiquemos el pago." data-en="Send your payment manually and confirm below. Your order will stay pending until we verify payment.">Send your payment manually and confirm below. Your order will stay pending until we verify payment.</p>
                 <div id="manual-handles" class="manual-handles"></div>
-                <p id="manual-note" class="hint" style="font-size:12px;color:#8a8078;margin-top:10px"></p>
+                <p id="manual-note" class="hint" style="font-size:12px;color:var(--color-text-muted);margin-top:10px"></p>
                 <button type="button" id="manual-done-btn" class="btn btn-coral btn-lg payment-btn" style="margin-top:12px" onclick="handleManualDone()">
                   <span class="lang-fade" data-es="Ya envié el pago" data-en="I've sent the payment">I've sent the payment</span>
                 </button>
@@ -1416,6 +1450,7 @@
           </div>
         </div>
       </section>
+    </main>
 
       <footer class="site-footer">
         <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="lazy"/>
@@ -1455,7 +1490,6 @@
           </a>
         </div>
       </footer>
-    </main>
   </div>
 
   <script>
@@ -1501,17 +1535,29 @@
     function renderProductTile(p) {
       const name = (currentLang === 'es' && p.name_es) ? p.name_es : p.name;
       const desc = (currentLang === 'es' && p.description_es) ? p.description_es : (p.description || '');
-      const cartBadge = `<span class="cart-badge-tile" style="display:none;">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">En carrito</span></span>`;
-      // Image products: large full-width square hero. No-image products: minimal header.
+      const cartBadge = `<span class="cart-badge-tile">✓ <span class="lang-fade" data-es="En carrito" data-en="In cart">In cart</span></span>`;
+      const noImgIcon = (p.emoji && p.emoji.endsWith('.svg'))
+        ? `<img src="${escapeHtml(p.emoji)}" alt="" style="width:72px;height:72px;object-fit:contain;" />`
+        : `<span style="font-size:3.25rem;line-height:1;" aria-hidden="true">${escapeHtml(p.emoji || '🍞')}</span>`;
+      // Image products: full-width photo hero. No-image products: centered SVG/emoji hero.
       const hero = p.image_url
         ? `<div class="tile-hero">${cartBadge}<img class="tile-hero-img" src="${escapeHtml(p.image_url)}" alt="${escapeHtml(p.name)}" loading="lazy" /></div>`
-        : `${cartBadge}`;
+        : `<div class="tile-hero" style="display:flex;align-items:center;justify-content:center;">${cartBadge}${noImgIcon}</div>`;
       // Flavor groups (bilingual group name + option labels)
-      const FLAVOR_ES_TO_EN = {
-        'Pastel': 'Cake', 'Betún': 'Frosting', 'Baño de Chocolate': 'Chocolate dip',
+      const FLAVOR_GROUP_ES_TO_EN = {
+        'Pastel': 'Cake',
+        'Bizcocho': 'Cake',
+        'Betún': 'Frosting',
+        'Baño de Chocolate': 'Chocolate dip',
         'Cobertura': 'Topping style',
+        'Decoración': 'Topping',
+        'Relleno': 'Filling',
+        'Concha': 'Concha',
+      };
+      const FLAVOR_OPTION_ES_TO_EN = {
         'Vainilla': 'Vanilla', 'Fresa': 'Strawberry', 'Marmoleado': 'Marble',
-        'Limón': 'Lemon', 'Chocolate con Leche': 'Milk Chocolate',
+        'Limón': 'Lemon', 'Piña': 'Pineapple',
+        'Chocolate con Leche': 'Milk Chocolate',
         'Chocolate Blanco': 'White Chocolate', 'Chispas de Colores': 'Sprinkles',
         'Baño de Chocolate': 'Chocolate Drizzle',
         'Accesorios de Chocolate': 'Chocolate Accessories',
@@ -1522,14 +1568,14 @@
       const flavorGroups = (p.flavor_groups && p.flavor_groups.length) ? p.flavor_groups : [];
       const flavorHTML = flavorGroups.length
         ? `<div class="flavor-selects">` + flavorGroups.map(g => {
-            const gEn = FLAVOR_ES_TO_EN[g.name] || g.name;
+            const gEn = FLAVOR_GROUP_ES_TO_EN[g.name] || g.name;
             return `
             <div class="flavor-group">
               <label class="flavor-label lang-fade" data-es="${escapeHtml(g.name_es || g.name)}" data-en="${escapeHtml(gEn)}">${escapeHtml(currentLang === 'es' ? (g.name_es || g.name) : gEn)}</label>
               <select class="flavor-select" data-group="${escapeHtml(g.name)}">
                 <option value="" class="lang-fade" data-es="— Seleccionar —" data-en="— Select —">— Select —</option>
                 ${g.options.map(o => {
-                  const oEn = FLAVOR_ES_TO_EN[o] || o;
+                  const oEn = FLAVOR_OPTION_ES_TO_EN[o] || o;
                   return `<option value="${escapeHtml(o)}" data-es="${escapeHtml(o)}" data-en="${escapeHtml(oEn)}">${escapeHtml(currentLang === 'es' ? o : oEn)}</option>`;
                 }).join('')}
               </select>
@@ -1541,9 +1587,11 @@
       const hasPacks = packSizes.length > 0;
       const initialPack = hasPacks ? packSizes[0] : null;
       const priceNum = hasPacks ? initialPack.price : Number(p.price);
+      const unitLabelEs = !hasPacks ? (p.unit_label_es || p.unit_label || 'c/u') : '';
+      const unitLabelEn = !hasPacks ? (p.unit_label || 'ea') : '';
       const unitLabel = hasPacks
         ? (currentLang === 'es' ? (initialPack.unit_label_es || initialPack.unit_label) : initialPack.unit_label)
-        : null;
+        : (currentLang === 'es' ? unitLabelEs : unitLabelEn);
       const packHTML = hasPacks
         ? `<div class="pack-selects">` + packSizes.map(pk => `
             <div class="pack-option" data-pack-id="${escapeHtml(pk.id)}" data-pack-price="${pk.price}" data-pack-qty="${pk.qty}" data-pack-label="${escapeHtml(pk.label)}" data-pack-label-es="${escapeHtml(pk.label_es || pk.label)}" onclick="selectPack(this)">
@@ -1554,7 +1602,7 @@
         : '';
       const quoteType = { Cakepops: 'cakepops', Cupcakes: 'cupcakes', Cakes: 'cake' }[p.category];
       const quoteLink = quoteType
-        ? `<a href="quote.html?type=${quoteType}" class="btn btn-ghost btn-sm lang-fade" data-es="Cotizar" data-en="Get a Quote">Get a Quote</a>`
+        ? `<div class="tile-quote-row"><a href="quote.html?type=${quoteType}" class="tile-quote-link lang-fade" data-es="¿Personalizado? Cotizar &rarr;" data-en="Custom design? Get a Quote &rarr;">Custom design? Get a Quote &rarr;</a></div>`
         : '';
       return `
         <article class="product-tile reveal ${p.image_url ? 'has-hero' : ''} ${hasPacks ? 'has-packs' : ''}"
@@ -1578,7 +1626,7 @@
           ${flavorHTML}
           ${packHTML}
           <div class="tile-bottom">
-            <span class="tile-price" id="price-${p.id}">${hasPacks ? '$' + priceNum.toFixed(2) : '$' + priceNum.toFixed(2) + (unitLabel ? ` <span class="lang-fade" data-es="${escapeHtml(unitLabel)}" data-en="${escapeHtml(unitLabel)}">${escapeHtml(unitLabel)}</span>` : ` <span class="lang-fade" data-es="c/u" data-en="ea">ea</span>`)}</span>
+            <span class="tile-price" id="price-${p.id}">${hasPacks ? '$' + priceNum.toFixed(2) : '$' + priceNum.toFixed(2) + ` <span class="lang-fade" data-es="${escapeHtml(unitLabelEs)}" data-en="${escapeHtml(unitLabelEn)}">${escapeHtml(unitLabel)}</span>`}</span>
             <div class="tile-actions">
               <div class="qty-stepper">
                 <button class="qty-btn" onclick="updateQty(this,-1)" aria-label="Decrease">−</button>
@@ -1586,9 +1634,9 @@
                 <button class="qty-btn" onclick="updateQty(this,1)" aria-label="Increase">+</button>
               </div>
               <button class="add-btn lang-fade" onclick="addToCart(this)" data-es="Agregar" data-en="Add">Add</button>
-              ${quoteLink}
             </div>
           </div>
+          ${quoteLink}
         </article>`;
     }
 
@@ -1688,6 +1736,10 @@
         console.warn('Could not load live products, showing fallback menu:', err);
         allProducts = [];
         renderCategoryPills(collectFallbackProducts());
+        document.querySelectorAll('#products-grid .pack-selects').forEach(ps => {
+          const selOpt = ps.querySelector('.pack-option.selected') || ps.querySelector('.pack-option');
+          if (selOpt) selectPack(selOpt);
+        });
         if (window.initProductReveals) initProductReveals();
       }
     }
@@ -1720,18 +1772,16 @@
         hero: function (ctx) {
           const g = ctx.gsap, T = ctx.TOKENS;
           const tl = g.timeline({ defaults: { ease: 'expo.out' } });
-          tl.from('.hero-eyebrow', { y: 30, autoAlpha: 0, duration: T.revealDur })
-            .from('.hero-headline-top', { y: 40, autoAlpha: 0, duration: T.heroDur }, '-=0.5')
-            .from('.hero-headline-bottom', { y: 40, autoAlpha: 0, duration: T.heroDur }, '-=0.8')
-            .from('.hero-divider', { scaleX: 0, autoAlpha: 0, duration: T.revealDur, transformOrigin: 'left center' }, '-=0.6')
-            .from('.hero-description', { y: 20, autoAlpha: 0, duration: 0.7 }, '-=0.5');
+          tl.fromTo('.hero-eyebrow', { y: 30, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.revealDur, clearProps: 'opacity,visibility,transform' })
+            .fromTo('.hero-headline-top', { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.heroDur, clearProps: 'opacity,visibility,transform' }, '-=0.5')
+            .fromTo('.hero-headline-bottom', { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: T.heroDur, clearProps: 'opacity,visibility,transform' }, '-=0.8')
+            .fromTo('.hero-description', { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.7, clearProps: 'opacity,visibility,transform' }, '-=0.5')
+            .fromTo('.hero-ctas > *', { y: 16, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12, ease: 'power3.out', clearProps: 'opacity,visibility,transform' }, '-=0.35');
 
-          g.to('.hero-ctas > *', {
-            y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.12,
-            ease: 'power3.out', delay: 1.5
-          });
-
-          g.from('.footer-copyright, .footer-tagline', { y: 15, autoAlpha: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out', scrollTrigger: { trigger: '.site-footer', start: 'top 90%' } });
+          g.fromTo('.footer-copyright, .footer-tagline',
+            { y: 15, autoAlpha: 0 },
+            { y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.1, ease: 'power3.out', clearProps: 'opacity,visibility,transform', scrollTrigger: { trigger: '.site-footer', start: 'top 95%', toggleActions: 'play none none none' } }
+          );
         }
       });
 
@@ -1740,10 +1790,15 @@
 
     // ── Language ──────────────────────────────────────────────────
     function applyLangToDOM(lang) {
-      document.getElementById('btn-es').classList.toggle('active', lang === 'es');
-      document.getElementById('btn-es').setAttribute('aria-selected', lang === 'es');
-      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
-      document.getElementById('btn-en').setAttribute('aria-selected', lang === 'en');
+      document.documentElement.lang = lang;
+      const btnEs = document.getElementById('btn-es');
+      const btnEn = document.getElementById('btn-en');
+      if (btnEs) { btnEs.classList.toggle('active', lang === 'es'); btnEs.setAttribute('aria-selected', lang === 'es'); }
+      if (btnEn) { btnEn.classList.toggle('active', lang === 'en'); btnEn.setAttribute('aria-selected', lang === 'en'); }
+      const mEs = document.getElementById('mobile-btn-es');
+      const mEn = document.getElementById('mobile-btn-en');
+      if (mEs) { mEs.classList.toggle('active', lang === 'es'); mEs.setAttribute('aria-selected', lang === 'es'); }
+      if (mEn) { mEn.classList.toggle('active', lang === 'en'); mEn.setAttribute('aria-selected', lang === 'en'); }
 
       document.querySelectorAll('[data-es][data-en]').forEach(el => {
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
@@ -2085,8 +2140,8 @@
           '<p style="margin:8px 0;">' + escapeHtml(name) + '</p>' +
           '<p style="margin:8px 0;">' + escapeHtml(itemsList) + '</p>' +
           '<p style="margin:8px 0;"><strong>' + (currentLang === 'en' ? 'Pickup: ' : 'Recogida: ') + '</strong>' + escapeHtml(pickupDate) + '</p>' +
-          '<p style="margin:8px 0;font-size:1.2em;font-weight:700;color:var(--color-mid-green);">' + totalStr + '</p>' +
-          '<p style="margin:8px 0;color:#777;font-size:0.9em;">' +
+          '<p style="margin:8px 0;font-size:1.2em;font-weight:700;color:var(--color-mid-green);">$' + totalStr + '</p>' +
+          '<p style="margin:8px 0;color:var(--color-text-muted);font-size:0.9em;">' +
           (currentLang === 'en' ? 'Confirmation sent to ' : 'Confirmacion enviada a ') + escapeHtml(email) + '</p>';
       }
 
@@ -2155,21 +2210,30 @@
       let html = '';
       if(showCashapp && cashtag){
         html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e3dcd2;border-radius:10px;background:#fff;margin-bottom:8px">'
-          + '<div><div style="font-size:12px;color:#8a8078">Cash App</div><div style="font-weight:700">'+cashtag.replace(/</g,'&lt;')+'</div></div>'
+          + '<div><div style="font-size:12px;color:var(--color-text-muted)">Cash App</div><div style="font-weight:700">'+cashtag.replace(/</g,'&lt;')+'</div></div>'
           + '<button type="button" class="btn" style="padding:6px 12px;font-size:12px" onclick="copyHandle(\''+cashtag.replace(/'/g,"\\'")+'\',this)">Copy</button></div>';
       }
       if(showVenmo && venmo){
         html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #e3dcd2;border-radius:10px;background:#fff">'
-          + '<div><div style="font-size:12px;color:#8a8078">Venmo</div><div style="font-weight:700">'+venmo.replace(/</g,'&lt;')+'</div></div>'
+          + '<div><div style="font-size:12px;color:var(--color-text-muted)">Venmo</div><div style="font-weight:700">'+venmo.replace(/</g,'&lt;')+'</div></div>'
           + '<button type="button" class="btn" style="padding:6px 12px;font-size:12px" onclick="copyHandle(\''+venmo.replace(/'/g,"\\'")+'\',this)">Copy</button></div>';
       }
       container.innerHTML = html || '<p class="hint">Contact us for payment details.</p>';
+    }
+
+    function resetOrderSubmitBtn() {
+      const formEl = document.getElementById('order-form-el');
+      const submitBtn = formEl ? formEl.querySelector('button[type="submit"]') : null;
+      if (!submitBtn) return;
+      submitBtn.disabled = false;
+      submitBtn.textContent = currentLang === 'en' ? 'Continue to Payment' : 'Continuar al Pago';
     }
 
     function goBackToInfo(e) {
       e.preventDefault();
       document.getElementById('payment-section').style.display = 'none';
       document.getElementById('order-form-el').style.display = '';
+      resetOrderSubmitBtn();
       updateSteps(2);
       document.getElementById('order-form-el').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -2320,7 +2384,7 @@
       showToast(
         toastEmoji,
         currentLang === 'en' ? `${displayName} added to order!` : `¡${displayName} agregado al pedido!`,
-        currentLang === 'en' ? `${qty} × ${subtotal}` : `${qty} × ${subtotal}`
+        qty > 1 ? `${qty} × $${price.toFixed(2)} · ${subtotal}` : subtotal
       );
 
       // Show floating cart button with GSAP
@@ -2373,6 +2437,7 @@
       const totalEl = document.getElementById('cart-total');
       const pill = document.getElementById('cart-count-pill');
       const badge = document.getElementById('floating-cart-badge');
+      const floatingTotal = document.getElementById('floating-cart-total');
 
       const totalItems = cart.reduce((sum, i) => sum + i.qty, 0);
       pill.textContent = totalItems;
@@ -2385,6 +2450,7 @@
           : '¡Aún vacío! Elige tus favoritos del menú.';
         list.innerHTML = `<li class="cart-empty-state"><div class="empty-icon"><img src="icon-cart.svg" alt="" width="40" height="40" style="object-fit:contain;" /></div><p>${msg}</p></li>`;
         totalEl.textContent = '$0.00';
+        if (floatingTotal) floatingTotal.textContent = '$0.00';
         return;
       }
 
@@ -2415,6 +2481,7 @@
         </li>`;
       }).join('');
       totalEl.textContent = '$' + total.toFixed(2);
+      if (floatingTotal) floatingTotal.textContent = '$' + total.toFixed(2);
       
       // GSAP animate new cart items
       gsap.fromTo('#cart-list li', 
@@ -2459,16 +2526,28 @@
       const cb = document.getElementById('adult-confirm');
       if (cb) cb.checked = false;
       updateAdultEnterState();
-      modal.style.display = 'block';
+      if (!modal.dataset.gateBound) {
+        modal.dataset.gateBound = '1';
+        if (!('closedBy' in HTMLDialogElement.prototype)) {
+          const outside = (e, dialog) => {
+            const r = dialog.getBoundingClientRect();
+            return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+          };
+          let pressedOutside = false;
+          modal.addEventListener('pointerdown', (e) => { pressedOutside = outside(e, modal); });
+          modal.addEventListener('pointerup', (e) => { if (pressedOutside && outside(e, modal)) modal.close(); });
+        }
+      }
+      if (!modal.open) modal.showModal();
       const card = modal.querySelector('.adult-gate-card');
       if (card && !prefersReduced) {
-        gsap.fromTo(card, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+        gsap.fromTo(card, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: 'power3.out', clearProps: 'opacity,visibility,transform' });
       }
     }
 
     function closeAdultGate() {
       const modal = document.getElementById('adult-gate-modal');
-      if (modal) modal.style.display = 'none';
+      if (modal && modal.open) modal.close();
     }
 
     function updateAdultEnterState() {
@@ -2584,6 +2663,7 @@
         pendingOrderId = data && data.id ? Number(data.id) : null;
         if (!pendingOrderId) throw new Error('No order id returned');
 
+        resetOrderSubmitBtn();
         document.getElementById('order-form-el').style.display = 'none';
         updateSteps(3);
 
@@ -2601,8 +2681,7 @@
         initPayment();
       })
       .catch(() => {
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
+        resetOrderSubmitBtn();
         showToast('icon-error.svg',
           currentLang === 'en' ? 'Could not create order. Please try again.' : 'No se pudo crear el pedido. Intenta de nuevo.',
           currentLang === 'en' ? 'Check your connection.' : 'Revisa tu conexión.'

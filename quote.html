@@ -9,19 +9,19 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Solicitud de Cotización — Muy Rico | Holland, MI" />
   <meta property="og:description" content="Solicita una cotización personalizada para tu pastel." />
-  <meta property="og:image" content="hero-bolillos.webp" />
+  <meta property="og:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Solicitud de Cotización — Muy Rico | Holland, MI" />
   <meta property="twitter:description" content="Solicita una cotización personalizada para tu pastel." />
-  <meta property="twitter:image" content="hero-bolillos.webp" />
+  <meta property="twitter:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Lora:ital,wght@1,500&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="motion.js"></script>
@@ -82,7 +82,7 @@
       border: 1px solid var(--hairline);
       background: var(--cream);
       font-family: var(--font-sans);
-      font-size: 0.92rem;
+      font-size: max(1rem, 1em);
       color: var(--color-text-cocoa);
       outline: none;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -135,6 +135,35 @@
       user-select: none;
     }
     .checkbox-label:hover { border-color: var(--hairline-strong); }
+    .checkbox-label:has(input:checked) {
+      border-color: var(--forest);
+      background: rgba(30, 70, 54, 0.05);
+    }
+    .checkbox-label input[type="radio"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 1.5px solid var(--hairline-strong);
+      border-radius: 50%;
+      background: var(--cream);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .checkbox-label input[type="radio"]:checked {
+      border-color: var(--forest);
+      background: radial-gradient(circle, var(--forest) 45%, var(--cream) 48%);
+    }
+    .checkbox-label input[type="radio"]:checked + span {
+      color: var(--forest);
+      font-weight: 600;
+    }
+    .checkbox-label input:focus-visible {
+      outline: 2px solid var(--clay);
+      outline-offset: 2px;
+    }
     .checkbox-label input[type="checkbox"] {
       appearance: none;
       -webkit-appearance: none;
@@ -212,7 +241,7 @@
       border-bottom: 1px solid var(--hairline);
     }
     .item-icon { font-size: 20px; }
-    .item-label { font-weight: 600; color: var(--color-text); }
+    .item-label { font-weight: 600; color: var(--forest); }
     .item-card-body { display: flex; flex-direction: column; gap: 12px; }
     .remove-item-btn:hover { color: var(--clay) !important; }
 
@@ -256,7 +285,7 @@
       line-height: 1.3;
       padding: 0 0.15rem 0.2rem;
     }
-    .inspiration-card.selected .inspiration-card-title { color: var(--clay); }
+    .inspiration-card.selected .inspiration-card-title { color: var(--clay-text); }
     .inspiration-card .inspiration-check {
       position: absolute;
       top: 0.7rem;
@@ -280,8 +309,42 @@
       margin: 0.85rem 0 0;
     }
 
+    /* ── Quote hero & form alignment ── */
+    #quote-page .hero-section {
+      max-width: none;
+      padding: clamp(1.75rem, 3.8vw, 2.75rem) var(--gutter) 0.5rem;
+    }
+    #quote-page .hero-eyebrow { margin-bottom: 0.85rem; }
+    #quote-page .hero-headline {
+      font-size: clamp(2.15rem, 4.6vw, 3.35rem);
+      margin-bottom: 0.45rem;
+    }
+    #quote-page .hero-headline-bottom {
+      font-family: 'Lora', Georgia, serif;
+      font-style: italic;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+    #quote-page .hero-description {
+      margin-bottom: 0;
+      max-width: 58ch;
+    }
+    #quote-form-section {
+      padding: 1.5rem var(--gutter) var(--section-pad);
+      scroll-margin-top: 76px;
+    }
+    .quote-notice {
+      background: rgba(188, 85, 72, 0.08);
+      border: 1px solid rgba(188, 85, 72, 0.38);
+      border-radius: 14px;
+      padding: 0.85rem 1.15rem;
+      margin-bottom: 1.4rem;
+      font-size: 0.88rem;
+      color: var(--color-text-cocoa);
+    }
+
     /* ── Wizard shell ── */
-    .wz-progress { display: flex; gap: 4px; margin: 0 0 2rem; }
+    .wz-progress { display: flex; gap: 4px; margin: 0 0 1.25rem; }
     .wz-progress-seg {
       flex: 1; height: 4px; border-radius: 999px; background: var(--hairline);
       transition: background 0.25s ease;
@@ -392,6 +455,23 @@
       min-width: 0;
       padding-left: 0.85rem;
     }
+    .wz-ticket-btn {
+      display: block;
+      width: 100%;
+      padding: 0.15rem 0.3rem;
+      margin: -0.15rem -0.3rem;
+      text-align: left;
+      background: none;
+      border: none;
+      border-radius: 8px;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      transition: background 0.18s ease;
+    }
+    .wz-ticket-btn:disabled { cursor: default; }
+    .wz-ticket-btn:not(:disabled):hover { background: rgba(30, 70, 54, 0.06); }
+    .wz-ticket-slot[data-active="true"] .wz-ticket-key { color: var(--clay-text); }
     .wz-ticket-slot::before {
       content: '';
       position: absolute;
@@ -428,7 +508,7 @@
     }
     .wz-ticket-design {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 0.45rem;
       min-height: 2.35em;
     }
@@ -448,16 +528,21 @@
     }
 
     .wz-reason {
-      font-family: var(--font-sans); font-size: 0.82rem;
-      color: var(--clay-deep); margin: 0.9rem 0 0;
+      font-family: var(--font-sans); font-size: 0.82rem; font-weight: 500;
+      color: var(--clay-text); margin: 0; text-align: right;
     }
     .wz-reason[hidden] { display: none; }
 
     .wz-nav {
-      position: sticky; bottom: 0; display: flex; gap: 0.75rem;
-      padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom, 0px));
+      position: sticky; bottom: 0; display: flex; flex-direction: column; gap: 0.5rem;
+      padding: 0.9rem 0 calc(1rem + env(safe-area-inset-bottom, 0px));
       margin-top: 1.5rem;
-      background: linear-gradient(to top, var(--cream) 70%, transparent);
+      background: linear-gradient(to top, var(--cream) 78%, transparent);
+    }
+    .wz-nav-row {
+      display: flex;
+      gap: 0.75rem;
+      width: 100%;
     }
     .wz-nav #wz-next { margin-left: auto; }
     /* The nav is sticky, so the content above it must reserve room for it or the
@@ -465,13 +550,14 @@
     .wz-panels-pad { height: 0; }
     @media (max-width: 640px) {
       .wz-nav {
-        flex-direction: column-reverse;
         /* A translucent gradient lets the textarea show through under the sticky
            bar. Solid cream plus padding keeps the last field clearable. */
         background: var(--cream);
         border-top: 1px solid var(--hairline);
         padding-top: 0.85rem;
       }
+      .wz-reason { text-align: left; }
+      .wz-nav-row { flex-direction: column-reverse; }
       .wz-nav .btn { width: 100%; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -482,6 +568,7 @@
   </style>
 </head>
 <body>
+  <a href="#quote-page" class="skip-link lang-fade" data-es="Saltar al contenido" data-en="Skip to main content">Skip to main content</a>
 
   <header class="mobile-header" id="mobile-header" style="display:none;">
     <div class="mobile-brand">
@@ -490,6 +577,9 @@
       </a>
     </div>
     <div class="mobile-actions">
+      <a href="order.html" class="mobile-order-btn">
+        <span class="lang-fade" data-es="Ordenar" data-en="Order">Order</span>
+      </a>
       <button class="hamburger-btn" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
@@ -509,20 +599,22 @@
         <button onclick="setLang('es')" role="tab" aria-selected="true" id="mobile-btn-es">ES</button>
         <button onclick="setLang('en')" role="tab" aria-selected="false" id="mobile-btn-en">EN</button>
       </div>
+      <a href="/admin/" class="owner-login-link" aria-label="Owner dashboard login">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
+      </a>
     </div>
   </div>
 
-  <main id="quote-page">
-
-    <!-- Masthead (desktop) -->
-    <header class="masthead">
+  <!-- Masthead (desktop) -->
+  <header class="masthead">
       <a href="index.html" class="masthead-brand" aria-label="Muy Rico Home">
         <img src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="eager"/>
         <span data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
       </a>
       <nav class="masthead-nav" aria-label="Primary">
         <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
-        <a href="order.html" data-es="Ordenar" data-en="Order">Order</a>
+        <a href="order.html" data-es="Menú" data-en="Menu">Menu</a>
         <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
         <a href="quote.html" class="active" data-es="Cotizar" data-en="Quote">Quote</a>
         <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
@@ -532,26 +624,31 @@
           <button class="active" onclick="setLang('es')" role="tab" aria-selected="true" id="btn-es">ES</button>
           <button onclick="setLang('en')" role="tab" aria-selected="false" id="btn-en">EN</button>
         </div>
+        <a href="order.html" class="btn btn-forest masthead-order"><span class="lang-fade" data-es="Ordena en Línea" data-en="Order Online">Order Online</span></a>
       </div>
-    </header>
+  </header>
+
+  <main id="quote-page" tabindex="-1">
 
     <!-- Hero -->
     <section class="hero-section" data-motion="fade">
-      <div class="hero-eyebrow">
-        <div class="eyebrow-line"></div>
-        <span class="eyebrow-text lang-fade" data-es="Pasteles Personalizados" data-en="Custom Cakes">Pasteles Personalizados</span>
-        <div class="eyebrow-line" style="background:linear-gradient(to left, var(--color-accent-coral), transparent);"></div>
+      <div class="section-container" style="max-width: 720px; margin: 0 auto;">
+        <div class="hero-eyebrow">
+          <div class="eyebrow-line"></div>
+          <span class="eyebrow-text lang-fade" data-es="Pasteles Personalizados" data-en="Custom Cakes">Pasteles Personalizados</span>
+          <div class="eyebrow-line" style="background:linear-gradient(to left, var(--color-accent-coral), transparent);"></div>
+        </div>
+        <h1 class="hero-headline">
+          <span class="hero-headline-top lang-fade" data-es="Solicita tu" data-en="Request Your">Solicita tu</span>
+          <span class="hero-headline-bottom lang-fade" data-es="Cotización" data-en="Quote">Cotización</span>
+        </h1>
+        <svg class="hero-divider" viewBox="0 0 180 24" fill="none" aria-hidden="true"><path d="M0 12 Q45 0 90 12 T180 12" stroke="var(--color-accent-coral)" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="90" cy="12" r="4" fill="var(--color-bright-hibiscus)"/></svg>
+        <p class="hero-description lang-fade"
+           data-es="Cuéntanos sobre el pastel de tus sueños y te enviaremos una cotización personalizada en 1-2 días hábiles."
+           data-en="Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.">
+           Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.
+        </p>
       </div>
-      <h1 class="hero-headline">
-        <span class="hero-headline-top lang-fade" data-es="Solicita tu" data-en="Request Your">Solicita tu</span>
-        <span class="hero-headline-bottom lang-fade" data-es="Cotización" data-en="Quote">Cotización</span>
-      </h1>
-      <svg class="hero-divider" viewBox="0 0 180 24" fill="none" aria-hidden="true"><path d="M0 12 Q45 0 90 12 T180 12" stroke="var(--color-accent-coral)" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="90" cy="12" r="4" fill="var(--color-bright-hibiscus)"/></svg>
-      <p class="hero-description lang-fade"
-         data-es="Cuéntanos sobre el pastel de tus sueños y te enviaremos una cotización personalizada en 1-2 días hábiles."
-         data-en="Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.">
-         Tell us about your dream cake and we'll send you a personalized quote within 1-2 business days.
-      </p>
     </section>
 
     <!-- Quote Form Section -->
@@ -559,15 +656,7 @@
       <div class="section-container" style="max-width: 720px; margin: 0 auto;">
 
         <!-- Pricing disclaimer banner -->
-        <div id="quote-notice" class="quote-notice" style="
-          background: rgba(188, 85, 72, 0.08);
-          border: 1px solid var(--clay);
-          border-radius: 14px;
-          padding: 16px 20px;
-          margin-bottom: 32px;
-          font-size: 14px;
-          color: var(--color-text-cocoa);
-        ">
+        <div id="quote-notice" class="quote-notice">
           <p class="lang-fade"
              data-es="Cada pastel se cotiza según el nivel de personalización. Te enviaremos una cotización personalizada después de revisar tu solicitud."
              data-en="Each cake is priced based on the level of customization. We'll send you a personalized quote after reviewing your request.">
@@ -594,27 +683,37 @@
           </div>
           <ol class="wz-ticket-list">
             <li class="wz-ticket-slot" data-slot="occasion" data-complete="false">
-              <span class="wz-ticket-key lang-fade" data-es="Celebración" data-en="Occasion">Occasion</span>
-              <span class="wz-ticket-value" id="wz-ticket-occasion">Not chosen</span>
+              <button type="button" class="wz-ticket-btn" data-jump-step="occasion">
+                <span class="wz-ticket-key lang-fade" data-es="Celebración" data-en="Occasion">Occasion</span>
+                <span class="wz-ticket-value" id="wz-ticket-occasion">Not chosen</span>
+              </button>
             </li>
             <li class="wz-ticket-slot" data-slot="event" data-complete="false">
-              <span class="wz-ticket-key lang-fade" data-es="Evento" data-en="Event">Event</span>
-              <span class="wz-ticket-value" id="wz-ticket-event">Not chosen</span>
+              <button type="button" class="wz-ticket-btn" data-jump-step="event" disabled>
+                <span class="wz-ticket-key lang-fade" data-es="Evento" data-en="Event">Event</span>
+                <span class="wz-ticket-value" id="wz-ticket-event">Not chosen</span>
+              </button>
             </li>
             <li class="wz-ticket-slot" data-slot="design" data-complete="false">
-              <span class="wz-ticket-key lang-fade" data-es="Diseño" data-en="Design">Design</span>
-              <span class="wz-ticket-design">
-                <img class="wz-ticket-thumb" id="wz-ticket-design-img" alt="" aria-hidden="true" hidden>
-                <span class="wz-ticket-value" id="wz-ticket-design-text">Not chosen</span>
-              </span>
+              <button type="button" class="wz-ticket-btn" data-jump-step="design" disabled>
+                <span class="wz-ticket-key lang-fade" data-es="Diseño" data-en="Design">Design</span>
+                <span class="wz-ticket-design">
+                  <img class="wz-ticket-thumb" id="wz-ticket-design-img" alt="" aria-hidden="true" hidden>
+                  <span class="wz-ticket-value" id="wz-ticket-design-text">Not chosen</span>
+                </span>
+              </button>
             </li>
             <li class="wz-ticket-slot" data-slot="product" data-complete="false">
-              <span class="wz-ticket-key lang-fade" data-es="Productos" data-en="Products">Products</span>
-              <span class="wz-ticket-value" id="wz-ticket-product">Not chosen</span>
+              <button type="button" class="wz-ticket-btn" data-jump-step="product" disabled>
+                <span class="wz-ticket-key lang-fade" data-es="Productos" data-en="Products">Products</span>
+                <span class="wz-ticket-value" id="wz-ticket-product">Not chosen</span>
+              </button>
             </li>
             <li class="wz-ticket-slot" data-slot="contact" data-complete="false">
-              <span class="wz-ticket-key lang-fade" data-es="Contacto" data-en="Contact">Contact</span>
-              <span class="wz-ticket-value" id="wz-ticket-contact">Not chosen</span>
+              <button type="button" class="wz-ticket-btn" data-jump-step="contact" disabled>
+                <span class="wz-ticket-key lang-fade" data-es="Contacto" data-en="Contact">Contact</span>
+                <span class="wz-ticket-value" id="wz-ticket-contact">Not chosen</span>
+              </button>
             </li>
           </ol>
         </section>
@@ -681,7 +780,7 @@
                data-es="Opcional — explora nuestros trabajos o sube tu propia idea."
                data-en="Optional — browse our past work or upload your own idea.">Optional — browse our past work or upload your own idea.</p>
 
-            <input type="search" id="wz-search" class="form-input wz-search" autocomplete="off"
+            <input type="search" id="wz-search" class="form-input wz-search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
                    data-es-placeholder="Busca un diseño (ej. unicornio, flores)"
                    data-en-placeholder="Search designs (e.g. unicorn, flowers)"
                    placeholder="Search designs (e.g. unicorn, flowers)">
@@ -784,17 +883,17 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="customer_name" class="form-label lang-fade" data-es="Nombre *" data-en="Name *">Name *</label>
-                <input type="text" id="customer_name" name="customer_name" required class="form-input" placeholder="e.g. María García">
+                <input type="text" id="customer_name" name="customer_name" autocomplete="name" required class="form-input" placeholder="e.g. María García">
               </div>
             </div>
             <div class="form-row form-row-2">
               <div class="form-group">
                 <label for="email" class="form-label lang-fade" data-es="Correo electrónico *" data-en="Email *">Email *</label>
-                <input type="email" id="email" name="email" required class="form-input" placeholder="maria@ejemplo.com">
+                <input type="email" id="email" name="email" autocomplete="email" autocorrect="off" autocapitalize="none" spellcheck="false" required class="form-input" placeholder="maria@ejemplo.com">
               </div>
               <div class="form-group">
                 <label for="phone" class="form-label lang-fade" data-es="Teléfono" data-en="Phone">Phone</label>
-                <input type="tel" id="phone" name="phone" class="form-input" placeholder="(616) 555-0123">
+                <input type="tel" id="phone" name="phone" autocomplete="tel" class="form-input" placeholder="(616) 555-0123">
               </div>
             </div>
             <div class="form-group">
@@ -811,16 +910,18 @@
                handleFile() on the design step reports oversize/type/network errors
                through showError() -> #form-error; inside the contact panel that
                message would be invisible until step 6. -->
-          <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-top: 16px; font-size: 14px; color: var(--clay-deep);"></div>
+          <div id="form-error" style="display:none; background: rgba(188,85,72,0.10); border: 1px solid var(--clay); border-radius: 12px; padding: 12px 16px; margin-top: 16px; font-size: 14px; color: var(--clay-text);"></div>
 
           <!-- Nav -->
           <div class="wz-nav">
-            <button type="button" id="wz-back" class="btn btn-ghost lang-fade"
-                    data-es="Atrás" data-en="Back" disabled>Back</button>
-            <button type="button" id="wz-next" class="btn btn-coral lang-fade"
-                    data-es="Siguiente" data-en="Next" disabled>Next</button>
+            <p id="wz-reason" class="wz-reason" role="status" aria-live="polite"></p>
+            <div class="wz-nav-row">
+              <button type="button" id="wz-back" class="btn btn-ghost lang-fade"
+                      data-es="Atrás" data-en="Back" disabled>Back</button>
+              <button type="button" id="wz-next" class="btn btn-coral lang-fade"
+                      data-es="Siguiente" data-en="Next" disabled>Next</button>
+            </div>
           </div>
-          <p id="wz-reason" class="wz-reason" role="status" aria-live="polite"></p>
 
           <!-- The sticky nav overlays the last panel, so pad the last step by the
                nav's own height. Measure it in JS after layout so the number is
@@ -842,24 +943,52 @@
       </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="site-footer" style="background: var(--forest); color: var(--cream); padding: 32px 24px; text-align: center;">
-      <p style="font-size: 14px; font-style: italic;">
-        <span class="lang-fade" data-es="hecho con amor · Holland, MI" data-en="made with love · Holland, MI">hecho con amor · Holland, MI</span>
-      </p>
-      <div style="margin-top: 12px; font-size: 13px;">
-        <a href="index.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
-        <a href="order.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Menú" data-en="Menu">Menu</a>
-        <a href="gallery.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Galería" data-en="Gallery">Gallery</a>
-        <a href="quote.html" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Cotizar" data-en="Quote">Quote</a>
-        <a href="index.html#visit" style="color: var(--cream); text-decoration: none; margin: 0 8px; opacity: 0.8;" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
-      </div>
-    </footer>
-
   </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="lazy"/>
+    <nav class="footer-nav" aria-label="Footer">
+      <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
+      <a href="order.html" data-es="Menú" data-en="Menu">Menu</a>
+      <a href="gallery.html" data-es="Galería" data-en="Gallery">Gallery</a>
+      <a href="quote.html" data-es="Cotizar" data-en="Quote">Quote</a>
+      <a href="index.html#visit" data-es="Contáctanos" data-en="Contact Us">Contact Us</a>
+    </nav>
+    <div class="footer-connect">
+      <div class="footer-accept">
+        <span class="footer-accept-label lang-fade" data-es="Aceptamos" data-en="We Accept">We Accept</span>
+        <div class="pay-chips">
+          <span class="pay-chip pay-visa"><svg fill="#1A1F71" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.112 8.262L5.97 15.758H3.92L2.374 9.775c-.094-.368-.175-.503-.461-.658C1.447 8.864.677 8.627 0 8.479l.046-.217h3.3a.904.904 0 01.894.764l.817 4.338 2.018-5.102zm8.033 5.049c.008-1.979-2.736-2.088-2.717-2.972.006-.269.262-.555.822-.628a3.66 3.66 0 011.913.336l.34-1.59a5.207 5.207 0 00-1.814-.333c-1.917 0-3.266 1.02-3.278 2.479-.012 1.079.963 1.68 1.698 2.04.756.367 1.01.603 1.006.931-.005.504-.602.725-1.16.734-.975.015-1.54-.263-1.992-.473l-.351 1.642c.453.208 1.289.39 2.156.398 2.037 0 3.37-1.006 3.377-2.564m5.061 2.447H24l-1.565-7.496h-1.656a.883.883 0 00-.826.55l-2.909 6.946h2.036l.405-1.12h2.488zm-2.163-2.656l1.02-2.815.588 2.815zm-8.16-4.84l-1.603 7.496H8.34l1.605-7.496z"/></svg></span>
+          <span class="pay-chip pay-mastercard"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="12" r="7" fill="#EB001B"/><circle cx="16" cy="12" r="7" fill="#F79E1B"/></svg></span>
+          <span class="pay-chip pay-applepay"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" fill="#000"/></svg></span>
+          <span class="pay-chip pay-cashapp"><svg fill="#00D632" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.59 3.475a5.1 5.1 0 00-3.05-3.05c-1.31-.42-2.5-.42-4.92-.42H8.36c-2.4 0-3.61 0-4.9.4a5.1 5.1 0 00-3.05 3.06C0 4.765 0 5.965 0 8.365v7.27c0 2.41 0 3.6.4 4.9a5.1 5.1 0 003.05 3.05c1.3.41 2.5.41 4.9.41h7.28c2.41 0 3.61 0 4.9-.4a5.1 5.1 0 003.06-3.06c.41-1.3.41-2.5.41-4.9v-7.25c0-2.41 0-3.61-.41-4.91zm-6.17 4.63l-.93.93a.5.5 0 01-.67.01 5 5 0 00-3.22-1.18c-.97 0-1.94.32-1.94 1.21 0 .9 1.04 1.2 2.24 1.65 2.1.7 3.84 1.58 3.84 3.64 0 2.24-1.74 3.78-4.58 3.95l-.26 1.2a.49.49 0 01-.48.39H9.63l-.09-.01a.5.5 0 01-.38-.59l.28-1.27a6.54 6.54 0 01-2.88-1.57v-.01a.48.48 0 010-.68l1-.97a.49.49 0 01.67 0c.91.86 2.13 1.34 3.39 1.32 1.3 0 2.17-.55 2.17-1.42 0-.87-.88-1.1-2.54-1.72-1.76-.63-3.43-1.52-3.43-3.6 0-2.42 2.01-3.6 4.39-3.71l.25-1.23a.48.48 0 01.48-.38h1.78l.1.01c.26.06.43.31.37.57l-.27 1.37c.9.3 1.75.77 2.48 1.39l.02.02c.19.2.19.5 0 .68z"/></svg></span>
+          <span class="pay-chip pay-paypal"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797H9.1c-.462 0-.85.325-.922.746l-1.102 6.76z" fill="#003087"/><path d="M5.016 23.927c-.453.005-.83-.36-.833-.815L7.076 21.34l-1.102 6.76c-.07.422.21.827.632.827h3.95c.462 0 .85-.325.922-.747l1.126-6.92h2.004c4.298 0 7.664-1.747 8.647-6.796.979-5.025-.594-7.31-2.31-8.647.747.733 1.023 1.685.887 3.035l-.013.083c-.983 5.05-4.349 6.797-8.647 6.797H9.1c-.462 0-.85.325-.922.746l-1.102 6.76-1.994 1.73a.818.818 0 01-.465.154z" fill="#009CDE"/></svg></span>
+          <span class="pay-chip pay-venmo"><svg viewBox="0 0 24 24" role="img" aria-label="Venmo" fill="#008CFF" xmlns="http://www.w3.org/2000/svg"><title>Venmo</title><path d="M21.772 13.119c-.267 0-.381-.251-.38-.655 0-.533.121-1.575.712-1.575.267 0 .357.243.357.598 0 .533-.13 1.632-.689 1.632Zm.502-3.377c-1.677 0-2.405 1.285-2.405 2.658 0 1.042.421 1.874 1.693 1.874 1.717 0 2.438-1.406 2.438-2.763 0-1.025-.462-1.769-1.726-1.769Zm-3.833 0c-.558 0-.964.17-1.393.477-.154-.275-.462-.477-.932-.477-.542 0-.947.219-1.247.437l-.04-.364H13.54l-.688 4.354h1.506l.479-3.053c.129-.065.323-.154.518-.154.145 0 .267.049.267.267 0 .056-.016.145-.024.218l-.429 2.722h1.498l.478-3.053c.138-.073.324-.154.51-.154.146 0 .268.049.268.267 0 .056-.017.145-.025.218l-.429 2.722h1.499l.461-2.908c.025-.153.049-.388.049-.549 0-.582-.267-.97-1.037-.97Zm-6.871 0c-.575 0-.98.219-1.287.421l-.017-.348H8.962l-.689 4.354H9.78l.478-3.053c.13-.065.324-.154.518-.154.147 0 .268.049.268.242 0 .081-.024.227-.032.299l-.422 2.666h1.499l.462-2.908c.024-.153.049-.388.049-.549 0-.582-.268-.97-1.03-.97Zm-5.631 1.834c.041-.485.413-.824.697-.824.162 0 .299.097.299.291 0 .404-.713.533-.996.533Zm.843-1.834c-1.604 0-2.382 1.39-2.382 2.698 0 1.01.478 1.817 1.814 1.817.527 0 1.07-.113 1.418-.282l.186-1.26c-.494.25-.874.347-1.271.347-.365 0-.64-.194-.64-.687.826-.008 2.252-.347 2.252-1.453 0-.687-.494-1.18-1.377-1.18Zm-4.239.267c.089.186.146.412.146.743 0 .606-.429 1.494-.777 2.06l-.373-2.989L0 9.969l.705 4.2h1.757c.77-1.01 1.718-2.448 1.718-3.554 0-.347-.073-.622-.235-.889l-1.402.283Z"/></svg></span>
+        </div>
+      </div>
+      <div class="footer-social">
+        <span class="footer-accept-label lang-fade" data-es="Síguenos" data-en="Follow Us">Follow Us</span>
+        <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" class="social-link social-link-fb">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          <span>Facebook</span>
+        </a>
+      </div>
+    </div>
+    <p class="footer-copyright lang-fade" data-es="© 2026 Muy Rico — Holland, Michigan. Hecho con amor." data-en="© 2026 Muy Rico — Holland, Michigan. Made with love.">© 2026 Muy Rico — Holland, Michigan. Made with love.</p>
+    <span class="footer-tagline lang-fade" data-es="Familia · Tradición · Sabor" data-en="Family · Tradition · Flavor">Family · Tradition · Flavor</span>
+    <div>
+      <a href="/admin/" class="owner-login-link footer-owner-link" aria-label="Owner dashboard login">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span data-es="Acceso Propietario" data-en="Owner Access">Owner Access</span>
+      </a>
+    </div>
+  </footer>
 
   <script>
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isDev = ['localhost', '127.0.0.1'].includes(location.hostname);
+  const ORDER_API = isDev ? 'http://localhost:8787' : 'https://muy-rico-orders-api.bexgarcia0208.workers.dev';
   if (window.MuyRicoMotion) MuyRicoMotion.init({});
 
   // ─── Language toggle (matches index.html / order.html / gallery.html pattern) ──
@@ -890,12 +1019,15 @@
     const mEn = document.getElementById('mobile-btn-en');
     if (mEs) { mEs.classList.toggle('active', lang === 'es'); mEs.setAttribute('aria-selected', lang === 'es'); }
     if (mEn) { mEn.classList.toggle('active', lang === 'en'); mEn.setAttribute('aria-selected', lang === 'en'); }
-    document.querySelectorAll('.lang-fade').forEach(el => {
+    document.querySelectorAll('[data-es][data-en]').forEach(el => {
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'OPTION') return;
       const text = el.getAttribute('data-' + lang);
       if (text !== null) {
         el.textContent = text;
-        el.style.opacity = '0';
-        requestAnimationFrame(() => { el.style.opacity = '1'; });
+        if (el.classList.contains('lang-fade')) {
+          el.style.opacity = '0';
+          requestAnimationFrame(() => { el.style.opacity = '1'; });
+        }
       }
     });
     document.querySelectorAll('option[data-es][data-en]').forEach(el => {
@@ -917,31 +1049,30 @@
   applyLangToDOM(currentLang);
 
   // ─── Mobile header / drawer ─────────────────────────────────────────────
-  const mobileHeader = document.getElementById('mobile-header');
   const hamburgerBtn = document.getElementById('hamburger-btn');
   const mobileDrawer = document.getElementById('mobile-nav-drawer');
 
-  function checkMobile() {
-    if (window.innerWidth <= 768) {
-      mobileHeader.style.display = 'flex';
-    } else {
-      mobileHeader.style.display = 'none';
+  function closeMobileDrawerOnDesktop() {
+    if (window.innerWidth > 820) {
       mobileDrawer.style.display = 'none';
+      hamburgerBtn.classList.remove('open');
+      hamburgerBtn.setAttribute('aria-expanded', 'false');
     }
   }
-  checkMobile();
-  window.addEventListener('resize', checkMobile);
+  closeMobileDrawerOnDesktop();
+  window.addEventListener('resize', closeMobileDrawerOnDesktop);
 
   hamburgerBtn.addEventListener('click', () => {
-    const expanded = hamburgerBtn.getAttribute('aria-expanded') === 'true';
-    hamburgerBtn.setAttribute('aria-expanded', !expanded);
-    mobileDrawer.style.display = expanded ? 'none' : 'flex';
+    const isOpen = hamburgerBtn.classList.toggle('open');
+    hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+    mobileDrawer.style.display = isOpen ? 'flex' : 'none';
   });
 
   // Close drawer on nav link click
   mobileDrawer.querySelectorAll('a').forEach(a => {
     a.addEventListener('click', () => {
       mobileDrawer.style.display = 'none';
+      hamburgerBtn.classList.remove('open');
       hamburgerBtn.setAttribute('aria-expanded', 'false');
     });
   });
@@ -1008,7 +1139,7 @@
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('/api/quotes/upload-image', {
+      const res = await fetch(ORDER_API + '/api/quotes/upload-image', {
         method: 'POST',
         body: form,
       });
@@ -1197,6 +1328,8 @@
 
   function initCustomQtyToggles() {
     document.querySelectorAll('select[name="quantity"]').forEach(sel => {
+      if (sel.dataset.qtyBound) return;
+      sel.dataset.qtyBound = '1';
       sel.addEventListener('change', () => {
         const card = sel.closest('.item-card');
         const customGroup = card.querySelector('.custom-qty-group');
@@ -1297,6 +1430,7 @@
       ? wzNext.getAttribute('data-es')
       : wzNext.getAttribute('data-en');
     updateTicket();
+    syncNavSpacer();
   }
 
   function ticketEmptyText() {
@@ -1395,7 +1529,33 @@
     const email = document.getElementById('email').value.trim();
     const contactValue = name || email;
     setTicketSlot('contact', contactValue || ticketEmptyText(), canAdvance('contact'));
+
+    const curIdx = STEP_ORDER.indexOf(wizard.step);
+    const activeSlotName = wizard.step === 'details' ? 'product' : wizard.step;
+    let firstBlocked = STEP_ORDER.length;
+    for (let i = 0; i < STEP_ORDER.length; i++) {
+      if (!canAdvance(STEP_ORDER[i])) { firstBlocked = i; break; }
+    }
+    document.querySelectorAll('.wz-ticket-slot').forEach(slot => {
+      const slotName = slot.dataset.slot;
+      const isCurrent = slotName === activeSlotName;
+      slot.dataset.active = isCurrent ? 'true' : 'false';
+      const btn = slot.querySelector('.wz-ticket-btn');
+      if (!btn) return;
+      const targetIdx = STEP_ORDER.indexOf(btn.dataset.jumpStep);
+      const reachable = targetIdx <= curIdx || targetIdx <= firstBlocked || slot.dataset.complete === 'true';
+      btn.disabled = !reachable;
+      btn.setAttribute('aria-current', isCurrent ? 'step' : 'false');
+    });
   }
+
+  document.querySelectorAll('.wz-ticket-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      const step = btn.dataset.jumpStep;
+      if (step) show(step);
+    });
+  });
 
   // The sticky nav overlays the content above it. Reserve its measured height so
   // the last field in a step (the comments box) can scroll clear of the bar
@@ -1796,7 +1956,7 @@
     submitBtn.textContent = '...';
 
     try {
-      const res = await fetch('/api/quotes', {
+      const res = await fetch(ORDER_API + '/api/quotes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1945,7 +2105,7 @@
     const grid = document.getElementById('inspiration-grid');
     updateInspirationCount();
     try {
-      const res = await fetch('/api/gallery');
+      const res = await fetch(ORDER_API + '/api/gallery');
       if (!res.ok) throw new Error('gallery fetch failed');
       const data = await res.json();
       const photos = data.photos || [];

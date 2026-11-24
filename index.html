@@ -10,13 +10,13 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Muy Rico — Authentic Mexican Bakery | Holland, MI" />
   <meta property="og:description" content="Conchas, homemade flour tortillas, cookies, and custom cakes baked to order in Holland, Michigan." />
-  <meta property="og:image" content="hero-bolillos.webp" />
+  <meta property="og:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image" />
   <meta property="twitter:title" content="Muy Rico — Authentic Mexican Bakery" />
   <meta property="twitter:description" content="Conchas, tortillas, cookies, and cakes baked to order with family love in Holland, Michigan." />
-  <meta property="twitter:image" content="hero-bolillos.webp" />
+  <meta property="twitter:image" content="https://muy-rico.com/hero-bolillos.webp" />
 
   <!-- Favicon: MR monogram -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%231E4636%22/><text x=%2232%22 y=%2242%22 text-anchor=%22middle%22 font-family=%22Georgia,serif%22 font-style=%22italic%22 font-size=%2226%22 fill=%22%23FAF6EC%22>MR</text></svg>" />
@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <noscript><style>.reveal{opacity:1 !important;transform:none !important;}</style></noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -53,6 +53,7 @@
   </script>
 </head>
 <body>
+  <a href="#main-content" class="skip-link lang-fade" data-es="Saltar al contenido" data-en="Skip to main content">Skip to main content</a>
 
   <!-- Mobile Header (shows at ≤820px) -->
   <header class="mobile-header" id="mobile-header" style="display:none;">
@@ -113,7 +114,7 @@
     </div>
   </header>
 
-  <main class="main-content">
+  <main class="main-content" id="main-content" tabindex="-1">
 
     <!-- ============ HERO ============ -->
     <section class="hero">
@@ -144,13 +145,6 @@
           <span class="lang-fade" data-es="Hecho a la Orden" data-en="Baked to Order">Baked to Order</span>
           <span>Holland, MI</span>
         </div>
-        <p class="hero-social hero-anim">
-          <span class="lang-fade" data-es="Síguenos en Redes Sociales" data-en="Follow us on social media">Follow us on social media</span>
-          <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Facebook">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-            Facebook
-          </a>
-        </p>
       </div>
       <figure class="hero-photo hero-anim">
         <img class="hero-photo-img" id="hero-img" src="hero-bolillos.webp" alt="Bolillos recién horneados sobre una rejilla" width="900" height="675" fetchpriority="high"/>
@@ -203,7 +197,7 @@
             <div class="frame"><img class="frame-img" src="menu-cake.webp" alt="Custom cake" loading="lazy"/></div>
             <div class="oven-card-meta">
               <h3 class="oven-card-name lang-fade" data-es="Pastel Personalizado" data-en="Custom Cake">Custom Cake</h3>
-              <span class="oven-card-price" style="font-size:0.75rem;">desde $60+</span>
+              <span class="oven-card-price lang-fade" style="font-size:0.75rem;" data-es="desde $60+" data-en="from $60+">from $60+</span>
             </div>
             <p class="oven-card-desc lang-fade" data-es="Cotiza tu diseño ideal →" data-en="Quote your dream design →">Quote your dream design →</p>
           </a>
@@ -271,7 +265,6 @@
     <section class="section section--deep hairline-top">
       <div class="section-inner">
         <div class="section-head reveal">
-          <p class="eyebrow"><span class="lang-fade" data-es="Pasión &amp; Comunidad" data-en="Passion &amp; Community">Passion &amp; Community</span></p>
           <h2 class="section-title">
             <span class="es-italic lang-fade" data-es="Con alma en la masa" data-en="Soul in every dough">Soul in every dough</span>
             <span class="title-sibling lang-fade" data-es="Soul in every dough" data-en="Con alma en la masa">Con alma en la masa</span>
@@ -339,23 +332,23 @@
                     data-es="Coordinamos un punto de encuentro cómodo en Holland — ¡te lo compartimos al confirmar tu pedido!"
                     data-en="We'll coordinate a convenient pickup spot in Holland for you — shared once your order is confirmed!">We'll coordinate a convenient pickup spot in Holland for you — shared once your order is confirmed!</dd>
               </div>
-              <div class="visit-row">
+              <div class="visit-row visit-row--contact">
                 <dt class="lang-fade" data-es="Contacto" data-en="Contact">Contact</dt>
                 <dd class="lang-fade" data-site-key="visit_contact"
-                    data-es="<a href='tel:+16162183582'>(616) 218-3582</a> · <a href='https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr' target='_blank' rel='noopener'>Facebook</a> · <a href='mailto:bexgarcia0208@gmail.com'>bexgarcia0208@gmail.com</a>"
-                    data-en="<a href='tel:+16162183582'>(616) 218-3582</a> · <a href='https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr' target='_blank' rel='noopener'>Facebook</a> · <a href='mailto:bexgarcia0208@gmail.com'>bexgarcia0208@gmail.com</a>"><a href="tel:+16162183582">(616) 218-3582</a> · <a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener">Facebook</a> · <a href="mailto:bexgarcia0208@gmail.com">bexgarcia0208@gmail.com</a></dd>
+                    data-es="<a href='tel:+16162183582'>(616) 218-3582</a><span class='visit-sep' aria-hidden='true'> · </span><a href='https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr' target='_blank' rel='noopener'>Facebook</a><span class='visit-sep' aria-hidden='true'> · </span><a href='mailto:bexgarcia0208@gmail.com'>bexgarcia0208@gmail.com</a>"
+                    data-en="<a href='tel:+16162183582'>(616) 218-3582</a><span class='visit-sep' aria-hidden='true'> · </span><a href='https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr' target='_blank' rel='noopener'>Facebook</a><span class='visit-sep' aria-hidden='true'> · </span><a href='mailto:bexgarcia0208@gmail.com'>bexgarcia0208@gmail.com</a>"><a href="tel:+16162183582">(616) 218-3582</a><span class="visit-sep" aria-hidden="true"> · </span><a href="https://www.facebook.com/share/194hTNoMce/?mibextid=wwXIfr" target="_blank" rel="noopener">Facebook</a><span class="visit-sep" aria-hidden="true"> · </span><a href="mailto:bexgarcia0208@gmail.com">bexgarcia0208@gmail.com</a></dd>
               </div>
             </dl>
           </div>
           <div class="visit-map reveal">
-            <div class="frame">
+            <figure class="frame">
               <iframe title="Muy Rico service area — Holland, Michigan"
                       src="https://www.google.com/maps?q=Holland,+Michigan,+USA&z=12&output=embed"
                       loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
               <figcaption class="frame-caption lang-fade"
                           data-es="Sirviendo Holland y alrededores"
                           data-en="Serving Holland &amp; the surrounding area">Serving Holland &amp; the surrounding area</figcaption>
-            </div>
+            </figure>
           </div>
         </div>
       </div>
@@ -365,7 +358,6 @@
     <section class="section hairline-top" id="cottage-laws">
       <div class="section-inner cottage-inner">
         <div class="section-head reveal">
-          <p class="eyebrow"><span>Michigan Cottage Food Law</span></p>
           <h2 class="section-title">
             <span class="es-italic lang-fade" data-es="Cocina casera, con confianza" data-en="A home kitchen you can trust">A home kitchen you can trust</span>
             <span class="title-sibling lang-fade" data-es="A home kitchen you can trust" data-en="Cocina casera, con confianza">Cocina casera, con confianza</span>
@@ -423,8 +415,10 @@
       </div>
     </section>
 
-    <!-- ============ FOOTER ============ -->
-    <footer class="site-footer">
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="site-footer">
       <img class="footer-mark" src="muy_rico_logo_transparent.webp" alt="Muy Rico" width="1408" height="768" loading="lazy"/>
       <nav class="footer-nav" aria-label="Footer">
         <a href="index.html" data-es="Nuestra Casa" data-en="Our Home">Our Home</a>
@@ -462,7 +456,6 @@
         </a>
       </div>
     </footer>
-  </main>
 
   <script>
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -475,6 +468,7 @@
       return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
     function applyLangToDOM(lang) {
+      document.documentElement.lang = lang;
       const btnEs = document.getElementById('btn-es');
       const btnEn = document.getElementById('btn-en');
       if (btnEs) { btnEs.classList.toggle('active', lang === 'es'); btnEs.setAttribute('aria-selected', lang === 'es'); }
